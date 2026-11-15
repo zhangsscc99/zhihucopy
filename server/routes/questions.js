@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
+const { notifyQuestionAuthor } = require("./answers");
 
 const router = express.Router();
 
@@ -174,6 +175,7 @@ router.post("/:id/answers", requireAuth, (req, res) => {
     db.prepare(
       "UPDATE questions SET answer_count = answer_count + 1 WHERE id = ?"
     ).run(q.id);
+    notifyQuestionAuthor(db, q.id, req.user.id, info.lastInsertRowid);
     return info.lastInsertRowid;
   })();
 
