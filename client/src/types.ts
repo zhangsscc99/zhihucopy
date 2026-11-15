@@ -73,3 +73,17 @@ export interface Page<T> {
   total: number;
   has_more: boolean;
 }
+
+export interface ProfileData {
+  user: User;
+  badges?: Badge[];
+  stats: {
+    answers: number;
+    questions: number;
+    followers: number;
+    following: number;
+    vote_up: number;
+  };
+  // 仅登录请求返回：当前用户是否已关注该页主。
+  is_following?: boolean;
+}

@@ -1,23 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { get } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { followUser, get, unfollowUser } from "../api";
 import { useAuth } from "../auth";
+import { useToast } from "../toast";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
-import type { Answer, Badge, Page, Question, User } from "../types";
+import type { Answer, Page, ProfileData, Question } from "../types";
 import { formatTime } from "../lib/time";
-
-interface ProfileData {
-  user: User;
-  badges?: Badge[];
-  stats: {
-    answers: number;
-    questions: number;
-    followers: number;
-    following: number;
-    vote_up: number;
-  };
-}
 
 type TabKey = "answers" | "questions";
 
@@ -208,22 +197,95 @@ function ListFoot({
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
-  const { user: me } = useAuth();
+  const { user: me, loading: authLoading } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("answers");
   const [colCount, setColCount] = useState<number | null>(null);
+  const [following, setFollowing] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
+  const profileSeq = useRef(0);
 
+  // 初始关注态由 /users/:id 的 is_following 一次带回（仅登录请求返回该字段）。
+  // seq 守卫：切用户时在途响应直接丢弃，不落到新主页。
   useEffect(() => {
+    const seq = ++profileSeq.current;
     setTab("answers");
+    setLoading(true);
+    setError("");
+    setFollowing(false);
     get<ProfileData>(`/users/${id}`)
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (seq !== profileSeq.current) return;
+        setData(res);
+        setFollowing(Boolean(res.is_following));
+      })
+      .catch((e) => {
+        if (seq === profileSeq.current) setError(e.message);
+      })
+      .finally(() => {
+        if (seq === profileSeq.current) setLoading(false);
+      });
   }, [id]);
 
   const isMe = Boolean(me && data && me.id === data.user.id);
+
+  const toggleFollow = async () => {
+    if (!data || followPending) return;
+    if (!me) {
+      navigate(`/login?next=${encodeURIComponent(`/u/${id ?? data.user.id}`)}`);
+      return;
+    }
+    if (me.id === data.user.id) return;
+    const seq = profileSeq.current; // 切用户后 seq 变化 → 丢弃本请求的过期结果
+    setFollowPending(true);
+    const was = following;
+    setFollowing(!was);
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            stats: {
+              ...d.stats,
+              followers: Math.max(0, d.stats.followers + (was ? -1 : 1)),
+            },
+          }
+        : d
+    );
+    try {
+      const r = was
+        ? await unfollowUser(data.user.id)
+        : await followUser(data.user.id);
+      if (seq === profileSeq.current) {
+        setFollowing(r.following);
+        setData((d) =>
+          d ? { ...d, stats: { ...d.stats, followers: r.follower_count } } : d
+        );
+        toast(r.following ? "已关注" : "已取消关注");
+      }
+    } catch (e) {
+      if (seq === profileSeq.current) {
+        setFollowing(was);
+        setData((d) =>
+          d
+            ? {
+                ...d,
+                stats: {
+                  ...d.stats,
+                  followers: Math.max(0, d.stats.followers + (was ? 1 : -1)),
+                },
+              }
+            : d
+        );
+        toast((e as Error).message, "error");
+      }
+    } finally {
+      setFollowPending(false);
+    }
+  };
 
   useEffect(() => {
     if (!isMe) return;
@@ -248,7 +310,7 @@ export function Profile() {
           <span className="avatar avatar--lg">
             {user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.nickname.slice(0, 1)}
           </span>
-          <div>
+          <div className="profile__info">
             <h1 className="profile__name">{user.nickname}</h1>
             <p className="profile__bio">{user.bio || "这个人还没有写简介。"}</p>
             <p className="profile__joined">
@@ -269,6 +331,18 @@ export function Profile() {
               </ul>
             )}
           </div>
+          {!authLoading && !isMe && (
+            <button
+              type="button"
+              className={`btn profile__follow${following ? " profile__follow--on" : ""}`}
+              onClick={toggleFollow}
+              disabled={followPending}
+              aria-pressed={following}
+              title={following ? "取消关注" : undefined}
+            >
+              {following ? "已关注" : "关注"}
+            </button>
+          )}
         </div>
         <dl className="profile__stats">
           <div>

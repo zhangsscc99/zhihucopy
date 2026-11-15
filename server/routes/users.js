@@ -70,7 +70,18 @@ router.get("/:id", (req, res) => {
       .prepare(`SELECT COALESCE(SUM(a.vote_up), 0) s ${AUTHOR_ANSWERS_SQL}`)
       .get(user.id).s,
   };
-  res.json({ user: publicUser(user), stats, badges: listFor(user.id) });
+  const body = { user: publicUser(user), stats, badges: listFor(user.id) };
+  // 登录态才回带 is_following（本人 → 该页的关注关系），匿名请求不输出该字段。
+  if (req.user) {
+    body.is_following = Boolean(
+      db
+        .prepare(
+          "SELECT 1 FROM follows WHERE follower_id = ? AND target_type = 'user' AND target_id = ?"
+        )
+        .get(req.user.id, user.id)
+    );
+  }
+  res.json(body);
 });
 
 router.patch("/me", requireAuth, (req, res) => {
