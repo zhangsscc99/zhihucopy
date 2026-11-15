@@ -9,6 +9,7 @@ import { Ask } from "./pages/Ask";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Profile } from "./pages/Profile";
+import { Topic } from "./pages/Topic";
 
 function Me() {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/question/:id" element={<Question />} />
+        <Route path="/topic/:key" element={<Topic />} />
         <Route path="/ask" element={<Ask />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

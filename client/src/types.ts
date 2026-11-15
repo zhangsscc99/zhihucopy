@@ -20,6 +20,11 @@ export interface Author {
 export interface Topic {
   id: number;
   name: string;
+  slug?: string;
+  description?: string;
+  follower_count?: number;
+  question_count?: number;
+  is_following?: boolean;
 }
 
 export interface Question {

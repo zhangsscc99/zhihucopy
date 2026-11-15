@@ -229,6 +229,15 @@ textarea:focus-visible {
   line-height: 24px;
   margin-right: 8px;
 }
+.tag:hover {
+  background: var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+.tag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .avatar {
   width: 28px;
@@ -774,6 +783,84 @@ textarea:focus-visible {
 .answer-editor__hint {
   font-size: 14px;
   color: var(--ink-3);
+}
+
+/* ---------- 话题页 ---------- */
+
+.topic-head {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.topic-head__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.topic-head__info {
+  min-width: 0;
+}
+.topic-head__name {
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+  margin: 0 0 6px;
+}
+.topic-head__desc {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+.topic-head__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.topic-head__meta > * + *::before {
+  content: "·";
+  margin: 0 6px;
+  color: var(--ink-3);
+}
+.topic-head__follow {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+.topic-head__follow:hover {
+  background: var(--accent-hover);
+}
+.topic-head__follow--on,
+.topic-head__follow--on:hover {
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--ink-3);
+}
+.topic-related {
+  margin-top: 8px;
+}
+.topic-related__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.topic-related__tags .tag {
+  margin-right: 0;
+}
+@media (max-width: 767px) {
+  .topic-head {
+    padding: 16px 14px;
+  }
+  .topic-head__name {
+    font-size: 22px;
+  }
 }
 
 /* ---------- 表单页 ---------- */
