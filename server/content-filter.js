@@ -26,8 +26,8 @@ const TITLE_PREFIXES = [
   "巡检",
 ];
 
-// 标题方括号前缀（历史脚本形态：`[assert] q-*` 等）。
-const TITLE_BRACKETS = ["[e2e]", "[assert]", "[review]", "[probe]", "[test]"];
+// 标题方括号前缀（历史脚本形态：`[assert] q-*` 等；`[t]` 是 Z983 起统一标记）。
+const TITLE_BRACKETS = ["[e2e]", "[assert]", "[review]", "[probe]", "[test]", "[t]"];
 
 // 标题包含的子串。`-mw` 是历次测试 run 的标记段（`-mwi1ooge`、`-mwhts5gs` 等），
 // 单独成规；也隐含覆盖「含 验收 且含 -mwi 后缀」的组合形态。
@@ -131,10 +131,12 @@ function titleMatchSql(titleCol) {
   return `(${conds.join(" OR ")})`;
 }
 
-// 用户是测试账号的正向条件（昵称形态或测试邮箱域；不带 NOT）。
-function userMatchSql(userAlias = "u") {
+// 用户是测试账号的正向条件（昵称形态、测试邮箱域或 is_test 机器标记；不带 NOT）。
+// opts.isTest=false 用于尚未跑 004 迁移的库（清理脚本探测列后降级）。
+function userMatchSql(userAlias = "u", opts = {}) {
   const u = userAlias;
   const conds = [
+    ...(opts.isTest === false ? [] : [`${u}.is_test = 1`]),
     ...NICK_PREFIXES.map((p) => likePrefix(`${u}.nickname`, p)),
     ...NICK_CONTAINS.map((p) => likeContains(`${u}.nickname`, p)),
     ...TEST_EMAIL_DOMAINS.map((d) => likeSuffix(`${u}.email`, `@${d}`)),
@@ -144,35 +146,35 @@ function userMatchSql(userAlias = "u") {
 
 // 问题是测试产物的正向条件：标题匹配；传了 userAlias 时作者匹配也算。
 // 需要 `JOIN users <uAlias> ON <uAlias>.id = <qAlias>.author_id` 才传第二个参。
-function questionMatchSql(qAlias = "q", uAlias = null) {
+function questionMatchSql(qAlias = "q", uAlias = null, opts = {}) {
   const conds = [titleMatchSql(`${qAlias}.title`)];
-  if (uAlias) conds.push(userMatchSql(uAlias));
+  if (uAlias) conds.push(userMatchSql(uAlias, opts));
   return `(${conds.join(" OR ")})`;
 }
 
 // 供 WHERE 直接拼接的否定片段（task 约定：返回 NOT (...) 串）。
-function testQuestionSql(qAlias = "q", uAlias = null) {
-  return `NOT ${questionMatchSql(qAlias, uAlias)}`;
+function testQuestionSql(qAlias = "q", uAlias = null, opts = {}) {
+  return `NOT ${questionMatchSql(qAlias, uAlias, opts)}`;
 }
 
-function testUserSql(uAlias = "u") {
-  return `NOT ${userMatchSql(uAlias)}`;
+function testUserSql(uAlias = "u", opts = {}) {
+  return `NOT ${userMatchSql(uAlias, opts)}`;
 }
 
 // 通知过滤：actor 是测试账号，或 target 指向测试问题/测试问题下的回答。
 // 用法：conds.push(testNotificationSql("n")) —— 返回 NOT (...) 完整片段。
-function testNotificationSql(nAlias = "n") {
+function testNotificationSql(nAlias = "n", opts = {}) {
   const n = nAlias;
   return `NOT (
-    EXISTS (SELECT 1 FROM users na WHERE na.id = ${n}.actor_id AND ${userMatchSql("na")})
+    EXISTS (SELECT 1 FROM users na WHERE na.id = ${n}.actor_id AND ${userMatchSql("na", opts)})
     OR (${n}.target_type = 'question' AND EXISTS (
       SELECT 1 FROM questions nq JOIN users nu ON nu.id = nq.author_id
-      WHERE nq.id = ${n}.target_id AND ${questionMatchSql("nq", "nu")}))
+      WHERE nq.id = ${n}.target_id AND ${questionMatchSql("nq", "nu", opts)}))
     OR (${n}.target_type = 'answer' AND EXISTS (
       SELECT 1 FROM answers nx
       JOIN questions nq ON nq.id = nx.question_id
       JOIN users nu ON nu.id = nq.author_id
-      WHERE nx.id = ${n}.target_id AND ${questionMatchSql("nq", "nu")}))
+      WHERE nx.id = ${n}.target_id AND ${questionMatchSql("nq", "nu", opts)}))
   )`;
 }
 

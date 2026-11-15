@@ -9,8 +9,10 @@
 // Exit code 0 = pass, 1 = fail (screenshot saved to /root/logs/e2e-<name>-<ts>.png).
 
 import { chromium } from "playwright-core";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const BASE = (process.env.E2E_BASE || "http://127.0.0.1:3030/zhihucopy").replace(/\/+$/, "");
 export const API = (process.env.E2E_API || process.env.API_BASE || `${BASE}/api`).replace(/\/+$/, "");
@@ -36,6 +38,73 @@ export function expect(cond, msg) {
   if (!cond) throw new Error(`assert: ${msg}`);
 }
 
+// ---- 产物跟踪 + 退出清理（Z983） ---------------------------------------------
+// 经 api()/register() 创建的对象自动记入 owned；run() 结束前还会扫所有页面的
+// localStorage token（UI 注册/登录的账号 uid）一并清掉。owned u: 仅当账号命中
+// 测试标记/形态才真删（cleanup-artifacts 内有守卫），种子/真实账号不受影响。
+// 可用 E2E_NO_CLEANUP=1 关闭（调试时保留现场）。
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CLEANUP = path.join(SCRIPT_DIR, "..", "cleanup-artifacts.mjs");
+const owned = new Set(); // "u:12" "q:34" "a:56" "c:78" "col:90"
+
+export function trackOwned(kind, id) {
+  if (Number.isInteger(id) && id > 0) owned.add(`${kind}:${id}`);
+}
+
+const TRACK_POST = [
+  [/^\/auth\/register$/, (d) => d.user && ["u", d.user.id]],
+  [/^\/questions$/, (d) => d.question && ["q", d.question.id]],
+  [/^\/questions\/\d+\/answers$/, (d) => d.answer && ["a", d.answer.id]],
+  [/^\/comments$/, (d) => d.comment && ["c", d.comment.id]],
+  [/^\/collections$/, (d) => d.collection && ["col", d.collection.id]],
+];
+
+function trackResponse(method, p, status, data) {
+  if (method !== "POST" || status < 200 || status >= 300 || !data) return;
+  for (const [re, pick] of TRACK_POST) {
+    if (re.test(p)) {
+      const hit = pick(data);
+      if (hit) trackOwned(hit[0], hit[1]);
+      return;
+    }
+  }
+}
+
+// UI 注册/登录在页面里留 token —— 解码 JWT payload 拿 uid 进 owned。
+export async function trackSessionUsers(browser) {
+  try {
+    for (const ctx of browser.contexts()) {
+      for (const page of ctx.pages()) {
+        const t = await page
+          .evaluate((k) => localStorage.getItem(k), TOKEN_KEY)
+          .catch(() => null);
+        if (!t) continue;
+        const payload = JSON.parse(Buffer.from(t.split(".")[1], "base64url").toString());
+        if (payload && Number.isInteger(payload.uid)) trackOwned("u", payload.uid);
+      }
+    }
+  } catch {
+    // token 扫描失败不阻塞用例结束。
+  }
+}
+
+let cleaned = false;
+export function cleanupOwned() {
+  if (cleaned || !owned.size || process.env.E2E_NO_CLEANUP === "1") return;
+  cleaned = true;
+  try {
+    execFileSync(
+      process.execPath,
+      [CLEANUP, "--apply", "--older-than=0h", `--only-owned=${[...owned].join(",")}`],
+      { env: process.env, stdio: ["ignore", "inherit", "inherit"] }
+    );
+  } catch (e) {
+    console.error(`[cleanup] 自清理失败（不影响用例结果）: ${e.message || e}`);
+  }
+}
+process.on("exit", cleanupOwned);
+
 // ---- API helpers (server side of the test, no browser needed) ----
 export async function api(method, p, { token, body } = {}) {
   const res = await fetch(API + p, {
@@ -47,6 +116,7 @@ export async function api(method, p, { token, body } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  trackResponse(method, p, res.status, data);
   return { status: res.status, data };
 }
 
@@ -115,6 +185,7 @@ export async function run(name, fn) {
     page = await newPage(browser);
     await fn({ browser, page });
     console.log(`[E2E] ${name} PASS (${((Date.now() - started) / 1000).toFixed(1)}s)`);
+    await trackSessionUsers(browser);
     await browser.close();
     process.exit(0);
   } catch (e) {
@@ -127,7 +198,10 @@ export async function run(name, fn) {
       console.error(`[E2E] ${name} screenshot failed`);
     }
     console.error(`[E2E] ${name} FAIL (${((Date.now() - started) / 1000).toFixed(1)}s): ${e.message || e}`);
-    if (browser) await browser.close().catch(() => {});
+    if (browser) {
+      await trackSessionUsers(browser);
+      await browser.close().catch(() => {});
+    }
     process.exit(1);
   }
 }
