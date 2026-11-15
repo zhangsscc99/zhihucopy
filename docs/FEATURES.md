@@ -55,7 +55,7 @@
 ## M1 互动
 - [x] Z010 投票接口（赞/踩/取消，唯一约束，事务更新计数） ✅ (2026-11-15 devin)
 - [x] Z011 评论接口（两级、删除自己） ✅ (2026-11-15 opencode)
-- [ ] Z012 收藏夹 CRUD + 收藏/取消
+- [x] Z012 收藏夹 CRUD + 收藏/取消 ✅ (2026-11-15 devin)
   verify: node scripts/assert/collections.mjs
   risk: med
 - [ ] Z013 前端：问题详情页（回答列表、排序、投票按钮、评论区）
@@ -69,7 +69,7 @@
   risk: med
 
 ## M2 关系与流
-- [ ] Z020 关注用户/话题/问题接口
+- [x] Z020 关注用户/话题/问题接口 ✅ (2026-11-15 opencode)
   verify: node scripts/assert/follows.mjs
   risk: med
 - [ ] Z021 关注流 /feed/following（分页游标）
@@ -92,7 +92,7 @@
 - [ ] Z030 FTS5 搜索接口（问题/回答/用户/话题，高亮片段）
   verify: node scripts/assert/search.mjs
   risk: med
-- [ ] Z031 话题页接口（简介、关注、内容流）
+- [x] Z031 话题页接口（简介、关注、内容流） ✅ (2026-11-15 devin)
   verify: node scripts/assert/topics.mjs
   risk: med
 - [ ] Z032 前端：搜索页（分类 tab、结果高亮、空态）
@@ -103,7 +103,7 @@
   risk: low
 
 ## M4 通知与治理
-- [ ] Z040 通知接口（产生、未读数、全部已读、类型筛选）
+- [x] Z040 通知接口（产生、未读数、全部已读、类型筛选） ✅ (2026-11-15 opencode)
   verify: node scripts/assert/notifications.mjs
   risk: med
 - [ ] Z041 举报接口 + 自动折叠规则（≥3 次举报）
