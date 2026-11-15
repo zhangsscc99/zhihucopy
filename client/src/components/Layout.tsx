@@ -18,7 +18,7 @@ export function Layout({ children, rail }: { children: ReactNode; rail?: ReactNo
         <NavLink to="/" end>
           首页
         </NavLink>
-        <NavLink to="/?tab=hot">热榜</NavLink>
+        <NavLink to="/topics">发现</NavLink>
         <NavLink to="/ask">发布</NavLink>
         <NavLink to="/notifications">
           通知

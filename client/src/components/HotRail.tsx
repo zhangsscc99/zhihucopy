@@ -44,7 +44,7 @@ export function HotRail() {
               </li>
             ))}
           </ol>
-          <Link to="/?tab=hot" className="rail-block__more">
+          <Link to={{ pathname: "/", search: "?tab=hot" }} className="rail-block__more">
             查看全部热榜
           </Link>
         </>

@@ -50,12 +50,12 @@ export function TopNav() {
           <NavLink to="/" end className="topnav__link">
             首页
           </NavLink>
-          <Link to="/" className="topnav__link">
+          <NavLink to="/topics" className="topnav__link">
             发现
-          </Link>
-          <Link to="/?tab=hot" className="topnav__link">
+          </NavLink>
+          <NavLink to="/unanswered" className="topnav__link">
             等你来答
-          </Link>
+          </NavLink>
         </nav>
 
         <form className="topnav__search" onSubmit={submitSearch} role="search">
