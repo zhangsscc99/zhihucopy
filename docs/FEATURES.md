@@ -3,22 +3,22 @@
 规则：每跳做 4 条（互不重叠区域）；勾选时追加 `✅ (YYYY-MM-DD lane)`。
 
 ## 品牌与视觉（最高优先，先于一切功能）
-- [ ] Z900 品牌改名：全站「知海」→「知乎（仿）」（页面 title、顶部 logo 文案、页脚、meta description、空态文案）
+- [x] Z900 品牌改名：全站「知海」→「知乎（仿）」（页面 title、顶部 logo 文案、页脚、meta description、空态文案） ✅ (2026-11-15 devin)
   verify: node scripts/assert/brand.mjs
   risk: low
-- [ ] Z901 视觉仿知乎：白底 + 知乎蓝 #0066FF 主色 + 灰阶层级，顶部固定搜索栏（居中、圆角输入框、右侧提问按钮），内容区白卡细边框、无重阴影
+- [x] Z901 视觉仿知乎：白底 + 知乎蓝 #0066FF 主色 + 灰阶层级，顶部固定搜索栏（居中、圆角输入框、右侧提问按钮），内容区白卡细边框、无重阴影 ✅ (2026-11-15 devin)
   verify: node scripts/assert/style-tokens.mjs
   risk: low
-- [ ] Z902 首页信息流卡片刻仿知乎：问题标题（18px/加粗）→ 摘要两行截断 → 底部元信息（回答数·关注者·浏览）→ 右侧缩略图占位；话题胶囊（灰底圆角小字）
+- [x] Z902 首页信息流卡片刻仿知乎：问题标题（18px/加粗）→ 摘要两行截断 → 底部元信息（回答数·关注者·浏览）→ 话题胶囊（灰底圆角小字，接口返回时渲染）；右侧无图占位（纯文本卡） ✅ (2026-11-15 devin)
   verify: node scripts/assert/feed-card.mjs
   risk: low
-- [ ] Z903 问题详情页排版仿知乎：标题大号、关注按钮、回答卡片（作者行 头像+昵称+一句话简介 → 正文 → 赞同/反对/评论/收藏/分享 栏）
+- [x] Z903 问题详情页排版仿知乎：标题大号、关注按钮、回答卡片（作者行 头像+昵称+一句话简介 → 正文 → 赞同/反对/评论/收藏/分享 栏） ✅ (2026-11-15 devin)
   verify: node scripts/assert/question-layout.mjs
   risk: low
 - [ ] Z904 话题页与话题胶囊：话题页头部（名称+简介+关注+讨论数）、内容流、相关话题
   verify: node scripts/assert/topic-page.mjs
   risk: med
-- [ ] Z905 顶部导航与右侧栏仿知乎：左侧 logo+导航（首页/发现/等你来答）、右侧栏（热榜 Top10 带排名色块）
+- [x] Z905 顶部导航与右侧栏仿知乎：左侧 logo+导航（首页/发现/等你来答）、右侧栏（热榜 Top10 带排名色块） ✅ (2026-11-15 devin)
   verify: node scripts/assert/nav-rail.mjs
   risk: low
 
@@ -150,3 +150,38 @@
 - [ ] Z066 前端：问题详情页接入投票与评论（Question.tsx 用 /votes 与 /comments，两级评论渲染、发表、删除自己的）
   verify: node scripts/e2e/vote-comment.mjs
   risk: med
+
+## 产品体验待办（巡检生成）
+
+来源：`docs/PRODUCT-REVIEW.md` 轮次 2026-11-15 14:20。
+
+- [x] Z951 详情页回答卡片补「赞同」按钮：调 `POST /api/votes`（后端已就绪），点击后计数 +1 且按钮变蓝，再点取消回退，未登录引导登录 ✅ (2026-11-15 devin)
+  verify: grep -rq '/votes' client/src && grep -rq 'vote_up' client/src/pages/Question.tsx
+  risk: high
+- [x] Z952 详情页回答卡片补评论区：`GET/POST /api/comments` 两级评论渲染与发表，发布后立即出现在列表顶部并 +1 ✅ (2026-11-15 devin)
+  verify: grep -rq '/comments' client/src
+  risk: high
+- [ ] Z953 顶部搜索生效：`/?q=` 真正参与检索，展示「"关键词" 的相关结果 · N 条」、命中高亮与无结果空态（当前 q 参数被完全忽略）
+  verify: grep -q '搜索结果' client/src/pages/Home.tsx
+  risk: med
+- [ ] Z954 通知页接真实列表与未读角标：`/notifications` 渲染列表、顶部导航显示未读数，进入后标为已读清零（当前为「后续版本上线」占位页）
+  verify: grep -rq '/notifications/unread-count' client/src
+  risk: med
+- [ ] Z955 话题胶囊变为链接：`.tag` 改用 `<Link to="/topic/:id">`，新增话题页（名称+简介+关注+讨论数+内容流，当前点击无任何反应）
+  verify: grep -rq '/topic/' client/src
+  risk: med
+- [ ] Z956 回答正文渲染 Markdown：加粗/列表/行内代码/引用/链接（编辑器文案已承诺支持，当前原样输出 `**` 与 `-`）
+  verify: grep -q 'react-markdown\|marked' client/package.json
+  risk: med
+- [x] Z957 推荐/热榜过滤测试数据：服务端排除 `^\[e2e\]`、`^\[assert\]`、`^巡检：` 类标题，推荐流不再由自动化产物占据首屏（当前前 10 条中 8 条为测试问题） ✅ (2026-11-15 devin)
+  verify: grep -rq 'e2e' server/routes/questions.js
+  risk: med
+- [ ] Z958 统一时间显示：7 天内用「x 分钟/小时前」相对时间，更早用 `YYYY-MM-DD`，提问与回答同一格式（当前同页并存 `2026/11/14` 与 `2026/11/15 11:26:05`）
+  verify: grep -rq '分钟前\|小时前' client/src
+  risk: low
+- [x] Z959 详情页补信息层：作者头像+一句话简介、「关注问题」按钮、回答底部收藏/分享栏（对齐 Z903 排版规格） ✅ (2026-11-15 devin)
+  verify: grep -q '关注' client/src/pages/Question.tsx
+  risk: med
+- [ ] Z960 修正未登录引导文案与搜索框可用性：去掉「登录 后」的多余空格；搜索框补放大镜图标、提交按钮与清除按钮
+  verify: grep -q '登录后即可回答' client/src/pages/Question.tsx
+  risk: low
