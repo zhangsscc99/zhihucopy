@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const { getDb } = require("../db");
 const { signToken, publicUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
+const { isTestEmail } = require("../content-filter");
 
 const router = express.Router();
 
@@ -25,9 +26,11 @@ router.post("/register", (req, res) => {
     return res.status(409).json({ error: "该邮箱已注册" });
   }
   const hash = bcrypt.hashSync(password, 10);
+  // 测试邮箱域注册的账号落机器标记（Z983），其产物由清理脚本按标记识别。
+  const isTest = isTestEmail(normalized) ? 1 : 0;
   const info = db
-    .prepare("INSERT INTO users (email, password_hash, nickname) VALUES (?, ?, ?)")
-    .run(normalized, hash, nickname.trim());
+    .prepare("INSERT INTO users (email, password_hash, nickname, is_test) VALUES (?, ?, ?, ?)")
+    .run(normalized, hash, nickname.trim(), isTest);
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json({ token: signToken(user), user: publicUser(user) });
 });

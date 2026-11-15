@@ -33,6 +33,10 @@ const DB_PATH = path.resolve(
 const db = new Database(DB_PATH, APPLY ? {} : { readonly: true });
 db.pragma("foreign_keys = ON");
 
+// Z983：users.is_test 由 004 迁移加入 —— 未迁移的库降级为纯形态规则。
+const HAS_IS_TEST = db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === "is_test");
+const OPTS = { isTest: HAS_IS_TEST };
+
 // 待删对象进 TEMP 表，后续各依赖表统一 IN (SELECT id FROM ...) 子查询。
 // - _del_q: 测试问题；- _del_a: 这些问题下的回答；- _del_u: 可删的测试账号。
 const DDL = `
@@ -46,7 +50,7 @@ function fillTargets() {
   db.prepare(
     `INSERT INTO _del_q
      SELECT q.id FROM questions q JOIN users u ON u.id = q.author_id
-     WHERE ${questionMatchSql("q", "u")}`
+     WHERE ${questionMatchSql("q", "u", OPTS)}`
   ).run();
   db.prepare(
     `INSERT INTO _del_a SELECT a.id FROM answers a
@@ -56,7 +60,7 @@ function fillTargets() {
   // 之后不再有 questions/answers/comments 的账号才删。
   db.prepare(
     `INSERT INTO _del_u SELECT u.id FROM users u
-     WHERE ${userMatchSql("u")}
+     WHERE ${userMatchSql("u", OPTS)}
        AND NOT EXISTS (SELECT 1 FROM questions q WHERE q.author_id = u.id
                         AND q.id NOT IN (SELECT id FROM _del_q))
        AND NOT EXISTS (SELECT 1 FROM answers a WHERE a.author_id = u.id
@@ -148,18 +152,18 @@ function run() {
     const nQall = count("SELECT COUNT(*) c FROM questions");
     const nUall = count("SELECT COUNT(*) c FROM users");
     const skipped = count(
-      `SELECT COUNT(*) c FROM users u WHERE ${userMatchSql("u")} AND u.id NOT IN (SELECT id FROM _del_u)`
+      `SELECT COUNT(*) c FROM users u WHERE ${userMatchSql("u", OPTS)} AND u.id NOT IN (SELECT id FROM _del_u)`
     );
     // 残留提示：测试账号挂在「真实问题」下的回答/评论不在删除范围内（spec 只删
     // 测试对象及其依赖 + 无内容账号），它们会让对应账号被判定为「仍有内容」。
     const residA = count(
       `SELECT COUNT(*) c FROM answers a WHERE a.author_id IN (
-         SELECT u.id FROM users u WHERE ${userMatchSql("u")})
+         SELECT u.id FROM users u WHERE ${userMatchSql("u", OPTS)})
          AND a.id NOT IN (SELECT id FROM _del_a)`
     );
     const residC = count(
       `SELECT COUNT(*) c FROM comments c WHERE c.author_id IN (
-         SELECT u.id FROM users u WHERE ${userMatchSql("u")})
+         SELECT u.id FROM users u WHERE ${userMatchSql("u", OPTS)})
          AND NOT ((c.target_type = 'question' AND c.target_id IN (SELECT id FROM _del_q))
                OR (c.target_type = 'answer' AND c.target_id IN (SELECT id FROM _del_a)))`
     );
