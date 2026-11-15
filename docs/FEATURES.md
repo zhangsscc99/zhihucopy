@@ -164,13 +164,13 @@
 - [x] Z953 顶部搜索生效：`/?q=` 真正参与检索，展示「"关键词" 的相关结果 · N 条」、命中高亮与无结果空态（新增只读 GET /api/search） ✅ (2026-11-15 devin)
   verify: node scripts/assert/search-page.mjs
   risk: med
-- [ ] Z954 通知页接真实列表与未读角标：`/notifications` 渲染列表、顶部导航显示未读数，进入后标为已读清零（当前为「后续版本上线」占位页）
+- [x] Z954 通知页接真实列表与未读角标：`/notifications` 渲染列表、顶部导航显示未读数，进入后标为已读清零（当前为「后续版本上线」占位页） ✅ (2026-11-15 devin)
   verify: grep -rq '/notifications/unread-count' client/src
   risk: med
 - [x] Z955 话题胶囊变为链接：`.tag` 改用 `<Link to="/topic/:id">`，新增话题页（名称+简介+关注+讨论数+内容流，当前点击无任何反应）
   verify: grep -rq '/topic/' client/src  # 由 Z904 覆盖 ✅ (2026-11-15 devin)
   risk: med
-- [ ] Z956 回答正文渲染 Markdown：加粗/列表/行内代码/引用/链接（编辑器文案已承诺支持，当前原样输出 `**` 与 `-`）
+- [x] Z956 回答正文渲染 Markdown：加粗/列表/行内代码/引用/链接（编辑器文案已承诺支持，当前原样输出 `**` 与 `-`） ✅ (2026-11-15 devin)
   verify: grep -q 'react-markdown\|marked' client/package.json
   risk: med
 - [x] Z957 推荐/热榜过滤测试数据：服务端排除 `^\[e2e\]`、`^\[assert\]`、`^巡检：` 类标题，推荐流不再由自动化产物占据首屏（当前前 10 条中 8 条为测试问题） ✅ (2026-11-15 devin)
@@ -200,3 +200,33 @@
 - [x] Z961 详情页回答分页：`answer_count>5` 时回答只渲染 5 条且无入口，用户新发布的回答刷新即消失（P0） ✅ (2026-11-15 devin)
   verify: node scripts/assert/answer-pagination.mjs
   risk: med
+
+## 第四轮巡检待办（2026-11-15 16:40，来源 docs/PRODUCT-REVIEW.md）
+
+- [ ] Z970 测试数据治理：抽公共 `isTestContent()`（`assert-`/`搜索验收-`/`巡检`/`[e2e]`）套用到 questions 列表、search、话题流，并清理线上库中的测试问题
+  verify: node scripts/assert/test-content-filter.mjs
+  risk: med
+- [ ] Z971 关注流接真实数据：移除 `Home.tsx` 的 `tab==="following"` 短路，接已关注问题接口（Z964 收尾）
+  verify: node scripts/assert/feed-following.mjs
+  risk: med
+- [ ] Z972 移动端搜索入口：390px 下顶部搜索框 width:0 无替代入口，补放大镜图标/全屏搜索层
+  verify: node scripts/assert/mobile-search.mjs
+  risk: low
+- [ ] Z973 登录回跳与动作续做：所有 `navigate("/login")` 带 `next`，登录后回原页并恢复点赞/关注意图
+  verify: node scripts/assert/login-next.mjs
+  risk: med
+- [ ] Z974 404 页返修：区分「内容不存在」与网络错误，补「回首页/搜索/提问」入口（Z967 收尾）
+  verify: node scripts/assert/notfound-page.mjs
+  risk: low
+- [ ] Z975 评论计数常显：评论区展开后「N 条评论」计数消失，展开态保留数量
+  verify: node scripts/assert/comment-count.mjs
+  risk: low
+- [ ] Z977 时间统一：7 天内相对时间、更早 `YYYY-MM-DD`，提问/回答/评论同一格式（Z958 收尾）
+  verify: node scripts/assert/time-format.mjs
+  risk: low
+- [ ] Z978 未登录文案去空格：「登录后即可回答」「登录后参与评论」（Z960 收尾）
+  verify: node scripts/assert/login-copy.mjs
+  risk: low
+- [ ] Z979 底部导航 active 唯一：`?tab=hot` 时仅「热榜」带 `aria-current`（Z967 收尾）
+  verify: node scripts/assert/mobile-nav.mjs
+  risk: low
