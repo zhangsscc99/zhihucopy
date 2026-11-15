@@ -48,7 +48,8 @@ function listMine(req, res) {
   const db = getDb();
   const collections = db
     .prepare(
-      `SELECT c.*, (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id = c.id) AS item_count
+      `SELECT c.*, (SELECT COUNT(*) FROM collection_items ci WHERE ci.collection_id = c.id) AS item_count,
+              (SELECT MAX(ci.created_at) FROM collection_items ci WHERE ci.collection_id = c.id) AS last_collected_at
        FROM collections c WHERE c.owner_id = ? ORDER BY c.id DESC`
     )
     .all(req.user.id);
@@ -96,11 +97,14 @@ router.get("/:id", (req, res) => {
   const db = getDb();
   const col = getCollection(db, id);
   if (!col) return res.status(404).json({ error: "收藏夹不存在" });
-  if (!canView(col, req.user)) return res.status(404).json({ error: "收藏夹不存在" });
+  if (!canView(col, req.user)) return res.status(403).json({ error: "该收藏夹不可见" });
   const item_count = db
     .prepare("SELECT COUNT(*) AS n FROM collection_items WHERE collection_id = ?")
     .get(id).n;
-  res.json({ collection: { ...col, item_count } });
+  const last_collected_at = db
+    .prepare("SELECT MAX(created_at) AS t FROM collection_items WHERE collection_id = ?")
+    .get(id).t;
+  res.json({ collection: { ...col, item_count, last_collected_at } });
 });
 
 // GET /:id/items — answers in the collection.
@@ -110,7 +114,7 @@ router.get("/:id/items", (req, res) => {
   const db = getDb();
   const col = getCollection(db, id);
   if (!col) return res.status(404).json({ error: "收藏夹不存在" });
-  if (!canView(col, req.user)) return res.status(404).json({ error: "收藏夹不存在" });
+  if (!canView(col, req.user)) return res.status(403).json({ error: "该收藏夹不可见" });
   const items = db
     .prepare(
       `SELECT a.*, q.title AS question_title, u.nickname AS author_nickname, u.avatar_url AS author_avatar,

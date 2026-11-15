@@ -159,6 +159,9 @@ export function TopNav() {
                   <Link to={`/u/${user.id}`} role="menuitem" onClick={() => setMenuOpen(false)}>
                     个人主页
                   </Link>
+                  <Link to="/collections" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    我的收藏
+                  </Link>
                   <button role="menuitem" onClick={logout}>
                     退出登录
                   </button>

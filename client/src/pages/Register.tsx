@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
@@ -8,6 +8,9 @@ export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const [params] = useSearchParams();
+  const next = params.get("next");
+  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +22,7 @@ export function Register() {
     try {
       await register(email, password, nickname);
       toast("注册成功，欢迎来到知乎（仿）");
-      navigate("/");
+      navigate(dest);
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -68,7 +71,10 @@ export function Register() {
           </Button>
         </form>
         <p className="authcard__alt">
-          已有账号？<Link to="/login">直接登录</Link>
+          已有账号？
+          <Link to={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>
+            直接登录
+          </Link>
         </p>
       </Card>
     </div>

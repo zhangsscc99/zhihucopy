@@ -13,6 +13,7 @@ import { Topic } from "./pages/Topic";
 import { Topics } from "./pages/Topics";
 import { Unanswered } from "./pages/Unanswered";
 import { Notifications } from "./pages/Notifications";
+import { Collections, CollectionDetail } from "./pages/Collections";
 import { Admin } from "./pages/Admin";
 
 function Me() {
@@ -36,6 +37,8 @@ export function App() {
         <Route path="/u/:id" element={<Profile />} />
         <Route path="/me" element={<Me />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/collections" element={<Collections />} />
+        <Route path="/collections/:id" element={<CollectionDetail />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Empty title="页面不存在" hint="回到首页继续浏览" />} />
       </Routes>
