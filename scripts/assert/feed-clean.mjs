@@ -26,12 +26,22 @@ const src = fs.readFileSync(path.join(ROOT, "server/routes/questions.js"), "utf8
 if (!/content-filter/.test(src)) {
   fail("questions.js does not import ../content-filter");
 }
-const uses = src.match(/\$\{testQuestionSql\("/g) || [];
-if (uses.length < 2) {
-  fail(`testQuestionSql used ${uses.length}x in queries — need it in both list and COUNT`);
-}
-if (!/SELECT COUNT\(\*\) c FROM questions q JOIN users u ON u\.id = q\.author_id\s+WHERE \$\{testQuestionSql\("/.test(src)) {
-  fail("COUNT(*) query does not apply testQuestionSql — totals would diverge from items");
+// 语义校验（推荐形态）：conds 首项就是测试产物过滤片段，list 与 COUNT 两条 SQL
+// 插值同一个 ${where} —— 口径一定一致，与拼接细节解耦。
+const condsFirst = /\bconds\s*=\s*\[\s*testQuestionSql\(/.test(src);
+const whereFromConds = /\bwhere\s*=\s*conds\.join\(/.test(src);
+const listShared = /FROM questions q\s+JOIN users u ON u\.id = q\.author_id\s+WHERE \$\{where\}/.test(src);
+const countShared = /SELECT COUNT\(\*\) c FROM questions q\s+JOIN users u ON u\.id = q\.author_id\s+WHERE \$\{where\}/.test(src);
+const semanticOk = condsFirst && whereFromConds && listShared && countShared;
+// 宽松兜底：仍是「两条 SQL 各自插 ${testQuestionSql("…")}」的旧写法也算过。
+const inlineUses = (src.match(/\$\{testQuestionSql\("/g) || []).length;
+const countInline = /SELECT COUNT\(\*\) c FROM questions q\s+JOIN users u ON u\.id = q\.author_id\s+WHERE \$\{testQuestionSql\("/.test(src);
+const legacyOk = inlineUses >= 2 && countInline;
+if (!semanticOk && !legacyOk) {
+  fail(
+    `testQuestionSql 未同时约束 list 与 COUNT —— ` +
+      `condsFirst=${condsFirst} sharedWhere=${whereFromConds && listShared && countShared} inline=${inlineUses}x`
+  );
 }
 
 let n = 0;
