@@ -566,7 +566,6 @@ mark.hl {
   font-size: 15px;
   line-height: 1.7;
   margin: 0 0 12px;
-  white-space: pre-wrap;
 }
 .question__meta {
   font-size: 13px;
@@ -727,7 +726,6 @@ mark.hl {
 }
 .answer__body p {
   margin: 0 0 12px;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 .answer__body p:last-child {
@@ -735,6 +733,105 @@ mark.hl {
 }
 .prose {
   font-family: var(--sans);
+  word-break: break-word;
+}
+.prose > :last-child {
+  margin-bottom: 0;
+}
+.prose p {
+  margin: 0 0 12px;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 18px 0 8px;
+}
+.prose h1 {
+  font-size: 20px;
+}
+.prose h2 {
+  font-size: 18px;
+}
+.prose h3 {
+  font-size: 16px;
+}
+.prose h4 {
+  font-size: 15px;
+}
+.prose ul,
+.prose ol {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+.prose li + li {
+  margin-top: 4px;
+}
+.prose li > p {
+  margin: 0;
+}
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--paper);
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+.prose pre {
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 12px;
+  overflow-x: auto;
+  margin: 0 0 12px;
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: 13px;
+}
+.prose blockquote {
+  margin: 0 0 12px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--line);
+  color: var(--ink-2);
+}
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+.prose a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.prose a:hover {
+  text-decoration: underline;
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+.prose table {
+  border-collapse: collapse;
+  margin: 0 0 12px;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 14px;
+  text-align: left;
+}
+.prose th {
+  background: var(--paper);
+  font-weight: 600;
+}
+.prose del {
+  color: var(--ink-3);
+}
+.prose img {
+  max-width: 100%;
 }
 .answer__actions {
   display: flex;
@@ -1022,6 +1119,52 @@ mark.hl {
 .form-actions {
   display: flex;
   gap: 10px;
+}
+
+/* ---------- Markdown 编辑器 ---------- */
+
+.md-editor__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.md-editor__tab {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.md-editor__tab:hover {
+  color: var(--ink);
+}
+.md-editor__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.md-editor .field {
+  margin-top: 0;
+}
+.md-editor__preview {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 7px 12px;
+  min-height: 132px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.md-editor__empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.form-label .md-editor {
+  margin-top: 6px;
 }
 
 .authpage {
