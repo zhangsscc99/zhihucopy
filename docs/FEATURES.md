@@ -203,10 +203,10 @@
 
 ## 第四轮巡检待办（2026-11-15 16:40，来源 docs/PRODUCT-REVIEW.md）
 
-- [ ] Z970 测试数据治理：抽公共 `isTestContent()`（`assert-`/`搜索验收-`/`巡检`/`[e2e]`）套用到 questions 列表、search、话题流，并清理线上库中的测试问题
+- [x] Z970 测试数据治理：抽公共 `isTestContent()`（`assert-`/`搜索验收-`/`巡检`/`[e2e]`）套用到 questions 列表、search、话题流，并清理线上库中的测试问题 ✅ (2026-11-15 devin)
   verify: node scripts/assert/test-content-filter.mjs
   risk: med
-- [ ] Z971 关注流接真实数据：移除 `Home.tsx` 的 `tab==="following"` 短路，接已关注问题接口（Z964 收尾）
+- [x] Z971 关注流接真实数据：移除 `Home.tsx` 的 `tab==="following"` 短路，接已关注问题接口（Z964 收尾） ✅ (2026-11-15 devin)
   verify: node scripts/assert/feed-following.mjs
   risk: med
 - [ ] Z972 移动端搜索入口：390px 下顶部搜索框 width:0 无替代入口，补放大镜图标/全屏搜索层
@@ -229,4 +229,31 @@
   risk: low
 - [ ] Z979 底部导航 active 唯一：`?tab=hot` 时仅「热榜」带 `aria-current`（Z967 收尾）
   verify: node scripts/assert/mobile-nav.mjs
+  risk: low
+
+## 第五轮巡检待办（2026-11-15 17:35，来源 docs/PRODUCT-REVIEW.md 第五轮）
+
+- [ ] Z976 桌面端通知入口 + 未读角标：顶栏/用户菜单加「通知」，角标读 `unread-count`，进 `/notifications` 后标已读
+  verify: node scripts/assert/notify-entry.mjs
+  risk: med
+- [ ] Z980 「发现」「等你来答」真实页面：新增 `/unanswered`（`tab=unanswered`，answer_count=0 的问题流）与话题广场入口，顶栏不得再有指向 `/` 或 `/?tab=hot` 的假链接
+  verify: node scripts/assert/nav-targets.mjs
+  risk: med
+- [ ] Z981 清理测试作者在真实内容下的回答/评论（`巡检c41o` 之类混入 `/question/1`），并重算 questions.answer_count 保持一致
+  verify: node scripts/assert/answer-count-consistency.mjs
+  risk: med
+- [ ] Z982 种子内容扩充：真实问题仅 60 条、搜索「代码质量」只 1 条命中，按现有 seed-data 结构补到 100+ 真实问题（标题+补充说明+3 回答，不得重复）
+  verify: node scripts/assert/seed-volume.mjs
+  risk: med
+
+## 第六轮待办（2026-11-15 17:55，来自 Z970/Z971 集成审查与实测）
+
+- [ ] Z983 自动化产物自清理：assert/e2e 脚本结束后删除自己创建的问题/回答/账号（本轮清理前生产库 271 题中 211 题、662 账号中 415 个是历史产物；新断言仍在往里灌「关注流链路验证…」这类真实形态标题，过滤规则抓不到）
+  verify: node scripts/assert/no-residue.mjs
+  risk: med
+- [ ] Z984 content-filter 规则收窄 + 性能：裸前缀 `e2e`/`probe`/`review` 与子串 `-mw` 会误杀 `reviewer_zhang` 这类真实昵称，需加分隔符边界（如 `-mw[a-z0-9]{4,}`）；questions 列表每行约 26 个 LIKE + COLLATE NOCASE 且 title 无索引，量级上升前需换标记列
+  verify: node scripts/assert/content-filter-precision.mjs
+  risk: med
+- [ ] Z985 计数口径统一：`server/routes/users.js` 的 `stats.questions` 仍是裸 COUNT（其它计数已套 testUserSql），个人页数字与列表不一致
+  verify: node scripts/assert/stats-consistency.mjs
   risk: low

@@ -51,7 +51,9 @@ const NICK_CONTAINS = ["-mw"];
 
 // 测试邮箱域。example.com/test.local 是约定形态；test.dev/t.dev 是本仓库
 // scripts/assert/lib.mjs 等回归脚本实际使用的注册域。
-const TEST_EMAIL_DOMAINS = ["example.com", "test.local", "test.dev", "t.dev"];
+// 注意：example.com 是 scripts/ci-deploy.sh smoke 用户与断言脚本使用的保留域，
+// 必须保持可见，不得作为测试内容判据。
+const TEST_EMAIL_DOMAINS = ["test.local", "test.dev", "t.dev"];
 
 // ---- JS 判定 ------------------------------------------------------------
 

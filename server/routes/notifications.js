@@ -2,7 +2,6 @@ const express = require("express");
 const { getDb } = require("../db");
 const { badRequest } = require("../util");
 const { requireAuth } = require("../auth");
-const { testNotificationSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -80,8 +79,7 @@ router.get("/", requireAuth, (req, res) => {
   if (unreadParam === "1" || unreadParam === "true") readFilter = "n.is_read = 0";
   else if (unreadParam === "0" || unreadParam === "false") readFilter = "n.is_read = 1";
 
-  // 测试账号/测试内容产生的通知不展示（见 content-filter）。
-  const conds = ["n.user_id = ?", testNotificationSql("n")];
+  const conds = ["n.user_id = ?"];
   const params = [req.user.id];
   if (type) {
     conds.push("n.type = ?");
@@ -108,7 +106,7 @@ router.get("/", requireAuth, (req, res) => {
   const unread = db
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
+       WHERE n.user_id = ? AND n.is_read = 0`
     )
     .get(req.user.id).c;
 
@@ -120,7 +118,7 @@ router.get("/unread-count", requireAuth, (req, res) => {
   const count = getDb()
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
+       WHERE n.user_id = ? AND n.is_read = 0`
     )
     .get(req.user.id).c;
   res.json({ count });
