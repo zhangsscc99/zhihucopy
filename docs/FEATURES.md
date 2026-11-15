@@ -278,7 +278,7 @@
 - [ ] Z1006 搜索质量兜底：<2 字符或纯标点走空态并提示最少字数（实测 `?q=？` 返回 73 条）
   verify: node scripts/assert/search-guard.mjs
   risk: low
-- [ ] Z1007 通知条目可区分：事件类型图标 + 内容摘要片段（两条同作者通知文案相同）
+- [x] Z1007 通知条目可区分：事件类型图标 + 内容摘要片段（两条同作者通知文案相同） ✅ (2026-11-15 devin)
   verify: node scripts/assert/notify-detail.mjs
   risk: low
 - [ ] Z1008 交互反馈文案：分享后「链接已复制」toast；评论发布按钮改「发布评论」（实测同页两个「发布」，误点会写成新回答）
@@ -335,15 +335,36 @@
 - [ ] Z1020 自己的内容无编辑/删除入口：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1）
   verify: node scripts/assert/edit-delete.mjs
   risk: med
-- [ ] Z1021 收藏后无处查看：收藏夹无页面路由（`/collections/:id` 不存在），个人主页无「收藏」tab，收藏仍半闭环（P0 残留）
+- [x] Z1021 收藏后无处查看：收藏夹无页面路由（`/collections/:id` 不存在），个人主页无「收藏」tab，收藏仍半闭环（P0 残留） ✅ (2026-11-15 devin)
   verify: node scripts/assert/collection-page.mjs
   risk: med
-- [ ] Z1022 热榜与推荐无区分度：热榜卡片无排名色块/热度分/上升标记，样式与推荐流相同（P2）
+- [x] Z1022 热榜与推荐无区分度：热榜卡片无排名色块/热度分/上升标记，样式与推荐流相同（P2） ✅ (2026-11-15 devin)
   verify: node scripts/assert/hot-rank.mjs
   risk: low
-- [ ] Z1023 未登录点「写回答」完全无反应：无 toast、无跳转，引导文案在 2000px 外视口外（P1，Z1011 收尾）
+- [x] Z1023 未登录点「写回答」完全无反应：无 toast、无跳转，引导文案在 2000px 外视口外（P1，Z1011 收尾） ✅ (2026-11-15 devin)
   verify: node scripts/assert/answer-login-cta.mjs
   risk: low
 - [ ] Z1024 404 返回 HTTP 200（软 404）：`/question/999999`、`/u/999999`、`/nonexistent` 均 200，不利监控/SEO（Z1004 收尾）
   verify: node scripts/assert/notfound-status.mjs
+  risk: low
+
+## 第九轮待办（2026-11-15 22:0x，来源 docs/PRODUCT-REVIEW.md 第八轮 Playwright 实测）
+
+- [ ] Z1025 未读角标进入 `/notifications` 后不清零：实测 unread-count 仍为 2，只有手点「全部标为已读」才清零；进入页面即应把当前列表标为已读并回写角标（Z954 回归）
+  verify: node scripts/assert/unread-reset.mjs
+  risk: med
+- [ ] Z1026 「关注」tab 是假的：匿名与 0 关注用户都渲染 20 卡推荐流，三个 tab `aria-selected` 全为 false；应该走真实关注流 + 正确的 selected 态 + 未登录引导
+  verify: node scripts/assert/following-tab.mjs
+  risk: med
+- [ ] Z1027 他人主页「关注」按钮（Z1018 收口）：`/u/:id` 的「关注 N / 粉丝 M」是 `<dt>` 纯文本，全站无法关注用户（follow API 已就绪）
+  verify: node scripts/assert/follow-user.mjs
+  risk: med
+- [ ] Z1028 搜索纯标点/短词守卫（Z1006 收口）：实测 `?q=？` 返回 61 条、`?q=a` 19 条，应按「无有效词条」走空态并提示最少字数
+  verify: node scripts/assert/search-guard.mjs
+  risk: low
+- [ ] Z1029 评论展开后「N 条评论」计数消失（Z975 收口）
+  verify: node scripts/assert/comment-count.mjs
+  risk: low
+- [ ] Z1030 断言质量返修：`scripts/assert/answer-login-cta.mjs` 中 `!/登录 后/` 对基线源码恒真（空断言）；`collection-page.mjs` 注释声称断言 `last_collected_at` 但无对应 expect
+  verify: node scripts/assert/answer-login-cta.mjs
   risk: low
