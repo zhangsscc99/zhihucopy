@@ -8,6 +8,7 @@ import Markdown from "../components/Markdown";
 import MarkdownEditor from "../components/MarkdownEditor";
 import { Button, Textarea } from "../components/ui";
 import type { Answer, Page, Question as QuestionType } from "../types";
+import { formatTime } from "../lib/time";
 
 interface CommentNode {
   id: number;
@@ -26,19 +27,7 @@ interface CollectionItem {
   item_count: number;
 }
 
-const fmtDate = (s: string) => new Date(s + "Z").toLocaleDateString("zh-CN");
-const fmtTime = (s: string) => new Date(s + "Z").toLocaleString("zh-CN");
 const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
-const relTime = (s: string) => {
-  const mins = Math.floor((Date.now() - new Date(s + "Z").getTime()) / 60000);
-  if (mins < 1) return "刚刚";
-  if (mins < 60) return `${mins} 分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  return fmtDate(s);
-};
 
 type AnswerSort = "default" | "newest";
 
@@ -398,7 +387,7 @@ export function Question() {
       )}
       <div className="question__meta">
         <Link to={`/u/${question.author.id}`}>{question.author.nickname}</Link>
-        <span>提问于 {relTime(question.created_at)}</span>
+        <span>提问于 {formatTime(question.created_at)}</span>
         <span aria-hidden="true">·</span>
         <span>{question.follower_count} 人关注</span>
         <span aria-hidden="true">·</span>
@@ -536,7 +525,7 @@ export function Question() {
                     <button type="button" className="answer__action" onClick={() => share(a)}>
                       分享
                     </button>
-                    <span className="answer__date">发布于 {fmtDate(a.created_at)}</span>
+                    <span className="answer__date">发布于 {formatTime(a.created_at)}</span>
                   </div>
                   {openComments[a.id] && (
                     <div className="answer__comments">
@@ -572,7 +561,7 @@ export function Question() {
                                       {c.author ? c.author.nickname : "已注销用户"}
                                     </span>
                                     <span className="answer__comment-time">
-                                      {fmtTime(c.created_at)}
+                                      {formatTime(c.created_at)}
                                     </span>
                                     <p
                                       className={`answer__comment-body${

@@ -6,6 +6,7 @@ import { useNotifications } from "../notifications";
 import { useToast } from "../toast";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
+import { formatTime } from "../lib/time";
 
 interface NotificationActor {
   id: number;
@@ -44,16 +45,6 @@ const ACTION_TEXT: Record<string, string> = {
   answer: "回答了你的问题",
 };
 
-const relTime = (s: string) => {
-  const mins = Math.floor((Date.now() - new Date(s + "Z").getTime()) / 60000);
-  if (mins < 1) return "刚刚";
-  if (mins < 60) return `${mins} 分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  return new Date(s + "Z").toLocaleDateString("zh-CN");
-};
 
 // 通知的落点：问题/回答类跳问题页，关注类跳用户主页，其余不可点。
 function linkFor(n: NotificationItem): string | null {
@@ -109,7 +100,7 @@ function NotificationRow({
         <div className="ntf__body">{body}</div>
       )}
       <time className="ntf__time" dateTime={n.created_at}>
-        {relTime(n.created_at)}
+        {formatTime(n.created_at)}
       </time>
     </li>
   );
