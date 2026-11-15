@@ -2,6 +2,31 @@
 
 规则：每跳做 4 条（互不重叠区域）；勾选时追加 `✅ (YYYY-MM-DD lane)`。
 
+## 品牌与视觉（最高优先，先于一切功能）
+- [ ] Z900 品牌改名：全站「知海」→「知乎（仿）」（页面 title、顶部 logo 文案、页脚、meta description、空态文案）
+  verify: node scripts/assert/brand.mjs
+  risk: low
+- [ ] Z901 视觉仿知乎：白底 + 知乎蓝 #0066FF 主色 + 灰阶层级，顶部固定搜索栏（居中、圆角输入框、右侧提问按钮），内容区白卡细边框、无重阴影
+  verify: node scripts/assert/style-tokens.mjs
+  risk: low
+- [ ] Z902 首页信息流卡片刻仿知乎：问题标题（18px/加粗）→ 摘要两行截断 → 底部元信息（回答数·关注者·浏览）→ 右侧缩略图占位；话题胶囊（灰底圆角小字）
+  verify: node scripts/assert/feed-card.mjs
+  risk: low
+- [ ] Z903 问题详情页排版仿知乎：标题大号、关注按钮、回答卡片（作者行 头像+昵称+一句话简介 → 正文 → 赞同/反对/评论/收藏/分享 栏）
+  verify: node scripts/assert/question-layout.mjs
+  risk: low
+- [ ] Z904 话题页与话题胶囊：话题页头部（名称+简介+关注+讨论数）、内容流、相关话题
+  verify: node scripts/assert/topic-page.mjs
+  risk: med
+- [ ] Z905 顶部导航与右侧栏仿知乎：左侧 logo+导航（首页/发现/等你来答）、右侧栏（热榜 Top10 带排名色块）
+  verify: node scripts/assert/nav-rail.mjs
+  risk: low
+
+## 产品体验巡检（每轮必做一条）
+- [ ] Z950 巡检：用 Playwright 走完「首页→问题→回答→点赞→评论→通知→搜索」全链路，记录任何死路/无反馈/数值不回写，写入 docs/PRODUCT-REVIEW.md
+  verify: node scripts/assert/journey.mjs
+  risk: low
+
 ## M0 基座
 - [ ] Z001 项目骨架：Express + better-sqlite3 + React/Vite/TS，base=/zhihucopy，port 3030
   verify: test -f server/index.js && test -f client/dist/index.html && curl -sf http://127.0.0.1:3030/zhihucopy/api/health | grep -q '"ok":true'
