@@ -216,6 +216,7 @@ function SearchResults({ q }: { q: string }) {
   const [moreLoading, setMoreLoading] = useState(false);
   const [error, setError] = useState("");
   const [moreError, setMoreError] = useState("");
+  const [reason, setReason] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
 
   const requestSeq = useRef(0);
@@ -229,12 +230,14 @@ function SearchResults({ q }: { q: string }) {
     setItems([]);
     setTotal(0);
     setHasMore(false);
+    setReason("");
     setPage(1);
-    get<Page<Question>>(searchQuery(q, 1))
+    get<Page<Question> & { reason?: string }>(searchQuery(q, 1))
       .then((res) => {
         if (seq !== requestSeq.current) return;
         setItems(res.items);
         setTotal(res.total);
+        setReason(res.reason || "");
         setHasMore(res.has_more && res.items.length > 0);
       })
       .catch((e: Error) => {
@@ -302,6 +305,20 @@ function SearchResults({ q }: { q: string }) {
       ) : error ? (
         <ErrorBox message={error} onRetry={retry} />
       ) : items.length === 0 ? (
+        reason === "too_short" ? (
+          <Empty
+            title="请至少输入 2 个字符的关键词（如：代码、职场）"
+            action={
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={exitSearch}
+              >
+                换个关键词
+              </button>
+            }
+          />
+        ) : (
         <Empty
           title={`没有找到与“${q}”相关的内容`}
           hint="换个关键词试试，或直接向大家提问"
@@ -316,6 +333,7 @@ function SearchResults({ q }: { q: string }) {
             </div>
           }
         />
+        )
       ) : (
         <>
           <ul className="feed">
