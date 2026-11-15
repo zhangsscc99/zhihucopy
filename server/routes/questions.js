@@ -6,7 +6,8 @@ const { notifyQuestionAuthor } = require("./answers");
 
 const router = express.Router();
 
-const AUTHOR_COLS = "u.id AS author_id, u.nickname AS author_nickname, u.avatar_url AS author_avatar";
+const AUTHOR_COLS =
+  "u.id AS author_id, u.nickname AS author_nickname, u.avatar_url AS author_avatar, u.bio AS author_bio";
 
 function questionRow(q) {
   return {
@@ -18,7 +19,12 @@ function questionRow(q) {
     answer_count: q.answer_count,
     follower_count: q.follower_count,
     view_count: q.view_count,
-    author: { id: q.author_id, nickname: q.author_nickname, avatar_url: q.author_avatar },
+    author: {
+      id: q.author_id,
+      nickname: q.author_nickname,
+      avatar_url: q.author_avatar,
+      bio: q.author_bio,
+    },
     topics: q.topics || [],
   };
 }
@@ -35,7 +41,12 @@ function answerRow(a) {
     is_collapsed: a.is_collapsed,
     created_at: a.created_at,
     updated_at: a.updated_at,
-    author: { id: a.author_id, nickname: a.author_nickname, avatar_url: a.author_avatar },
+    author: {
+      id: a.author_id,
+      nickname: a.author_nickname,
+      avatar_url: a.author_avatar,
+      bio: a.author_bio,
+    },
   };
 }
 
@@ -129,7 +140,15 @@ router.get("/:id", (req, res) => {
     .all(q.id)
     .map(answerRow);
 
-  res.json({ question: { ...questionRow({ ...q, topics }) }, answers });
+  const followed = req.user
+    ? !!db
+        .prepare(
+          "SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND target_type = 'question' AND target_id = ?) AS followed"
+        )
+        .get(req.user.id, q.id).followed
+    : false;
+
+  res.json({ question: { ...questionRow({ ...q, topics }), followed }, answers });
 });
 
 // GET /questions/:id/answers?sort=default|newest&page=&limit=

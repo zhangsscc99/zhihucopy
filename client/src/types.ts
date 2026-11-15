@@ -14,6 +14,7 @@ export interface Author {
   id: number;
   nickname: string;
   avatar_url: string;
+  bio?: string;
 }
 
 export interface Topic {
@@ -32,6 +33,7 @@ export interface Question {
   view_count: number;
   author: Author;
   topics: Topic[];
+  followed?: boolean;
 }
 
 export interface Answer {

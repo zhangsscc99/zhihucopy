@@ -456,8 +456,14 @@ textarea:focus-visible {
   font-family: var(--sans);
   font-size: 22px;
   font-weight: 700;
+  color: var(--ink);
   line-height: 1.4;
   margin: 0 0 10px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 .question__detail {
   color: var(--ink);
@@ -470,18 +476,48 @@ textarea:focus-visible {
   font-size: 13px;
   color: var(--ink-3);
   display: flex;
-  gap: 14px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
 }
 .question__meta a {
   color: var(--ink-3);
 }
+.question__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.question__invite {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.question__invite:hover {
+  color: var(--accent);
+}
+.question__follow {
+  background: #ffffff;
+}
+.question__follow--on {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+.question__follow--on:hover {
+  color: var(--ink-2);
+}
 
 .answers__count {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  margin: 18px 0 4px;
+  margin: 18px 0 0;
 }
 .answerlist {
   list-style: none;
@@ -489,42 +525,246 @@ textarea:focus-visible {
   padding: 0;
 }
 .answer {
-  padding: 16px 0;
+  padding: 18px 0;
   border-bottom: 1px solid var(--line);
+}
+.answer:last-child {
+  border-bottom: none;
 }
 .answer__author {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  font-size: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
-.answer__author a {
+.answer__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink-3);
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.answer__avatar:hover {
+  text-decoration: none;
+}
+.answer__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.answer__name {
+  font-size: 15px;
+  font-weight: 500;
   color: var(--ink);
-  font-weight: 600;
 }
-.answer__votes {
+.answer__name:hover {
   color: var(--accent);
+  text-decoration: none;
+}
+.answer__bio {
   font-size: 13px;
+  color: var(--ink-3);
+  margin: 2px 0 0;
+  max-width: 560px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .answer__body {
   font-size: 15px;
   line-height: 1.7;
+  color: var(--ink);
   max-width: 700px;
+}
+.answer__body p {
+  margin: 0 0 12px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.answer__body p:last-child {
+  margin-bottom: 0;
 }
 .prose {
   font-family: var(--sans);
 }
-.answer__foot {
-  margin-top: 10px;
+.answer__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+.answer__vote {
+  font: inherit;
+  font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.answer__vote:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.answer__vote--up {
+  color: #0066ff;
+  background: #ffffff;
+  border-color: #0066ff;
+}
+.answer__vote--up:hover {
+  background: rgba(0, 102, 255, 0.08);
+}
+.answer__vote--up.is-active {
+  color: #ffffff;
+  background: #0066ff;
+}
+.answer__vote--down {
+  color: var(--ink-3);
+  background: #ffffff;
+  border-color: var(--ink-3);
+}
+.answer__vote--down:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.answer__vote--down.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.answer__action {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.answer__action:hover {
+  color: var(--accent);
+}
+.answer__date {
+  margin-left: auto;
   font-size: 13px;
+  color: var(--ink-3);
+}
+.answer__fav {
+  position: relative;
+}
+.answer__fav-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  min-width: 170px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 0;
+}
+.answer__fav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.answer__fav-item:hover {
+  background: var(--paper);
+}
+.answer__fav-empty {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.answer__comments {
+  margin-top: 14px;
+  background: var(--paper);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+}
+.answer__comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.answer__comment {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.answer__comment:last-child {
+  border-bottom: none;
+}
+.answer__comment--child {
+  margin-left: 22px;
+}
+.answer__comment-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+.answer__comment-time {
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.answer__comment-body {
+  margin: 2px 0 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.answer__comment-body--deleted {
+  color: var(--ink-3);
+}
+.answer__comment-empty {
+  margin: 2px 0 8px;
+  color: var(--ink-3);
+}
+.answer__comment-retry {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 8px;
+  cursor: pointer;
+}
+.answer__comment-retry:hover {
+  text-decoration: underline;
+}
+.answer__comment-form {
+  margin-top: 10px;
+}
+.answer__comment-form .field--area {
+  background: var(--surface);
+  font-size: 13px;
+}
+.answer__comment-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+.answer__comment-hint {
+  margin: 8px 0 0;
   color: var(--ink-3);
 }
 
 .answer-editor {
-  margin-top: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 .answer-editor__actions {
   margin-top: 10px;
