@@ -1,3 +1,4 @@
+node_modules
 node_modules/
 client/dist/
 data/
@@ -12,3 +13,4 @@ logs/
 .deploy.lock
 .agent-run.lock
 .DS_Store
+.deploy/
