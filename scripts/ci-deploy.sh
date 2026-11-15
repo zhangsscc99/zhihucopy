@@ -175,8 +175,20 @@ else
     || { log "smoke: create answer failed"; exit 1; }
   req GET "$SMOKE_URL/questions/$QID/answers" | json_get '.items[0].id' >/dev/null \
     || { log "smoke: answer list failed"; exit 1; }
-  log "smoke flow ok (uid=$UID_ qid=$QID aid=$AID)"
-  log "SKIP: vote/comment/search/feed endpoints not implemented — not tested"
+  req POST "$SMOKE_URL/votes" "{\"target_type\":\"answer\",\"target_id\":$AID,\"value\":1}" "$TOKEN" \
+    | json_get '.voteup_count' >/dev/null \
+    || { log "smoke: vote on answer failed"; exit 1; }
+  VOTE_N="$(req POST "$SMOKE_URL/votes" "{\"target_type\":\"answer\",\"target_id\":$AID,\"value\":0}" "$TOKEN" \
+    | json_get '.voteup_count')" \
+    || { log "smoke: cancel vote failed"; exit 1; }
+  [[ "$VOTE_N" == "0" ]] || { log "smoke: vote count after cancel is $VOTE_N, expected 0"; exit 1; }
+  CID="$(req POST "$SMOKE_URL/comments" "{\"target_type\":\"answer\",\"target_id\":$AID,\"body\":\"ci smoke comment\"}" "$TOKEN" \
+    | json_get '.comment.id')" \
+    || { log "smoke: create comment failed"; exit 1; }
+  COMMENT_TOTAL="$(req GET "$SMOKE_URL/comments?target_type=answer&target_id=$AID" | json_get '.total')" \
+    || { log "smoke: comment list failed"; exit 1; }
+  [[ "$COMMENT_TOTAL" == "1" ]] || { log "smoke: comment total is $COMMENT_TOTAL, expected 1"; exit 1; }
+  log "smoke flow ok (uid=$UID_ qid=$QID aid=$AID cid=$CID)"
 
   cleanup_smoke
 fi

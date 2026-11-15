@@ -314,9 +314,9 @@
 - [x] Z1014 盐值/等级：获赞 +2 / 取消 -2（下限 0，自赞不计），level 按盐值分档并随变化更新 ✅ (2026-11-15 devin)
   verify: node scripts/assert/salt.mjs
   risk: low
-- [ ] Z1015 发帖限速未生效：4 连发全 201（antispam.mjs 红）
+- [x] Z1015 发帖限速未生效：4 连发全 201（antispam.mjs 红） ✅ (2026-11-15 devin)
   verify: node scripts/assert/antispam.mjs
   risk: med
-- [ ] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红）
+- [x] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红） ✅ (2026-11-15 devin)
   verify: node scripts/assert/smoke-fix.mjs
   risk: low

@@ -71,6 +71,14 @@ router.post("/", requireAuth, (req, res) => {
   if (typeof title !== "string" || !title.trim() || title.trim().length > 100) {
     return badRequest(res, "标题需要 1–100 个字符");
   }
+  const recentQuestions = getDb()
+    .prepare(
+      "SELECT COUNT(*) c FROM questions WHERE author_id = ? AND created_at >= datetime('now', '-5 minutes')"
+    )
+    .get(req.user.id).c;
+  if (recentQuestions >= 3) {
+    return res.status(429).json({ error: "操作太频繁，请稍后再试" });
+  }
   if (detail_md !== undefined && (typeof detail_md !== "string" || detail_md.length > 20000)) {
     return badRequest(res, "补充说明过长");
   }
@@ -234,6 +242,15 @@ router.post("/:id/answers", requireAuth, (req, res) => {
   const db = getDb();
   const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
+
+  const recentAnswers = db
+    .prepare(
+      "SELECT COUNT(*) c FROM answers WHERE author_id = ? AND is_deleted = 0 AND created_at >= datetime('now', '-10 minutes')"
+    )
+    .get(req.user.id).c;
+  if (recentAnswers >= 10) {
+    return res.status(429).json({ error: "操作太频繁，请稍后再试" });
+  }
 
   const aid = db.transaction(() => {
     const info = db
