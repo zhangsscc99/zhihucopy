@@ -546,7 +546,7 @@ function main() {
 
     // ---------------- comments (500+，含两级) ----------------
     const insComment = db.prepare(
-      "INSERT INTO comments (answer_id, author_id, parent_id, content, is_deleted, created_at) VALUES (?, ?, ?, ?, 0, ?)"
+      "INSERT INTO comments (target_type, target_id, author_id, parent_id, content, is_deleted, created_at) VALUES ('answer', ?, ?, ?, ?, 0, ?)"
     );
     // 按热度加权分配评论
     const weights = answerPlan.map((a) => 1 + (a.targetUp || 0) * 1.5 + (a.targetDown || 0));
@@ -757,7 +757,7 @@ function main() {
       `UPDATE answers SET
          vote_up = (SELECT COUNT(*) FROM votes v WHERE v.answer_id = answers.id AND v.value = 1),
          vote_down = (SELECT COUNT(*) FROM votes v WHERE v.answer_id = answers.id AND v.value = -1),
-         comment_count = (SELECT COUNT(*) FROM comments c WHERE c.answer_id = answers.id AND c.is_deleted = 0)`
+         comment_count = (SELECT COUNT(*) FROM comments c WHERE c.target_type = 'answer' AND c.target_id = answers.id AND c.is_deleted = 0)`
     ).run();
 
     db.prepare(
