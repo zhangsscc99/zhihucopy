@@ -536,3 +536,183 @@
 - Z1013 勋章：first_question / first_answer / answer_5 / upvote_10 / first_follower + 主页展示（badges.mjs 绿）
 - Z1014 盐值：赞同 +2 / 取消 -2、level 分档（salt.mjs 绿）
 
+## 轮次 2026-11-15 22:05（第八轮，线上 https://openfolio.uk/zhihucopy，Playwright 实测）
+
+巡检方式：Playwright（chromium 1140，`--no-sandbox`）真实点击，桌面 1280×900 + 移动 390×844，
+匿名 + 2 个现场注册账号：`真人review06kt3`（id 887，邮箱 @test.dev）、`真人reviewsosfp`（id 888，邮箱 @163.com）。
+脚本 `/www/hermes-home/cache/scratch/review/s1..s11*.mjs`，截图 `/www/hermes-home/cache/scratch/review/shots/*.png`。
+本轮所有自造内容（问题 395、回答 413/414、评论 354）已在收尾时经 `POST /test-support/cleanup` 物理删除：
+`q1` 回答数回到 5、`/api/search?q=？` 回到 61 条，首屏无本轮残留。
+
+### 一、本轮实测基线（可复现的数字）
+
+| 项 | 实测值 |
+|---|---|
+| 首页推荐流 | 20 卡；`GET /questions?tab=new` total=61 |
+| 热榜 | 20 卡；与推荐前 20 条交集 20/25，DOM 结构完全一致 |
+| 首屏测试内容 | 正则 `\[e2e\]|\[assert\]|巡检|验证xxxx` 命中 0；但 `质检小七` 的问题排推荐第 1 |
+| /question/1 | 5 个回答 → 发 1 条后 6 个；`查看全部 6 个回答` 点击后渲染 6，分页可达 |
+| 赞同 | 234 → 235（`aria-pressed=true`），刷新后仍 235；再点「反对」回到 234 |
+| 评论 | 17 条 → 展开 → 发表后 18 条；`DELETE /comments/354` 返回 200 |
+| 收藏 | 创建收藏夹 + 收藏成功（toast「已收藏到「…」」）；`/collections` 渲染「页面不存在」 |
+| 通知 | 未读 badge=2；进入 `/notifications` 后 badge 仍 2；`全部标为已读` 后=0 |
+| 搜索 | 「代码」9 条、「？」61 条、「a」19 条、「zzzz不存在的词qqqq」0 条 + 空态 |
+| 404 | `/question/999999`、`/u/999999`、`/nonexistent` 均 HTTP 200 |
+| 移动端 390 | `.topnav__search` display:none / 0×0；`[aria-current]` 同时 2 个；scrollWidth=390 |
+
+### 二、P0（数据进去出不来 / 主链路断）
+
+#### P0-1 收藏是数据黑洞：收藏成功，但全站没有任何入口能看到收藏
+- **现象（实测）**：`/question/1` 回答卡片点「收藏」→ 面板空态「还没有收藏夹，先建一个吧」→ 输入名称 + 「创建并收藏」→ toast `已收藏到「真人review06kt3 收藏夹」`，按钮变「已收藏」`aria-pressed=true`；`GET /api/collections` 返回 200 且 `item_count=1`。随后访问 `/zhihucopy/collections` → 命中通配路由，页面文案只有「页面不存在 / 回到首页继续浏览」（HTTP 200）；`/u/887` 个人主页 tab 只有 `回答 / 提问` 两个，没有收藏 tab；顶栏/底栏/用户菜单均无收藏入口（`grep -rn "/collections" client/src` 只命中接口调用，无路由）。
+- **影响**：用户完成了一次「有成本的正向操作」，拿到成功 toast，却再也找不到自己收藏的内容。这是最伤信任的一类死路——比没做收藏更糟，因为承诺已给出。
+- **建议修法**：`client/src/App.tsx` 增加 `/collections` 与 `/collections/:id` 路由，新建 `client/src/pages/Collections.tsx` 复用 `GET /collections`、`GET /collections/:id/items`；`pages/Profile.tsx` 的 `TabKey` 加 `collections`，仅本人可见。
+- **建议 verify 断言名**：`collections.entry.reachable`（从回答卡收藏 → 顶栏/主页能进入收藏页并看到该回答）
+
+### 三、P1
+
+#### P1-1 他人主页没有「关注」按钮，全站无法关注任何用户
+- **现象**：`/u/2`（林间有风）`main` 内 button 只有 `回答 5`、`提问 0`；「关注 4 / 粉丝 8」是 `<dt>`，`cursor:auto`、父节点 `div`，不可点。后端 `POST/DELETE /api/users/:id/follow` 均在（users.js:108/131）。
+- **影响**：社交图谱只能由脚本写入，真人用户之间无法建立关系；「关注」tab 因此永远空。
+- **建议修法**：`client/src/pages/Profile.tsx` 头部加关注按钮（本人不显示），成功后本地回写 `stats.followers±1` 与按钮文案。
+- **verify**：`profile.follow.button`（点关注 → 按钮变「已关注」、粉丝数 +1、刷新保持）
+
+#### P1-2 「关注」tab 是假的：未登录和零关注都直接渲染推荐流，且没有 active 态
+- **现象**：匿名 `/?tab=follow` → 20 张卡片（标题为真实问题流），`main` 内无任何「登录后查看关注」提示；登录态（账号 888，following=0）`/?tab=follow` 同样 20 卡。两页 `[role=tab]` 的 `aria-selected` 全为 `false`（`?tab=hot` 时「热榜」是正确的 true）。
+- **影响**：用户无法判断自己在看什么流，也拿不到「去关注人/话题」的下一步；tab 语义被静默降级成推荐。
+- **建议修法**：`pages/Home.tsx` 对 `tab=following` 走 `/feed/following`，未登录渲染登录引导、零关注渲染空态 + 「去发现话题 / 推荐关注」CTA；tab 的 `aria-selected` 按 `tab` 计算（当前 follow 分支漏了）。
+- **verify**：`feed.following.empty_state`（0 关注时 0 卡 + 出现 CTA；匿名时出现登录引导）
+
+#### P1-3 未读角标不随进入通知页清零
+- **现象**：顶栏 `aria-label="通知，2 条未读"`、badge=2；进入 `/notifications` 并停留 2s，badge 仍 `2`，`GET /notifications/unread-count` 仍 `{count:2}`；刷新后依旧 2。只有手动点「全部标为已读」才变 0（`unread-count` → 0、未读行 0、badge 消失）。
+- **影响**：红点永远不清，用户会认为通知坏了；「全部标为已读」变成必须的手工动作。
+- **建议修法**：`pages/Notifications.tsx` 首屏加载成功后对可见未读 id 调 `POST /notifications/read`（已有接口），并刷新 `useNotifications` 的计数。
+- **verify**：`notifications.unread.autoclear`（进入页面后 badge 与 unread-count 归零）
+
+#### P1-4 通知只覆盖「回答了我的问题」，赞同/评论/关注零通知
+- **现象**：账号 888 的回答被账号 887 赞同（`POST /votes` 200，`voteup_count=1`）并评论（`POST /comments` 201，id 354）后，`GET /notifications` 仍 `{total:0, unread:0}`；只有 887 两次回答 888 的问题才产生 2 条 `type=answer`。服务端仅 `routes/answers.js:52` 一处 INSERT notifications。
+- **影响**：被赞/被评论是最高频的正反馈，现在完全静默，留存钩子缺失。
+- **建议修法**：`server/routes/votes.js`、`comments.js`、`users.js`（follow）在事务内插通知（自赞/自评跳过），复用 `notifications.js` 的 payload 回查。
+- **verify**：`notifications.types.vote_comment_follow`（三类动作各产生 1 条且未读数 +1）
+
+#### P1-5 两条同作者通知文案完全相同，且都跳到问题顶部
+- **现象**：同一作者对同一问题回答两次后，两行 `ntf__item` 文本逐字相同：`真人review06kt3 回答了你的问题《真人reviewsosfp 复盘：这条链路哪里断了？》 | 刚刚`；两行正文链接都是 `/zhihucopy/question/395`，没有 `#answer-415/#answer-416` 锚点；接口已返回 `payload.answer_excerpt`（「…第1次回答…」「…第2次回答…」）但页面未渲染。
+- **影响**：用户分不清哪条是新回答，点进去也定位不到具体回答，只能自己翻。
+- **建议修法**：`pages/Notifications.tsx` 渲染 `payload.answer_excerpt` 一行摘要，链接拼 `#answer-${payload.answer_id}`；`Question.tsx` 已有 `id="answer-${id}"` 锚点。
+- **verify**：`notifications.item.excerpt_anchor`（两条同作者通知文本不同、href 含不同 #answer-）
+
+#### P1-6 自己的回答/评论没有编辑或删除入口
+- **现象**：登录后在 `/question/1` 发布回答，`countAfter=6 个回答`、toast「回答已发布」，但该回答卡片 button 集合仍只有 `赞同/反对/N 条评论/收藏/分享`（`hasEditBtn=false`）；自己刚发的评论 li 内 `button` 数 = 0。`DELETE /api/comments/354` 实测 200 `{ok:true,deleted:true}`，后端已就绪；回答/问题则连 PATCH/DELETE 路由都没有。
+- **影响**：写错字、说错话都无法撤回，只能求管理员；评论删除能力做好了却没入口。
+- **建议修法**：`pages/Question.tsx` 对 `a.author.id === user.id` 渲染「编辑/删除」（评论行加删除）；补 `PATCH/DELETE /api/answers/:id` 并复用 `answers` 的权限校验。
+- **verify**：`content.owner.edit_delete`（本人回答出现编辑/删除、删除后计数 -1 且列表移除）
+
+#### P1-7 404 归因错误 + 无主 CTA + 软 404
+- **现象**：`curl` 三个路由全部 `200`；`/question/999999` 与 `/u/999999` 文案为「问题不存在/用户不存在 | 请稍后重试；若持续失败，请检查网络后刷新页面。」，`main` 内 `a/button` 数 = 0；`/nonexistent` 文案「页面不存在 | 回到首页继续浏览」，但「回到首页」是纯文本，`cta=[]` 不可点。
+- **影响**：把「内容不存在」错误归因为「网络故障」，用户会反复刷新；且没有任何可点的出路。
+- **建议修法**：`pages/Question.tsx` / `Profile.tsx` 的 error 分支区分 404 与网络错误，404 用 `<Empty>` + `<Link to="/">回首页</Link>` + 搜索框；`components/Layout.tsx` 的 `Empty` 增加 `action` 插槽。
+- **verify**：`notfound.copy_and_cta`（404 文案不含「网络」，存在可点「回首页」）
+
+#### P1-8 390px 没有搜索入口（连续第四轮）
+- **现象**：390×844 下 `.topnav__search` `display:none`、`getBoundingClientRect()` 为 `0×0`；底栏 5 项为 `首页/发现/发布/通知/我`，无 search 链接；`document.querySelector(".bottomnav a[href*='search'], .mobile-search")` = null。
+- **影响**：移动端用户完全无法搜索，只能靠信息流碰运气。
+- **建议修法**：`components/Layout.tsx` 底栏或顶栏加固定搜索图标，落到 `/search` 页（复用 `pages/Home.tsx` 的 `SearchResults`）。
+- **verify**：`mobile.search.entry`（390px 下存在可见搜索入口且输入后出现结果页）
+
+#### P1-9 登录拦截不带 next，登录后原意图丢失
+- **现象**：匿名点「赞同」→ toast「请先登录」+ `location=/zhihucopy/login`（无查询参数）；`Login.tsx` 成功后 `navigate("/")`。投票、收藏、关注问题、登录评论全部走同一路径。
+- **影响**：用户为「赞这一条」登录，回来落在首页，要自己再找回原问题。
+- **建议修法**：`pages/Question.tsx` 的 `needLogin()` 传 `?next=${encodeURIComponent(location.pathname + location.search)}`；`Login.tsx` 读 `next` 并 `navigate(next)`。
+- **verify**：`auth.login.next`（匿名投票 → 登录后回到原问题页）
+
+#### P1-10 未登录点「写回答」没有任何反馈，只做滚动
+- **现象**：匿名点「写回答」：URL 不变（`/question/1`）、`.toast` 文本为空数组、`scrollY=1357`，编辑器位置出现「登录 后即可回答这个问题」。比第七轮（引导在视口外 2000px）好，但仍无 toast、无跳转。
+- **影响**：按钮看起来「点了没反应」，用户不一定意识到刚被滚到了页面底部。
+- **建议修法**：`pages/Question.tsx` `writeAnswer()` 在 `!user` 时先 `toast("登录后即可回答")` 再滚动，或直接走 `needLogin()`（带 next）。
+- **verify**：`question.write_answer.anon_feedback`（匿名点击出现 toast 或跳登录）
+
+### 四、P2
+
+| # | 现象（实测） | 建议修法（文件） | verify 断言名 |
+|---|---|---|---|
+| 1 | 评论展开后计数消失：`17 条评论` → 点击后按钮变「收起评论」，17/18 的数字不再出现 | `Question.tsx` 文案改 `${count} 条评论` / `收起评论（${count}）` | `comments.count_persist` |
+| 2 | 「反对」无数字、无 toast：点击后 `voteup 235→234`、`aria-pressed=true`，但按钮文字恒为「反对」 | `Question.tsx` 显示 `vote_down`，并在切换时 toast | `vote.down.count` |
+| 3 | 回答发布成功后编辑器不关闭：`count 6`、toast 正常、`draftAfter=""`，但 textarea 仍在 | `Question.tsx` 发布成功后 `setEditorOpen(false)` 或折叠为「继续写」 | `answer.editor.collapse` |
+| 4 | 热榜与推荐同构：两页 feed 卡片 class/DOM 一致（`.feed__item`），无排名色块/热度分，交集 20/25 | `Home.tsx` 热榜卡加序号/热度，或换紧凑榜单版式 | `hot.card.distinct` |
+| 5 | 搜索无最小长度/停用词：「？」返回 61 条（=全站问题数），「a」19 条 | `Home.tsx` 提交前 `<2` 字符或纯标点提示「请输入至少 2 个字」 | `search.min_length_guard` |
+| 6 | 空态无 CTA：个人主页「这个人还没有写过回答。」纯文本（实测无 button/a）；问题页空态源码 `Empty title="还没有回答" hint="写下第一个回答…"` 亦无 action 按钮（库内无 0 回答样本，未实测渲染） | `Profile.tsx`/`Question.tsx` 空态加按钮（去提问/写回答） | `empty.state.cta` |
+| 7 | 内容过滤静默：@test.dev 账号的回答在 `/question/1` 第 6 条可见，但 `/u/887` stats `answers:0`、`/answers?author=887` 空，无任何提示 | `Profile.tsx` 本人视角显示「部分内容因风控未公开」 | `profile.filtered.notice` |
+| 8 | 同一动作出现两条同文案 toast 节点（`.toast` 计数=2，文本均为「请先登录」） | `toast.tsx` 去重（同 key 覆盖而非追加） | `toast.dedupe` |
+| 9 | `/me` 只是跳到 `/u/887`，无「编辑资料」（`PATCH /users/me` 已就绪） | `Profile.tsx` 本人视角加编辑入口 | `profile.edit.entry` |
+| 10 | 首屏仍有上一轮巡检账号内容：「小团队代码评审应该多久一次…」作者 `质检小七`，排推荐第 1、搜索「代码」第 1 | 清理脚本把「质检」纳入昵称规则，或把该账号内容下线 | `feed.no_review_residue` |
+| 11 | 通知条目无类型图标，光秃秃一行字 | `Notifications.tsx` 按 type 加图标 | `notifications.type_icon` |
+
+### 五、死路清单（点了完全没反应 / 有反应但无出口）
+
+1. **收藏 → 找不到收藏**：收藏成功 toast，但 `/collections` 是「页面不存在」，主页无收藏 tab，全站无入口。
+2. **他人主页「关注 / 粉丝」数字**：`<dt>` 不可点，无关注按钮 → 永远无法关注人。
+3. **自己的回答**：无编辑、无删除。
+4. **自己的评论**：无删除按钮（接口 `DELETE /comments/:id` 已 200 可用）。
+5. **未登录「写回答」**：仅滚动，无 toast、不跳登录。
+6. **移动端搜索**：390px 下搜索框 display:none，底栏无替代入口。
+7. **404 的「回到首页继续浏览」**：纯文本，不是链接，点了没反应。
+8. **通知条目**：点进去只到问题顶部，无法定位到被通知的那条回答。
+
+### 六、数值不回写清单
+
+| 计数 | 期望 | 实测 |
+|---|---|---|
+| 赞同数 | +1 并落库 | ✅ 234→235，刷新保持 |
+| 反对数 | 显示并 +1 | ❌ 无数字展示（只有 `aria-pressed`） |
+| 评论计数 | 发表后 +1 且持续可见 | ⚠️ 18 条内部正确，但展开后「N 条评论」被「收起评论」替换，数字消失 |
+| 回答数 | +1 并落库 | ✅ 5→6，刷新保持 |
+| 未读角标 | 进入页面归零 | ❌ 2 → 仍 2；仅手动「全部标为已读」归零 |
+| 收藏状态 | 按钮回写「已收藏」 | ✅ 回写；但 `item_count` 无任何展示入口 |
+| 个人主页回答数 | 与问题页一致 | ⚠️ @test.dev 账号：问题页可见、主页 `answers:0`（过滤口径不一致，无提示） |
+
+### 七、空态无引导清单
+
+| 场景 | 现状 |
+|---|---|
+| 「关注」tab（未登录 / 0 关注） | ❌ 无空态，直接给 20 条推荐流，无登录引导、无「去关注」CTA |
+| 个人主页无回答 | ❌ 「这个人还没有写过回答。」纯文本，无按钮 |
+| 问题零回答 | ⚠️ 未验证：`/questions?tab=new&limit=100` 中 answer_count=0 的问题为 0 个，无样本 |
+| 搜索无结果 | ✅ 「没有找到…/换个关键词/去提问」双 CTA |
+| 通知未登录 | ✅ 「登录后查看通知…去登录」 |
+| 收藏夹为空 | ✅ 「还没有收藏夹，先建一个吧」+ 新建输入框 |
+| 通知列表为空（已读后） | ⚠️ 未单独验证空态文案（标记已读后仍保留 2 行已读条目） |
+
+### 八、与上一轮（第七轮 20:35）相比
+
+**已修复 / 改善（本轮实测确认）**
+- 搜索：`?q=` 现在真实生效——「代码」9 条、「zzzz不存在的词qqqq」0 条 + 空态 + 高亮 + 「取消搜索」，输入框回填 ✅（第七轮 P1-3「静默展示推荐流」已修）
+- 赞同：234→235、`aria-pressed`、刷新保持 ✅（第二轮 P0 已修）
+- 评论：可展开 17 条、可发表 17→18、空评论有引导 ✅（第二轮 P0 已修）
+- 通知：不再是占位页，有列表、未读高亮、未读角标、「全部标为已读」✅（第二轮 P1 已修；但清零策略仍错，见 P1-3）
+- 回答分页：「查看全部 6 个回答」→ 6 条，可达 ✅
+- 话题胶囊已是 `<Link to="/topic/...">` ✅（上轮 P2 已修）
+- 未登录「写回答」：会滚动到编辑器并显示「登录 后即可回答这个问题」✅（部分改善，仍无 toast/跳转）
+
+**本轮新发现 / 首次量化**
+- 「关注」tab 匿名与零关注都渲染推荐流，且三个 tab 的 `aria-selected` 全 false（P1-2）
+- 通知未读不自动清零（P1-3）；两条同作者同问题通知文案逐字相同、无摘要、无锚点（P1-5）
+- 赞同/评论/关注不产生任何通知（P1-4，接口层确认）
+- 评论展开即丢计数（P2-1 仍存在，本轮给了 17→18 的计数证据）
+- 搜索「？」返回全站 61 条，无最小长度保护（P2-5）
+- 同一动作弹两个同文案 toast（P2-8）
+- 首屏第 1 条仍是上一轮巡检账号「质检小七」的问题（P2-10）
+
+**上轮遗留、本轮确认仍在**
+- 收藏无出口（P0-1）、无关注用户（P1-1）、无编辑/删除（P1-6）、404 归因错误（P1-7）、移动端无搜索（P1-8）、登录无 next（P1-9）
+
+### 九、方向建议（下一步该闭环哪条链路）
+
+1. **先把「收藏」做成资产闭环，而不是一个按钮**。现在写进去了但取不出来，等于给用户一次假承诺。最小闭环 = 首次收藏自动建「默认收藏夹」+ 主页收藏 tab + `/collections` 列表页（含条数与最近更新），让收藏成为回访理由而不是终点。
+2. **把「关注」从装饰变成内容供给**。关注按钮 + 真实 following feed + 关注/赞同/评论三类通知 + 进页面自动已读，这四件事是一条链：没有关注就没有个性化 feed，没有通知就没有回访。只做其中一件都不会提升留存。
+3. **给作者内容主权，顺带修掉所有「点了没反应」**。编辑/删除自己的回答与评论、404 与空态都给可点的主 CTA、登录带回 next——这三件事共用一套「操作必须有出口」的规范，做完之后本轮 8 条死路会一次性消掉大半。
+
+### 十、未验证项（不得当作通过）
+
+- 回答列表在「回答数 > 单页上限」时的多页加载：库内最多 6 条回答，只验证了 1 次「查看全部」。
+- 零回答问题空态：全站无 answer_count=0 的问题样本。
+- 移动端收藏面板、移动端通知列表：本轮未在 390px 下逐项点击。
+- 编辑资料、举报、管理员后台：不在本轮走查范围。
