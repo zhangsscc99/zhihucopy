@@ -260,3 +260,4 @@ router.delete("/:id/follow", requireAuth, (req, res) => {
 
 module.exports = router;
 module.exports.SPAM_TITLE_RE = SPAM_TITLE_RE;
+module.exports.questionRow = questionRow;

@@ -1,5 +1,5 @@
 // search.mjs — 顶栏搜索关键词 → 结果页有命中 → 空结果页显示空态引导。
-// 契约（Z030/Z032）：搜索提交后进入 /search?q= 路由；结果项含关键词（或高亮 <mark>）；
+// 契约（Z953）：搜索提交后进入 /?q= 首页搜索态；结果项含关键词（或高亮 <mark>）；
 // 无结果时显示空态文案（含「没有/暂无/找到/试试」之一）。
 import { run, expect, BASE, apiOk, uniq } from "./lib.mjs";
 
@@ -15,7 +15,7 @@ run("search", async ({ page }) => {
   await box.press("Enter");
   await page.waitForLoadState("networkidle");
 
-  expect(/\/search/.test(page.url()), `search did not navigate to /search (url=${page.url()})`);
+  expect(/[?&]q=/.test(page.url()), `search did not navigate to /?q= (url=${page.url()})`);
   const hit = page.locator("main, .main-col, body").getByText(keyword, { exact: false }).first();
   await hit.waitFor({ timeout: 8000 });
 
@@ -24,5 +24,5 @@ run("search", async ({ page }) => {
   await box.fill(none);
   await box.press("Enter");
   await page.waitForLoadState("networkidle");
-  await page.getByText(/没有找到|无结果|暂无|空空如也|换个关键词|试试/).waitFor({ timeout: 8000 });
+  await page.getByText(/没有找到|无结果|暂无|空空如也|换个关键词|试试/).first().waitFor({ timeout: 8000 });
 });

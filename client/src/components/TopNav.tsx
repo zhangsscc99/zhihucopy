@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { Button } from "./ui";
 
 export function TopNav() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [params] = useSearchParams();
+  const qParam = params.get("q") || "";
+  const [query, setQuery] = useState(qParam);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -20,10 +22,19 @@ export function TopNav() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  // 结果页回填关键词；URL 上的 q 变化时同步输入框（取消搜索也会清空）。
+  useEffect(() => {
+    setQuery(qParam);
+  }, [qParam]);
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // 搜索页在 M3 里程碑上线；先保留入口。
     if (query.trim()) navigate(`/?q=${encodeURIComponent(query.trim())}`);
+  };
+
+  const clearSearch = () => {
+    setQuery("");
+    if (qParam) navigate("/");
   };
 
   return (
@@ -46,22 +57,29 @@ export function TopNav() {
         </nav>
 
         <form className="topnav__search" onSubmit={submitSearch} role="search">
-          <svg
-            className="topnav__search-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
+          <button
+            type="submit"
+            className="topnav__search-submit"
+            aria-label="提交搜索"
+            disabled={!query.trim()}
           >
-            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-            <path
-              d="m20 20-3.8-3.8"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
+            <svg
+              className="topnav__search-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+              <path
+                d="m20 20-3.8-3.8"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
           <input
             className="field field--search"
             placeholder="搜索问题、回答、用户"
@@ -69,6 +87,16 @@ export function TopNav() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="搜索"
           />
+          {query && (
+            <button
+              type="button"
+              className="topnav__search-clear"
+              aria-label="清除搜索"
+              onClick={clearSearch}
+            >
+              ×
+            </button>
+          )}
         </form>
 
         <div className="topnav__actions">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import type { ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
 import { Empty, ErrorBox } from "../components/Layout";
@@ -24,6 +25,9 @@ function excerpt(md: string, n = 90) {
 const feedQuery = (tab: Tab, page: number) =>
   `/questions?tab=${tab === "hot" ? "hot" : "new"}&page=${page}&limit=${PAGE_SIZE}`;
 
+const searchQuery = (q: string, page: number) =>
+  `/search?q=${encodeURIComponent(q)}&page=${page}&limit=${PAGE_SIZE}`;
+
 const EMPTY_COPY: Record<Exclude<Tab, "following">, { title: string; hint: string }> = {
   recommended: {
     title: "这里还没有问题",
@@ -35,7 +39,231 @@ const EMPTY_COPY: Record<Exclude<Tab, "following">, { title: string; hint: strin
   },
 };
 
-export function Home() {
+// 命中词高亮：标题/摘要中的关键词片段包 <mark class="hl">，大小写不敏感。
+function Highlight({ text, kw }: { text: string; kw: string }) {
+  if (!kw) return <>{text}</>;
+  const hay = text.toLowerCase();
+  const needle = kw.toLowerCase();
+  const parts: ReactNode[] = [];
+  let i = 0;
+  for (;;) {
+    const j = hay.indexOf(needle, i);
+    if (j === -1) {
+      parts.push(text.slice(i));
+      break;
+    }
+    if (j > i) parts.push(text.slice(i, j));
+    parts.push(
+      <mark key={parts.length} className="hl">
+        {text.slice(j, j + kw.length)}
+      </mark>
+    );
+    i = j + kw.length;
+  }
+  return <>{parts}</>;
+}
+
+function FeedCard({ q, kw }: { q: Question; kw: string }) {
+  return (
+    <li className="feed__item">
+      {/* 列表接口暂不返回 topics（questionRow 恒为 []），保留条件渲染，后端补字段后自动生效 */}
+      {q.topics?.length ? (
+        <div className="feed__topics">
+          {q.topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+              {t.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      <Link to={`/question/${q.id}`} className="feed__title">
+        <Highlight text={q.title} kw={kw} />
+      </Link>
+      {q.detail_md && (
+        <p className="feed__excerpt">
+          <Highlight text={excerpt(q.detail_md)} kw={kw} />
+        </p>
+      )}
+      <div className="feed__meta">
+        <Link to={`/u/${q.author.id}`} className="feed__author">
+          {q.author.nickname}
+        </Link>
+        <span>{q.answer_count} 个回答</span>
+        <span>{q.view_count} 次浏览</span>
+      </div>
+    </li>
+  );
+}
+
+function FeedFoot({
+  hasMore,
+  moreLoading,
+  moreError,
+  onLoadMore,
+}: {
+  hasMore: boolean;
+  moreLoading: boolean;
+  moreError: string;
+  onLoadMore: () => void;
+}) {
+  if (moreLoading) return <FeedSkeleton count={2} />;
+  if (moreError) {
+    return (
+      <div className="feed-foot feed-foot--error" role="alert">
+        <p className="feed-foot__text">加载更多失败：{moreError}</p>
+        <button type="button" className="btn btn--ghost" onClick={onLoadMore}>
+          重试
+        </button>
+      </div>
+    );
+  }
+  if (hasMore) {
+    return (
+      <div className="feed-foot">
+        <button type="button" className="btn btn--outline" onClick={onLoadMore}>
+          加载更多
+        </button>
+      </div>
+    );
+  }
+  return (
+    <p className="feed-end" role="status">
+      已经到底了
+    </p>
+  );
+}
+
+function SearchResults({ q }: { q: string }) {
+  const navigate = useNavigate();
+
+  const [items, setItems] = useState<Question[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [moreError, setMoreError] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const seq = ++requestSeq.current;
+    setInitialLoading(true);
+    setError("");
+    setMoreError("");
+    setMoreLoading(false);
+    setItems([]);
+    setTotal(0);
+    setHasMore(false);
+    setPage(1);
+    get<Page<Question>>(searchQuery(q, 1))
+      .then((res) => {
+        if (seq !== requestSeq.current) return;
+        setItems(res.items);
+        setTotal(res.total);
+        setHasMore(res.has_more && res.items.length > 0);
+      })
+      .catch((e: Error) => {
+        if (seq !== requestSeq.current) return;
+        setError(e.message || "搜索失败");
+      })
+      .finally(() => {
+        if (seq !== requestSeq.current) return;
+        setInitialLoading(false);
+      });
+  }, [q, reloadToken]);
+
+  const loadMore = useCallback(() => {
+    if (moreLoading || initialLoading) return;
+    const seq = requestSeq.current;
+    const next = page + 1;
+    setMoreLoading(true);
+    setMoreError("");
+    get<Page<Question>>(searchQuery(q, next))
+      .then((res) => {
+        if (seq !== requestSeq.current) return;
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id));
+          return [...prev, ...res.items.filter((x) => !seen.has(x.id))];
+        });
+        setTotal(res.total);
+        setHasMore(res.has_more && res.items.length > 0);
+        setPage(next);
+      })
+      .catch((e: Error) => {
+        if (seq !== requestSeq.current) return;
+        setMoreError(e.message || "加载更多失败");
+      })
+      .finally(() => {
+        if (seq !== requestSeq.current) return;
+        setMoreLoading(false);
+      });
+  }, [initialLoading, moreLoading, page, q]);
+
+  const exitSearch = () => navigate("/");
+  const retry = () => setReloadToken((n) => n + 1);
+
+  return (
+    <>
+      <section className="search-head" aria-label="搜索结果">
+        <h1 className="search-head__title">
+          <span className="search-head__q">“{q}”</span>
+          {" 的相关结果"}
+          {!initialLoading && !error && (
+            <span className="search-head__total"> · {total} 条</span>
+          )}
+        </h1>
+        <button
+          type="button"
+          className="btn btn--ghost search-head__exit"
+          onClick={exitSearch}
+        >
+          取消搜索
+        </button>
+      </section>
+
+      {/* TODO: type=answer|user|topic 分类 tab；本期只渲染「问题」结果 */}
+      {initialLoading ? (
+        <FeedSkeleton count={5} />
+      ) : error ? (
+        <ErrorBox message={error} onRetry={retry} />
+      ) : items.length === 0 ? (
+        <Empty
+          title={`没有找到与“${q}”相关的内容`}
+          hint="换个关键词试试，或直接向大家提问"
+          action={
+            <div className="empty__actions">
+              <button type="button" className="btn btn--ghost" onClick={exitSearch}>
+                换个关键词
+              </button>
+              <Link to="/ask" className="btn btn--outline">
+                去提问
+              </Link>
+            </div>
+          }
+        />
+      ) : (
+        <>
+          <ul className="feed">
+            {items.map((item) => (
+              <FeedCard key={item.id} q={item} kw={q} />
+            ))}
+          </ul>
+          <FeedFoot
+            hasMore={hasMore}
+            moreLoading={moreLoading}
+            moreError={moreError}
+            onLoadMore={loadMore}
+          />
+        </>
+      )}
+    </>
+  );
+}
+
+function Feed() {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as Tab) || "recommended";
@@ -160,54 +388,24 @@ export function Home() {
         <>
           <ul className="feed">
             {items.map((q) => (
-              <li key={q.id} className="feed__item">
-                {/* 列表接口暂不返回 topics（questionRow 恒为 []），保留条件渲染，后端补字段后自动生效 */}
-                {q.topics?.length ? (
-                  <div className="feed__topics">
-                    {q.topics.map((t) => (
-                      <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
-                        {t.name}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
-                <Link to={`/question/${q.id}`} className="feed__title">
-                  {q.title}
-                </Link>
-                {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
-                <div className="feed__meta">
-                  <Link to={`/u/${q.author.id}`} className="feed__author">
-                    {q.author.nickname}
-                  </Link>
-                  <span>{q.answer_count} 个回答</span>
-                  <span>{q.view_count} 次浏览</span>
-                </div>
-              </li>
+              <FeedCard key={q.id} q={q} kw="" />
             ))}
           </ul>
-
-          {moreLoading ? (
-            <FeedSkeleton count={2} />
-          ) : moreError ? (
-            <div className="feed-foot feed-foot--error" role="alert">
-              <p className="feed-foot__text">加载更多失败：{moreError}</p>
-              <button type="button" className="btn btn--ghost" onClick={loadMore}>
-                重试
-              </button>
-            </div>
-          ) : hasMore ? (
-            <div className="feed-foot">
-              <button type="button" className="btn btn--outline" onClick={loadMore}>
-                加载更多
-              </button>
-            </div>
-          ) : (
-            <p className="feed-end" role="status">
-              已经到底了
-            </p>
-          )}
+          <FeedFoot
+            hasMore={hasMore}
+            moreLoading={moreLoading}
+            moreError={moreError}
+            onLoadMore={loadMore}
+          />
         </>
       )}
     </>
   );
+}
+
+export function Home() {
+  const [params] = useSearchParams();
+  const q = (params.get("q") || "").trim();
+  if (q) return <SearchResults q={q} />;
+  return <Feed />;
 }
