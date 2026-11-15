@@ -16,6 +16,7 @@ interface NotificationsState {
   syncUnread: (n: number) => void;
   markAllRead: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
+  markReadMany: (ids: number[]) => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsState | null>(null);
@@ -72,9 +73,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (updated > 0) setUnread((u) => Math.max(0, u - updated));
   }, []);
 
+  const markReadMany = useCallback(async (ids: number[]) => {
+    const list = [...new Set(ids.filter((v) => Number.isInteger(v) && v > 0))];
+    if (!list.length) return;
+    const res = await post<{ updated?: number }>("/notifications/read", {
+      ids: list,
+    });
+    const updated = res?.updated ?? 0;
+    if (updated > 0) setUnread((u) => Math.max(0, u - updated));
+  }, []);
+
   const value = useMemo(
-    () => ({ unread, refresh, syncUnread, markAllRead, markRead }),
-    [unread, refresh, syncUnread, markAllRead, markRead]
+    () => ({ unread, refresh, syncUnread, markAllRead, markRead, markReadMany }),
+    [unread, refresh, syncUnread, markAllRead, markRead, markReadMany]
   );
   return (
     <NotificationsContext.Provider value={value}>

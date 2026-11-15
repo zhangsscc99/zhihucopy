@@ -178,7 +178,8 @@ function NotificationRow({
 
 export function Notifications() {
   const { user, loading: authLoading } = useAuth();
-  const { unread, markAllRead, markRead, syncUnread } = useNotifications();
+  const { unread, markAllRead, markRead, markReadMany, syncUnread } =
+    useNotifications();
   const toast = useToast();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -188,6 +189,8 @@ export function Notifications() {
   const [error, setError] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
   const requestSeq = useRef(0);
+  // 进入页面自动已读只做一次（StrictMode 双跑与 reloadToken 重试都靠它挡住重复写）。
+  const autoReadRef = useRef(false);
 
   useEffect(() => {
     if (authLoading || !user) {
@@ -205,6 +208,26 @@ export function Notifications() {
         setTotal(res?.total ?? list.length);
         // 列表响应里的 unread 是全局未读数，同步给角标保证页内计数与角标一致。
         if (typeof res?.unread === "number") syncUnread(res.unread);
+        // 列表成功加载即视为已读：把本页返回的未读项批量落库，角标随之归零。
+        // 加载失败走 catch，不会到这里；标记失败时放开守卫允许重试时补标。
+        if (!autoReadRef.current) {
+          autoReadRef.current = true;
+          const ids = list.filter((n) => !n.is_read).map((n) => n.id);
+          if (ids.length) {
+            const idSet = new Set(ids);
+            markReadMany(ids)
+              .then(() => {
+                setItems((prev) =>
+                  prev.map((x) =>
+                    idSet.has(x.id) ? { ...x, is_read: true } : x
+                  )
+                );
+              })
+              .catch(() => {
+                autoReadRef.current = false;
+              });
+          }
+        }
       })
       .catch((e: Error) => {
         if (seq !== requestSeq.current) return;
@@ -214,7 +237,7 @@ export function Notifications() {
         if (seq !== requestSeq.current) return;
         setLoading(false);
       });
-  }, [authLoading, user, syncUnread, reloadToken]);
+  }, [authLoading, user, syncUnread, markReadMany, reloadToken]);
 
   const loadMore = () => {
     if (loadingMore) return;
