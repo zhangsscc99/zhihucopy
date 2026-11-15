@@ -11,10 +11,27 @@
  * 因此重复执行结果稳定（同样的规模 -> 同样的行数与计数）。
  *
  * 反范式计数字段在全部写入完成后由 SQL 聚合回填，保证与真实行完全一致：
- *   questions.answer_count / follower_count / view_count
+ *   questions.answer_count / follower_count
  *   answers.vote_up / vote_down / comment_count
  *   topics.follower_count
  *   users.salt_value / level
+ *   （view_count 例外：按分层画像直接写入目标值，见 TIER_PLAN）
+ *
+ * ---------------------------------------------------------------------------
+ * 冷热分层（Z064）：层级由 story 在列表中的序号决定（确定性，不掷骰子），
+ * 题目 i 的层级 = i < HOT ? hot : i < HOT+WARM ? warm : i < HOT+WARM+COOL ? cool : cold。
+ * scale=1 时：hot 9 / warm 15 / cool 22 / cold 14，共 60 题，152 条回答
+ * （cold 题只插 story 的第 1 条回答；其余层保留 story 全部 3 条回答）。
+ *
+ * 调参入口（各区间均为闭区间，单位见注释）：
+ *   TIER_PLAN.<tier>.n        该层题数（按 SEED_SCALE 线性缩放，cold 吃剩余）
+ *   TIER_PLAN.<tier>.answers  每题回答数上限（cold=1，其余取 story 全部回答）
+ *   TIER_PLAN.<tier>.age      created_at 距 NOW 的天数区间 [min,max]
+ *   TIER_PLAN.<tier>.views    view_count 目标区间
+ *   TIER_PLAN.<tier>.topUp    每题「最高赞回答」的 up 票数区间（受 N_USERS-1 上限截断）
+ *   TIER_PLAN.<tier>.restUp   其余回答的 up 票数区间
+ *   TIER_PLAN.<tier>.comments 每题评论数区间（跨该题各回答按票数加权分配）
+ * ---------------------------------------------------------------------------
  */
 
 "use strict";
@@ -72,13 +89,30 @@ const fmtTs = (ms) => {
 
 const NOW = Date.now() - 5 * 60 * 1000;
 const DAY = 86400000;
-const SPAN = 90 * DAY;
+const SPAN = 180 * DAY; // 整体时间跨度约 6 个月，cold 题落在 2-6 个月前
 const T_START = NOW - SPAN;
 const at = (frac) => {
   const f = Math.max(0, Math.min(0.9995, frac));
   return T_START + f * SPAN;
 };
-const jitter = (ms, maxMs) => Math.min(NOW - 60000, ms + Math.floor(g() * maxMs));
+// 分层画像（见文件头注释）。数值为 scale=1 时的参数；age 单位为天。
+const TIER_PLAN = {
+  hot:  { n: 9,  answers: 3, age: [0.04, 3],    views: [3000, 9000], topUp: [120, 235], restUp: [30, 110], comments: [15, 25] },
+  warm: { n: 15, answers: 3, age: [14, 28],     views: [300, 900],   topUp: [20, 80],    restUp: [3, 18],   comments: [4, 8] },
+  cool: { n: 22, answers: 3, age: [30, 90],     views: [60, 250],    topUp: [1, 15],     restUp: [0, 5],    comments: [1, 4] },
+  cold: { n: 14, answers: 1, age: [60, 179],    views: [3, 40],      topUp: [0, 0],      restUp: [0, 0],    comments: [0, 1] },
+};
+// 题目序号 -> 层级（确定性）。cold 吃掉所有剩余题目，保证总数 = N_QUESTIONS。
+function tierOf(i, nQuestions, s) {
+  const hotN = Math.round(TIER_PLAN.hot.n * s);
+  const warmN = Math.round(TIER_PLAN.warm.n * s);
+  const coolN = Math.round(TIER_PLAN.cool.n * s);
+  if (i < hotN) return "hot";
+  if (i < hotN + warmN) return "warm";
+  if (i < hotN + warmN + coolN) return "cool";
+  return "cold";
+}
+const rr = ([lo, hi]) => lo + ri(Math.max(1, hi - lo + 1));
 
 const TOPICS = [
   { name: "编程", slug: "programming", cat: "code", description: "写代码这件事的手艺、习惯与取舍。" },
@@ -335,10 +369,11 @@ function main() {
 
   const db = getDb();
 
-  const N_USERS = Math.max(6, Math.round(30 * S));
+  // 用户规模要撑得起 hot 层单答 120-235 条真实 votes 行（votes 主键 user_id+answer_id，
+  // 单答最多 N_USERS-1 票），scale=1 时取 240。
+  const N_USERS = Math.max(6, Math.round(240 * S));
   const N_TOPICS = Math.max(4, Math.min(TOPICS.length, Math.round(20 * S)));
   const N_QUESTIONS = Math.max(6, Math.round(60 * S));
-  const N_COMMENTS = Math.max(40, Math.round(560 * S));
   const N_NOTIF = Math.max(12, Math.round(120 * S));
   const N_REPORTS = Math.max(3, Math.round(24 * S));
 
@@ -412,9 +447,13 @@ function main() {
     for (let i = 0; i < questionPlan.length; i++) {
       const { title, topic, story } = questionPlan[i];
       const cat = topic.cat;
+      const tier = tierOf(i, questionPlan.length, S);
+      const tp = TIER_PLAN[tier];
       const authorIdx = ri(N_USERS);
       const detail = story.detail;
-      const createdAt = fmtTs(at(((i + 0.5) / questionPlan.length) * 0.86 + g() * 0.02));
+      // created_at 落在该层时间窗内（age 为距 NOW 的天数区间）
+      const createdMs = NOW - (tp.age[0] + g() * (tp.age[1] - tp.age[0])) * DAY;
+      const createdAt = fmtTs(Math.min(createdMs, NOW - 3600000));
       const info = insQuestion.run(
         userIds[authorIdx],
         title,
@@ -439,7 +478,10 @@ function main() {
         bump("question_topics");
       }
       bump("question_topics");
-      questionPlan[i] = { qid, cat, authorIdx, topicId: topic.id, story };
+      questionPlan[i] = {
+        qid, cat, authorIdx, topicId: topic.id, story, tier,
+        createdMs, viewTarget: rr(tp.views),
+      };
     }
 
     // ---------------- answers ----------------
@@ -454,11 +496,12 @@ function main() {
 
     const answerPlan = [];
     let answerSeq = 0;
-    // 每个问题的回答数 = 该 story 显式编写的回答数（默认每题 3 条，60 题共 180 条）
+    // 每题回答数按层级：cold 只取 story 第 1 条，其余层取 story 全部回答。
+    // scale=1 时回答总数 = 9*3 + 15*3 + 22*3 + 14*1 = 152。
     for (let qi = 0; qi < questionPlan.length; qi++) {
       const q = questionPlan[qi];
       const cat = q.cat;
-      const nAns = q.story.answers.length;
+      const nAns = Math.min(q.story.answers.length, TIER_PLAN[q.tier].answers);
       // 作者不重复且不是提问者；story 显式指定作者（昵称）时优先用指定者
       const preferred = userIds
         .map((id, idx) => ({ id, idx }))
@@ -490,8 +533,12 @@ function main() {
       for (let k = 0; k < nAns; k++) {
         answerSeq++;
         const content = q.story.answers[k].content;
-        const createdMs = jitter(T_START + ((q.qid + k * 0.7) / (questionPlan.length + 4)) * SPAN, 20 * DAY) + 4 * 3600000 * k;
-        const createdAt = fmtTs(Math.min(createdMs, NOW - 3600000));
+        // 回答时间必须晚于提问时间：在问题创建后数小时~数天内落点，仍留在该层时间窗附近
+        const createdMs = Math.min(
+          NOW - 3600000,
+          q.createdMs + (k + 1) * 4 * 3600000 + Math.floor(g() * 3 * DAY)
+        );
+        const createdAt = fmtTs(createdMs);
         const info = insAnswer.run(q.qid, authors[k], content, createdAt, createdAt);
         const aid = Number(info.lastInsertRowid);
         bump("answers");
@@ -513,21 +560,23 @@ function main() {
 
     // ---------------- votes ----------------
     const insVote = db.prepare("INSERT INTO votes (user_id, answer_id, value, created_at) VALUES (?, ?, ?, ?)");
-    // 冷热分布：每题只有一个「高赞」回答，其余长尾
+    // 冷热分布：每题一个「高赞」回答取该层 topUp 区间，其余取 restUp 长尾。
+    // 所有票数都是真实 votes 行；单答上限 = N_USERS - 1。
     const byQuestion = new Map();
     for (const a of answerPlan) {
       if (!byQuestion.has(a.qid)) byQuestion.set(a.qid, []);
       byQuestion.get(a.qid).push(a);
     }
+    const tierByQid = new Map(questionPlan.map((q) => [q.qid, q.tier]));
     const votePlan = [];
-    for (const [, list] of byQuestion) {
+    for (const [qid, list] of byQuestion) {
+      const tp = TIER_PLAN[tierByQid.get(qid)];
+      const maxV = N_USERS - 1;
       const hotIdx = ri(list.length);
       list.forEach((a, idx) => {
-        const maxV = Math.min(N_USERS - 1, 24);
-        let up;
-        if (idx === hotIdx) up = 8 + ri(Math.max(1, maxV - 8));
-        else up = Math.floor(Math.pow(g(), 2.2) * (maxV * 0.45));
-        const down = g() < 0.25 ? 1 + ri(2) : 0;
+        const range = idx === hotIdx ? tp.topUp : tp.restUp;
+        const up = Math.min(maxV, rr(range));
+        const down = up > 0 && g() < 0.25 ? 1 + ri(Math.min(3, Math.floor(up / 10) + 1)) : 0;
         a.targetUp = up;
         a.targetDown = down;
         votePlan.push({ a, up, down });
@@ -548,21 +597,30 @@ function main() {
     const insComment = db.prepare(
       "INSERT INTO comments (answer_id, author_id, parent_id, content, is_deleted, created_at) VALUES (?, ?, ?, ?, 0, ?)"
     );
-    // 按热度加权分配评论
-    const weights = answerPlan.map((a) => 1 + (a.targetUp || 0) * 1.5 + (a.targetDown || 0));
-    const totalW = weights.reduce((x, y) => x + y, 0);
+    // 按分层分配评论：每题预算取该层 comments 区间，再按回答票数加权摊到各回答。
+    // scale=1 时预算合计约 9*20 + 15*6 + 22*2.5 + 14*0.5 ≈ 330。
     const commentTimes = new Map();
-    for (let i = 0; i < N_COMMENTS; i++) {
-      let r = g() * totalW;
-      let pickIdx = 0;
-      for (let j = 0; j < weights.length; j++) {
-        r -= weights[j];
-        if (r <= 0) {
-          pickIdx = j;
-          break;
+    const commentQueue = [];
+    for (const q of questionPlan) {
+      const list = byQuestion.get(q.qid) || [];
+      if (!list.length) continue;
+      const budget = Math.round(rr(TIER_PLAN[q.tier].comments) * S);
+      const w = list.map((a) => 1 + (a.targetUp || 0) * 1.5 + (a.targetDown || 0));
+      const wSum = w.reduce((x, y) => x + y, 0);
+      for (let i = 0; i < budget; i++) {
+        let r = g() * wSum;
+        let pickIdx = 0;
+        for (let j = 0; j < w.length; j++) {
+          r -= w[j];
+          if (r <= 0) {
+            pickIdx = j;
+            break;
+          }
         }
+        commentQueue.push(list[pickIdx]);
       }
-      const a = answerPlan[pickIdx];
+    }
+    for (const a of commentQueue) {
       const existing = commentTimes.get(a.aid) || [];
       const author = userIds[ri(N_USERS)];
       const isReply = existing.length > 0 && g() < 0.34;
@@ -582,7 +640,7 @@ function main() {
     // 少量软删除样本
     const del = db.prepare("UPDATE comments SET is_deleted = 1 WHERE id = ?");
     for (let i = 0; i < Math.max(1, Math.round(6 * S)); i++) {
-      const c = db.prepare("SELECT id FROM comments ORDER BY id LIMIT 1 OFFSET ?").get(ri(Math.max(1, N_COMMENTS)));
+      const c = db.prepare("SELECT id FROM comments ORDER BY id LIMIT 1 OFFSET ?").get(ri(Math.max(1, commentQueue.length)));
       if (c) del.run(c.id);
     }
 
@@ -763,12 +821,12 @@ function main() {
     db.prepare(
       `UPDATE questions SET
          answer_count = (SELECT COUNT(*) FROM answers a WHERE a.question_id = questions.id AND a.is_deleted = 0),
-         follower_count = (SELECT COUNT(*) FROM follows f WHERE f.target_type = 'question' AND f.target_id = questions.id),
-         view_count = 120
-           + (SELECT COUNT(*) FROM answers a WHERE a.question_id = questions.id AND a.is_deleted = 0) * 420
-           + (SELECT COALESCE(SUM(a.vote_up + a.vote_down), 0) FROM answers a WHERE a.question_id = questions.id) * 96
-           + (questions.id * 137) % 600`
+         follower_count = (SELECT COUNT(*) FROM follows f WHERE f.target_type = 'question' AND f.target_id = questions.id)`
     ).run();
+
+    // view_count 按分层画像直接写目标值（见 TIER_PLAN.views），制造真实冷热差
+    const updView = db.prepare("UPDATE questions SET view_count = ? WHERE id = ?");
+    for (const q of questionPlan) updView.run(q.viewTarget, q.qid);
 
     db.prepare(
       `UPDATE questions SET updated_at = COALESCE(
