@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -43,6 +43,8 @@ export function Question() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const loginNext = `/login?next=${encodeURIComponent(location.pathname)}`;
 
   const [question, setQuestion] = useState<QuestionType | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -222,7 +224,7 @@ export function Question() {
 
   const needLogin = () => {
     toast("请先登录", "error");
-    navigate("/login");
+    navigate(loginNext);
   };
 
   const followed = following ?? Boolean(question?.followed);
@@ -249,8 +251,13 @@ export function Question() {
   };
 
   const writeAnswer = () => {
+    if (!user) {
+      toast("登录后即可回答");
+      navigate(loginNext);
+      return;
+    }
     editorBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (user) editorRef.current?.focus();
+    editorRef.current?.focus();
   };
 
   const invite = async () => {
@@ -542,6 +549,14 @@ export function Question() {
             </div>
           )}
         </div>
+        {!user && (
+          <p className="answers__login-hint">
+            登录后即可回答 · 已有 {question.answer_count} 条回答
+            <Link to={loginNext} className="answers__login-cta">
+              去登录
+            </Link>
+          </p>
+        )}
         {answers.length === 0 ? (
           <Empty title="还没有回答" hint="写下第一个回答，帮提问的人一把" />
         ) : (
@@ -744,7 +759,7 @@ export function Question() {
                             </div>
                           ) : (
                             <p className="answer__comment-hint">
-                              <Link to="/login">登录</Link> 后参与评论
+                              <Link to={loginNext}>登录</Link>后参与评论
                             </p>
                           )}
                         </>
@@ -810,10 +825,7 @@ export function Question() {
           </>
         ) : (
           <p className="answer-editor__hint">
-            <Link to="/login" onClick={() => navigate("/login")}>
-              登录
-            </Link>{" "}
-            后即可回答这个问题
+            <Link to={loginNext}>登录</Link>后即可回答这个问题
           </p>
         )}
       </section>
