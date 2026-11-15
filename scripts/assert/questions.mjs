@@ -3,14 +3,14 @@
 import { ok, req, register, expect, main, uniq } from "./lib.mjs";
 
 main("questions", async () => {
-  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const nickname = `真人${uniq("n").replace(/-/g, "")}`.slice(0, 24);
   const email = `${uniq("real")}@zhihucopy.dev`;
   const reg = await req("POST", "/auth/register", {
     body: { email, password: "assert-pass-123", nickname },
   });
   expect(reg.status === 201, `register -> ${reg.status}`);
   const token = reg.data.token;
-  const title = `提问接口链路验证${uniq("q").replace(/-/g, "")}？`;
+  const title = `提问接口回归 ${uniq("q").replace(/-/g, "")} 复盘？`;
   const { question } = await ok("POST", "/questions", { token, body: { title, detail_md: "assert probe", topic_ids: [] } });
   expect(question.id > 0, "no question id returned");
 
