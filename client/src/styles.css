@@ -2118,3 +2118,130 @@ mark.hl {
 .medals__name {
   font-weight: 500;
 }
+
+/* ---------- 收藏页 ---------- */
+
+/* tab 条里允许放链接式 tab（个人主页「收藏」跳 /collections） */
+.tabs a.tabs__tab {
+  text-decoration: none;
+}
+
+/* 收藏夹总览：白卡列表，名称 + 条目数/更新时间/可见性元信息 */
+.col-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.col-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.col-card:hover {
+  text-decoration: none;
+}
+.col-card__name {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.col-card:hover .col-card__name {
+  color: var(--accent);
+}
+.col-card__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.col-card__meta > * + *::before {
+  content: "·";
+  margin: 0 6px;
+  color: var(--ink-3);
+}
+
+/* 收藏夹详情头部：回链 + 名称 + 元信息 */
+.col-head__back {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.col-head__back:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* 收藏条目：作者行 + 两行摘要 + 所属问题链接 + 取消收藏 */
+.colfav {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.colfav__author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.colfav__author .avatar:hover {
+  text-decoration: none;
+}
+.colfav__body {
+  display: block;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.colfav__body:hover {
+  text-decoration: none;
+}
+.colfav__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.colfav__meta > * + *::before {
+  content: "·";
+  margin: 0 6px;
+  color: var(--ink-3);
+}
+.colfav__question {
+  color: var(--ink-3);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.colfav__question:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.colfav__remove {
+  margin-left: auto;
+}
+.colfav__remove::before {
+  content: none;
+}
+
+@media (max-width: 767px) {
+  .colfav {
+    padding: 14px;
+  }
+  .col-card {
+    padding: 12px 14px;
+  }
+}

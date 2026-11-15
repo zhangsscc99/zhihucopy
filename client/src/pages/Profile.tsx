@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { get } from "../api";
+import { useAuth } from "../auth";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
 import type { Answer, Badge, Page, Question, User } from "../types";
@@ -207,10 +208,12 @@ function ListFoot({
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
+  const { user: me } = useAuth();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("answers");
+  const [colCount, setColCount] = useState<number | null>(null);
 
   useEffect(() => {
     setTab("answers");
@@ -219,6 +222,15 @@ export function Profile() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const isMe = Boolean(me && data && me.id === data.user.id);
+
+  useEffect(() => {
+    if (!isMe) return;
+    get<{ collections: { id: number }[] }>("/collections")
+      .then((d) => setColCount(d.collections.length))
+      .catch(() => setColCount(null));
+  }, [isMe]);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorBox message={error} />;
@@ -295,6 +307,11 @@ export function Profile() {
               {t.label} {counts[t.key]}
             </button>
           ))}
+          {isMe && (
+            <Link to="/collections" className="tabs__tab">
+              收藏{colCount !== null ? ` ${colCount}` : ""}
+            </Link>
+          )}
         </div>
         {tab === "answers" ? (
           <ProfileAnswers userId={user.id} />
