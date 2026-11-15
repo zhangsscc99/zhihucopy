@@ -20,6 +20,7 @@ function createApp() {
     const name = file.slice(0, -".js".length);
     api.use("/" + name, require(path.join(routesDir, file)));
   }
+  api.use("/admin", require(path.join(routesDir, "reports.js")).admin);
   api.use((_req, res) => res.status(404).json({ error: "接口不存在" }));
   app.use("/zhihucopy/api", api);
 
