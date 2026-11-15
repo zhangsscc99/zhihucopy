@@ -22,9 +22,18 @@ export function uniq(prefix = "assert") {
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const CLEANUP = path.join(SCRIPT_DIR, "..", "cleanup-artifacts.mjs");
 const owned = new Set(); // "u:12" "q:34" "a:56" "c:78" "col:90"
+// 会话 -> 该会话创建的对象清单。DB_PATH 缺席时自清理走 API 模式，
+// 服务端按「调用者是作者/is_test/管理员」逐 id 裁决，所以必须按会话分组。
+const sessions = new Map(); // token -> Set<"k:id">
 
-export function trackOwned(kind, id) {
-  if (Number.isInteger(id) && id > 0) owned.add(`${kind}:${id}`);
+export function trackOwned(kind, id, token) {
+  if (!Number.isInteger(id) || id <= 0) return;
+  const key = `${kind}:${id}`;
+  owned.add(key);
+  if (token) {
+    if (!sessions.has(token)) sessions.set(token, new Set());
+    sessions.get(token).add(key);
+  }
 }
 
 // POST 响应 -> 产物类型。按路径形态取响应里的对象 id。
@@ -36,12 +45,17 @@ const TRACK_POST = [
   [/^\/collections$/, (d) => d.collection && ["col", d.collection.id]],
 ];
 
-function trackResponse(method, p, status, data) {
+function trackResponse(method, p, status, data, reqToken) {
   if (method !== "POST" || status < 200 || status >= 300 || !data) return;
+  // 记下本 run 拿到的会话 token（注册/登录响应），供 API 清理作为删除身份。
+  if (typeof data.token === "string" && data.token && !sessions.has(data.token)) {
+    sessions.set(data.token, new Set());
+  }
   for (const [re, pick] of TRACK_POST) {
     if (re.test(p)) {
       const hit = pick(data);
-      if (hit) trackOwned(hit[0], hit[1]);
+      // 注册响应自带新账号 token，以本人会话记录；其余用发起请求的 token。
+      if (hit) trackOwned(hit[0], hit[1], data.token || reqToken);
       return;
     }
   }
@@ -51,15 +65,26 @@ let cleaned = false;
 export function cleanupOwned() {
   if (cleaned || !owned.size || process.env.ASSERT_NO_CLEANUP === "1") return;
   cleaned = true;
+  const env = { ...process.env, API_BASE: API };
+  // 断言进程拿到 DB_PATH 才透传（= 断言实际连的库）；缺席时子进程走 API 模式，
+  // 绝不回落生产库。
+  if (process.env.DB_PATH) env.DB_PATH = process.env.DB_PATH;
+  if (sessions.size) {
+    env.CLEANUP_API_SESSIONS = JSON.stringify(
+      Object.fromEntries([...sessions].map(([t, ids]) => [t, [...ids].join(",")]))
+    );
+  }
   try {
-    execFileSync(
+    const out = execFileSync(
       process.execPath,
       [CLEANUP, "--apply", "--older-than=0h", `--only-owned=${[...owned].join(",")}`],
-      { env: process.env, stdio: ["ignore", "inherit", "inherit"] }
+      { env, stdio: ["ignore", "pipe", "pipe"], encoding: "utf8", timeout: 60000 }
     );
+    if (out && out.trim()) process.stdout.write(out);
   } catch (e) {
-    // 清理失败不影响断言语义：只告警，残留交给调度器按标记兜底。
-    console.error(`[cleanup] 自清理失败（不影响断言结果）: ${e.message || e}`);
+    // 清理失败不影响断言语义：原样打印子进程 stderr/stdout，残留交给调度器按标记兜底。
+    const detail = [e.stderr, e.stdout].filter((s) => s && String(s).trim()).join("\n").trim();
+    console.error(`[cleanup] 自清理失败（不影响断言结果）: ${detail || e.message || e}`);
   }
 }
 process.on("exit", cleanupOwned);
@@ -78,7 +103,7 @@ export async function req(method, p, { token, body } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  trackResponse(method, p, res.status, data);
+  trackResponse(method, p, res.status, data, token);
   return { status: res.status, data };
 }
 
