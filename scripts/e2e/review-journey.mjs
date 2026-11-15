@@ -103,7 +103,7 @@ async function main() {
   const homeShot = await shot(page, "home");
 
   // ---- 2. 搜索 ----
-  const sbox = page.getByLabel("搜索");
+  const sbox = page.getByPlaceholder(/搜索问题/);
   await sbox.fill("编程");
   await sbox.press("Enter");
   await page.waitForTimeout(1500);

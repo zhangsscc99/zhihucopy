@@ -15,7 +15,7 @@
 - [x] Z903 问题详情页排版仿知乎：标题大号、关注按钮、回答卡片（作者行 头像+昵称+一句话简介 → 正文 → 赞同/反对/评论/收藏/分享 栏） ✅ (2026-11-15 devin)
   verify: node scripts/assert/question-layout.mjs
   risk: low
-- [ ] Z904 话题页与话题胶囊：话题页头部（名称+简介+关注+讨论数）、内容流、相关话题
+- [x] Z904 话题页与话题胶囊：话题页头部（名称+简介+关注+讨论数）、内容流、相关话题 ✅ (2026-11-15 devin)
   verify: node scripts/assert/topic-page.mjs
   risk: med
 - [x] Z905 顶部导航与右侧栏仿知乎：左侧 logo+导航（首页/发现/等你来答）、右侧栏（热榜 Top10 带排名色块） ✅ (2026-11-15 devin)
@@ -23,7 +23,7 @@
   risk: low
 
 ## 产品体验巡检（每轮必做一条）
-- [ ] Z950 巡检：用 Playwright 走完「首页→问题→回答→点赞→评论→通知→搜索」全链路，记录任何死路/无反馈/数值不回写，写入 docs/PRODUCT-REVIEW.md
+- [x] Z950 巡检：用 Playwright 走完「首页→问题→回答→点赞→评论→通知→搜索」全链路，记录任何死路/无反馈/数值不回写，写入 docs/PRODUCT-REVIEW.md ✅ (2026-11-15 subagent)
   verify: node scripts/assert/journey.mjs
   risk: low
 
@@ -161,14 +161,14 @@
 - [x] Z952 详情页回答卡片补评论区：`GET/POST /api/comments` 两级评论渲染与发表，发布后立即出现在列表顶部并 +1 ✅ (2026-11-15 devin)
   verify: grep -rq '/comments' client/src
   risk: high
-- [ ] Z953 顶部搜索生效：`/?q=` 真正参与检索，展示「"关键词" 的相关结果 · N 条」、命中高亮与无结果空态（当前 q 参数被完全忽略）
-  verify: grep -q '搜索结果' client/src/pages/Home.tsx
+- [x] Z953 顶部搜索生效：`/?q=` 真正参与检索，展示「"关键词" 的相关结果 · N 条」、命中高亮与无结果空态（新增只读 GET /api/search） ✅ (2026-11-15 devin)
+  verify: node scripts/assert/search-page.mjs
   risk: med
 - [ ] Z954 通知页接真实列表与未读角标：`/notifications` 渲染列表、顶部导航显示未读数，进入后标为已读清零（当前为「后续版本上线」占位页）
   verify: grep -rq '/notifications/unread-count' client/src
   risk: med
-- [ ] Z955 话题胶囊变为链接：`.tag` 改用 `<Link to="/topic/:id">`，新增话题页（名称+简介+关注+讨论数+内容流，当前点击无任何反应）
-  verify: grep -rq '/topic/' client/src
+- [x] Z955 话题胶囊变为链接：`.tag` 改用 `<Link to="/topic/:id">`，新增话题页（名称+简介+关注+讨论数+内容流，当前点击无任何反应）
+  verify: grep -rq '/topic/' client/src  # 由 Z904 覆盖 ✅ (2026-11-15 devin)
   risk: med
 - [ ] Z956 回答正文渲染 Markdown：加粗/列表/行内代码/引用/链接（编辑器文案已承诺支持，当前原样输出 `**` 与 `-`）
   verify: grep -q 'react-markdown\|marked' client/package.json
@@ -185,3 +185,18 @@
 - [ ] Z960 修正未登录引导文案与搜索框可用性：去掉「登录 后」的多余空格；搜索框补放大镜图标、提交按钮与清除按钮
   verify: grep -q '登录后即可回答' client/src/pages/Question.tsx
   risk: low
+- [x] Z962 搜索命中话题名：`/api/search?q=编程` 返回空（只匹配标题/摘要，不含所属话题名），是常见搜索意图的漏召回
+  verify: node scripts/assert/search-page.mjs
+  risk: med
+- [ ] Z964 「关注」tab 短路：前端 `tab==="following"` 不发请求直接渲染空列表，已关注问题后仍 0 卡片（API 有数据）
+  verify: node scripts/assert/feed-following.mjs
+  risk: med
+- [ ] Z965 评论可达性：自己的评论无删除入口（后端 DELETE /comments/:id 已可用）；e2e vote-comment 契约要求评论输入框在回答卡内可直接定位（当前需先点「评论」展开）
+  verify: node scripts/assert/comment-owner.mjs
+  risk: med
+- [ ] Z967 移动端与细节：390px 顶部搜索框 width:0 无替代入口；底部导航「首页/热榜」同时 aria-current（`to="/?tab=hot"` 缺 `end`）；404 页把「不存在」当网络故障且无返回入口
+  verify: node scripts/assert/mobile-nav.mjs
+  risk: low
+- [x] Z961 详情页回答分页：`answer_count>5` 时回答只渲染 5 条且无入口，用户新发布的回答刷新即消失（P0） ✅ (2026-11-15 devin)
+  verify: node scripts/assert/answer-pagination.mjs
+  risk: med
