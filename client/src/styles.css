@@ -1236,11 +1236,41 @@ mark.hl {
 
 /* ---------- Markdown 编辑器 ---------- */
 
+.md-editor__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.md-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: -1px;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.md-toolbar__btn:hover {
+  color: var(--ink);
+  background: var(--paper);
+}
 .md-editor__tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--line);
 }
 .md-editor__tab {
   font: inherit;
@@ -1278,6 +1308,201 @@ mark.hl {
 }
 .form-label .md-editor {
   margin-top: 6px;
+}
+
+/* ---------- 话题选择（/ask） ---------- */
+
+.topic-select {
+  position: relative;
+  margin-top: 6px;
+}
+.topic-select__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.topic-select__box:focus-within {
+  border-color: var(--accent);
+}
+.topic-select__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.topic-select__chip-x {
+  padding: 0 2px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.topic-select__chip-x:hover {
+  color: var(--ink);
+}
+.topic-select__input {
+  flex: 1;
+  min-width: 120px;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.topic-select__input:focus-visible {
+  outline: none;
+}
+.topic-select__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.topic-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.topic-select__option:hover {
+  background: var(--paper);
+}
+.topic-select__count {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.topic-select__empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.topic-select__hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* ---------- 管理后台 ---------- */
+
+.admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin__section {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+}
+.admin__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.admin__reports {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.report-item {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.report-item:first-child {
+  border-top: none;
+}
+.report-item__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.report-item__meta {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.report-item__summary {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.report-item__detail {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.report-item__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.report-item__status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.admin__search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin__users {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin__user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.admin__user-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+.admin__user-email {
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.admin__empty {
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
 .authpage {

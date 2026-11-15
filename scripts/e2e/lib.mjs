@@ -188,7 +188,9 @@ export async function uiLogin(page, email, password) {
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL(`${BASE}/`, { timeout: 15000 });
+  // SPA navigate("/") 落到 ${BASE}（无尾斜杠）；对尾斜杠/查询串宽容匹配。
+  const esc = BASE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page.waitForURL(new RegExp(`^${esc}/?([?#].*)?$`), { timeout: 15000 });
 }
 
 // Find one question that already has answers (for vote/comment tests).

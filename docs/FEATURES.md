@@ -320,3 +320,6 @@
 - [ ] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红）
   verify: node scripts/assert/smoke-fix.mjs
   risk: low
+- [ ] Z1017 /ask 编辑器与话题选择 + 回答编辑器预览 + e2e lib/probe-extra 修复
+  verify: node scripts/e2e/ask-editor.mjs && node scripts/e2e/answer-editor.mjs && node scripts/e2e/admin.mjs && node scripts/e2e/probe-extra.mjs
+  risk: med
