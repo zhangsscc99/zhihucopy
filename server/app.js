@@ -2,36 +2,16 @@ const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const { optionalAuth } = require("./auth");
+const { requestLogger, httpErrorLogger } = require("./logger");
 
 const CLIENT_DIST = path.join(__dirname, "..", "client", "dist");
-const LOG_DIR = path.join(__dirname, "..", "logs");
 
 function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.use(requestLogger());
   app.use(express.json({ limit: "1mb" }));
   app.use(optionalAuth);
-
-  // Lightweight structured request log.
-  fs.mkdirSync(LOG_DIR, { recursive: true });
-  const logStream = fs.createWriteStream(path.join(LOG_DIR, "app.log"), { flags: "a" });
-  app.use((req, res, next) => {
-    const start = process.hrtime.bigint();
-    res.on("finish", () => {
-      const ms = Number(process.hrtime.bigint() - start) / 1e6;
-      logStream.write(
-        JSON.stringify({
-          ts: new Date().toISOString(),
-          method: req.method,
-          url: req.originalUrl,
-          status: res.statusCode,
-          ms: Math.round(ms * 10) / 10,
-          uid: req.user ? req.user.id : null,
-        }) + "\n"
-      );
-    });
-    next();
-  });
 
   const api = express.Router();
   api.get("/health", (_req, res) => res.json({ ok: true, service: "zhihucopy" }));
@@ -51,9 +31,9 @@ function createApp() {
     res.status(503).send("Client not built yet — run `npm --prefix client run build`.");
   });
 
+  app.use(httpErrorLogger());
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
-    console.error("[zhihucopy] unhandled error:", err);
     res.status(500).json({ error: "服务器内部错误" });
   });
 
