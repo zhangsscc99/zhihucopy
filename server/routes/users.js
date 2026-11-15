@@ -1,6 +1,6 @@
 const express = require("express");
 const { getDb } = require("../db");
-const { publicUser, badRequest } = require("../util");
+const { publicUser, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { testUserSql, testQuestionSql } = require("../content-filter");
 const { AUTHOR_ANSWERS_SQL } = require("./answers");
@@ -100,7 +100,7 @@ router.patch("/me", requireAuth, (req, res) => {
     db.prepare("UPDATE users SET bio = ? WHERE id = ?").run(bio, req.user.id);
   }
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
-  res.json({ user: publicUser(user) });
+  res.json({ user: selfUser(user) });
 });
 
 // POST /users/:id/follow — 关注用户（幂等，不能关注自己）。
