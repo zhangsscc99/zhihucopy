@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult } = require("../util");
 const { requireAuth } = require("../auth");
+const { SPAM_TITLE_RE } = require("./questions");
 
 const router = express.Router();
 
@@ -84,13 +85,17 @@ router.get("/:key", (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
        JOIN question_topics qt ON qt.question_id = q.id
-       WHERE qt.topic_id = ?
+       WHERE qt.topic_id = ? AND NOT ${SPAM_TITLE_RE}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(t.id, limit, offset)
     .map(questionRow);
   const total = db
-    .prepare("SELECT COUNT(*) c FROM question_topics WHERE topic_id = ?")
+    .prepare(
+      `SELECT COUNT(*) c FROM question_topics qt
+       JOIN questions q ON q.id = qt.question_id
+       WHERE qt.topic_id = ? AND NOT ${SPAM_TITLE_RE}`
+    )
     .get(t.id).c;
 
   const question_count = total;

@@ -9,6 +9,10 @@ const router = express.Router();
 const AUTHOR_COLS =
   "u.id AS author_id, u.nickname AS author_nickname, u.avatar_url AS author_avatar, u.bio AS author_bio";
 
+// 自动化产物（巡检/e2e/assert 脚本创建的问题）不进公共列表与热榜；详情页不受限，老链接仍可打开。
+const SPAM_TITLE_RE =
+  "(q.title LIKE '巡检：%' OR q.title LIKE '[e2e]%' OR q.title LIKE '[assert]%' OR q.title LIKE '[review]%' OR q.title LIKE '[probe]%')";
+
 function questionRow(q) {
   return {
     id: q.id,
@@ -106,11 +110,14 @@ router.get("/", (req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
+       WHERE NOT ${SPAM_TITLE_RE}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
     .map(questionRow);
-  const total = db.prepare("SELECT COUNT(*) c FROM questions").get().c;
+  const total = db
+    .prepare(`SELECT COUNT(*) c FROM questions q WHERE NOT ${SPAM_TITLE_RE}`)
+    .get().c;
   res.json(pageResult(items, total, page, limit));
 });
 
@@ -252,3 +259,4 @@ router.delete("/:id/follow", requireAuth, (req, res) => {
 });
 
 module.exports = router;
+module.exports.SPAM_TITLE_RE = SPAM_TITLE_RE;
