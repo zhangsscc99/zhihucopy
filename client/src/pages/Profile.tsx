@@ -3,11 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import { get } from "../api";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
-import type { Answer, Page, Question, User } from "../types";
+import type { Answer, Badge, Page, Question, User } from "../types";
 import { formatTime } from "../lib/time";
 
 interface ProfileData {
   user: User;
+  badges?: Badge[];
   stats: {
     answers: number;
     questions: number;
@@ -223,7 +224,7 @@ export function Profile() {
   if (error) return <ErrorBox message={error} />;
   if (!data) return <Empty title="用户不存在" />;
 
-  const { user, stats } = data;
+  const { user, stats, badges = [] } = data;
   const counts: Record<TabKey, number> = {
     answers: stats.answers,
     questions: stats.questions,
@@ -241,6 +242,20 @@ export function Profile() {
             <p className="profile__joined">
               {formatTime(user.created_at)} 加入
             </p>
+            {badges.length > 0 && (
+              <ul className="medals" aria-label="勋章">
+                {badges.map((b) => (
+                  <li key={b.code} className="medals__pill" title={b.description}>
+                    <span
+                      className="medals__icon"
+                      aria-hidden="true"
+                      dangerouslySetInnerHTML={{ __html: b.icon_svg }}
+                    />
+                    <span className="medals__name">{b.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
         <dl className="profile__stats">

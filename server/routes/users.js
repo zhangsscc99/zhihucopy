@@ -5,6 +5,7 @@ const { requireAuth } = require("../auth");
 const { testUserSql, testQuestionSql } = require("../content-filter");
 const { AUTHOR_ANSWERS_SQL } = require("./answers");
 const { AUTHOR_QUESTIONS_WHERE } = require("./questions");
+const { grantFor, listFor } = require("../badges");
 
 const router = express.Router();
 
@@ -69,7 +70,7 @@ router.get("/:id", (req, res) => {
       .prepare(`SELECT COALESCE(SUM(a.vote_up), 0) s ${AUTHOR_ANSWERS_SQL}`)
       .get(user.id).s,
   };
-  res.json({ user: publicUser(user), stats });
+  res.json({ user: publicUser(user), stats, badges: listFor(user.id) });
 });
 
 router.patch("/me", requireAuth, (req, res) => {
@@ -112,9 +113,12 @@ router.post("/:id/follow", requireAuth, (req, res) => {
   if (!target) return res.status(404).json({ error: "用户不存在" });
   if (target.id === req.user.id) return badRequest(res, "不能关注自己");
 
-  db.prepare(
-    "INSERT OR IGNORE INTO follows (follower_id, target_type, target_id) VALUES (?, 'user', ?)"
-  ).run(req.user.id, target.id);
+  const inserted = db
+    .prepare(
+      "INSERT OR IGNORE INTO follows (follower_id, target_type, target_id) VALUES (?, 'user', ?)"
+    )
+    .run(req.user.id, target.id);
+  if (inserted.changes) grantFor(target.id, "first_follower");
 
   res.json({
     following: true,

@@ -4,6 +4,7 @@ const { getDb } = require("../db");
 const { signToken, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { isTestEmail } = require("../content-filter");
+const { listFor } = require("../badges");
 
 const router = express.Router();
 
@@ -50,7 +51,7 @@ router.post("/login", (req, res) => {
 });
 
 router.get("/me", requireAuth, (req, res) => {
-  res.json({ user: selfUser(req.user) });
+  res.json({ user: selfUser(req.user), badges: listFor(req.user.id) });
 });
 
 module.exports = router;
