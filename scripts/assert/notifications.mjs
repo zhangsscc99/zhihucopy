@@ -1,10 +1,22 @@
 // Z040 — 通知接口：他人回答 → 产生通知 + 未读数 + 全部已读。
-import { ok, req, register, expect, main, uniq } from "./lib.mjs";
+// 注意：测试账号/测试内容产生的通知不进列表（content-filter），
+// 因此本用例注册「真实形态」账号并发布非测试标题的问题。
+import { ok, req, expect, main, uniq } from "./lib.mjs";
+
+async function realRegister() {
+  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const email = `${uniq("real")}@zhihucopy.dev`;
+  const r = await req("POST", "/auth/register", {
+    body: { email, password: "assert-pass-123", nickname },
+  });
+  expect(r.status === 201, `register -> ${r.status}`);
+  return { token: r.data.token, user: r.data.user, email };
+}
 
 main("notifications", async () => {
-  const a = await register();
-  const b = await register();
-  const { question } = await ok("POST", "/questions", { token: a.token, body: { title: `[assert] ${uniq("q")} — 通知验收？`, detail_md: "" } });
+  const a = await realRegister();
+  const b = await realRegister();
+  const { question } = await ok("POST", "/questions", { token: a.token, body: { title: `通知链路验证${uniq("q").replace(/-/g, "")}？`, detail_md: "" } });
   const first = await ok("POST", `/questions/${question.id}/answers`, { token: b.token, body: { content_md: "触发通知的回答" } });
 
   const unread = await ok("GET", "/notifications/unread-count", { token: a.token });

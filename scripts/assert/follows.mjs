@@ -1,9 +1,21 @@
 // Z020 — 关注用户接口（follow/unfollow + following/followers 列表）。
-import { ok, req, register, expect, main, uniq } from "./lib.mjs";
+// 注意：following/followers 列表会排除测试账号（content-filter），
+// 因此本用例注册「真实形态」账号（非测试域邮箱 + 非测试昵称）。
+import { ok, req, expect, main, uniq } from "./lib.mjs";
+
+async function realRegister() {
+  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const email = `${uniq("real")}@zhihucopy.dev`;
+  const r = await req("POST", "/auth/register", {
+    body: { email, password: "assert-pass-123", nickname },
+  });
+  expect(r.status === 201, `register -> ${r.status}`);
+  return { token: r.data.token, user: r.data.user, email };
+}
 
 main("follows", async () => {
-  const a = await register();
-  const b = await register();
+  const a = await realRegister();
+  const b = await realRegister();
 
   const r = await req("POST", `/users/${b.user.id}/follow`, { token: a.token });
   expect(r.status < 300, `follow -> ${r.status} ${JSON.stringify(r.data).slice(0, 120)}`);

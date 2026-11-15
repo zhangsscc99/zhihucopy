@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult } = require("../util");
 const { requireAuth } = require("../auth");
-const { SPAM_TITLE_RE } = require("./questions");
+const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -51,7 +51,10 @@ router.get("/", (req, res) => {
       : "t.follower_count DESC, t.id ASC";
   const items = db
     .prepare(
-      `SELECT t.*, (SELECT COUNT(*) FROM question_topics qt WHERE qt.topic_id = t.id) AS question_count
+      `SELECT t.*, (SELECT COUNT(*) FROM question_topics qt
+                    JOIN questions q ON q.id = qt.question_id
+                    JOIN users u ON u.id = q.author_id
+                    WHERE qt.topic_id = t.id AND ${testQuestionSql("q", "u")}) AS question_count
        FROM topics t ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
@@ -85,7 +88,7 @@ router.get("/:key", (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
        JOIN question_topics qt ON qt.question_id = q.id
-       WHERE qt.topic_id = ? AND NOT ${SPAM_TITLE_RE}
+       WHERE qt.topic_id = ? AND ${testQuestionSql("q", "u")}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(t.id, limit, offset)
@@ -94,7 +97,8 @@ router.get("/:key", (req, res) => {
     .prepare(
       `SELECT COUNT(*) c FROM question_topics qt
        JOIN questions q ON q.id = qt.question_id
-       WHERE qt.topic_id = ? AND NOT ${SPAM_TITLE_RE}`
+       JOIN users u ON u.id = q.author_id
+       WHERE qt.topic_id = ? AND ${testQuestionSql("q", "u")}`
     )
     .get(t.id).c;
 

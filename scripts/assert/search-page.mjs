@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { ok, expect, main, uniq, register, db } from "./lib.mjs";
+import { ok, req, expect, main, uniq, db } from "./lib.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -25,9 +25,16 @@ main("search-page", async () => {
   );
 
   // ---------- 动态断言 ----------
-  const { token } = await register();
-  const tag = uniq("srch");
-  const title = `搜索验收-${tag} 关于前端性能`;
+  // 注意：搜索结果会过滤测试产物（content-filter），
+  // 因此用「真实形态」账号与标题验证「新发问题可被搜到」。
+  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const reg = await req("POST", "/auth/register", {
+    body: { email: `${uniq("real")}@zhihucopy.dev`, password: "assert-pass-123", nickname },
+  });
+  expect(reg.status === 201, `register -> ${reg.status}`);
+  const token = reg.data.token;
+  const tag = uniq("srch").replace(/-/g, "");
+  const title = `前端性能排查记录${tag}`;
   const created = await ok("POST", "/questions", {
     token,
     body: { title, detail_md: "首屏加载慢、包体积大，应该从哪些指标入手排查？" },

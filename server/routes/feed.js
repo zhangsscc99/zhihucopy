@@ -2,7 +2,8 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
-const { SPAM_TITLE_RE, questionRow } = require("./questions");
+const { questionRow } = require("./questions");
+const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -62,7 +63,7 @@ router.get("/following", requireAuth, (req, res) => {
        FROM (${FOLLOWING_CANDIDATES}) c
        JOIN questions q ON q.id = c.qid
        JOIN users u ON u.id = q.author_id
-       WHERE NOT ${SPAM_TITLE_RE}
+       WHERE ${testQuestionSql("q", "u")}
        GROUP BY c.qid
        ORDER BY activity_ts DESC, c.qid DESC
        LIMIT ? OFFSET ?`
@@ -75,7 +76,8 @@ router.get("/following", requireAuth, (req, res) => {
       `SELECT COUNT(*) AS c FROM (
          SELECT c.qid FROM (${FOLLOWING_CANDIDATES}) c
          JOIN questions q ON q.id = c.qid
-         WHERE NOT ${SPAM_TITLE_RE}
+         JOIN users u ON u.id = q.author_id
+         WHERE ${testQuestionSql("q", "u")}
          GROUP BY c.qid
        )`
     )
@@ -92,13 +94,16 @@ router.get("/recommended", (req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE NOT ${SPAM_TITLE_RE}
+       WHERE ${testQuestionSql("q", "u")}
        ORDER BY q.created_at DESC, q.id DESC LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
     .map(questionRow);
   const total = db
-    .prepare(`SELECT COUNT(*) c FROM questions q WHERE NOT ${SPAM_TITLE_RE}`)
+    .prepare(
+      `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
+       WHERE ${testQuestionSql("q", "u")}`
+    )
     .get().c;
   res.json({ items, total, has_more: page * limit < total, page });
 });
@@ -109,7 +114,7 @@ router.get("/hot", (_req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE NOT ${SPAM_TITLE_RE}
+       WHERE ${testQuestionSql("q", "u")}
        ORDER BY (q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC
        LIMIT 20`
     )

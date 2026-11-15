@@ -1,30 +1,37 @@
 // Z957 — 公共问题列表/热榜不得出现自动化产物标题。
-// 静态断言：过滤常量存在且同时用在列表查询与 COUNT 查询；
-// 运行时断言：GET /questions?tab=new|hot 返回的 items 无 spam 标题。
+// 静态断言：content-filter 模块存在且 questions.js 在列表查询与 COUNT 查询都套了过滤；
+// 运行时断言：GET /questions?tab=new|hot 返回的 items 无测试产物标题/作者。
 // 注意：cron 下跑本脚本需 `env -u NODE_CHANNEL_FD -u NODE_CHANNEL_SERIALIZATION_MODE`。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const API = (process.env.API_BASE || "http://127.0.0.1:3030/zhihucopy/api").replace(/\/+$/, "");
-const BAD_TITLE = /^(巡检：|\[e2e\]|\[assert\]|\[review\]|\[probe\])/;
+// 与线上过滤同一判定口径（server/content-filter.js 是 CJS，用 createRequire 引入）。
+const { isTestTitle, isTestNickname } = createRequire(import.meta.url)(
+  "../../server/content-filter.js"
+);
 
 function fail(msg) {
   console.error(`[feed-clean] FAIL: ${msg}`);
   process.exit(1);
 }
 
+if (!fs.existsSync(path.join(ROOT, "server/content-filter.js"))) {
+  fail("server/content-filter.js not found");
+}
 const src = fs.readFileSync(path.join(ROOT, "server/routes/questions.js"), "utf8");
-if (!/SPAM_TITLE_RE\s*=\s*"[^"]*q\.title LIKE/.test(src)) {
-  fail("SPAM_TITLE_RE constant not found in server/routes/questions.js");
+if (!/content-filter/.test(src)) {
+  fail("questions.js does not import ../content-filter");
 }
-const spamUses = src.match(/NOT \$\{SPAM_TITLE_RE\}/g) || [];
-if (spamUses.length < 2) {
-  fail(`SPAM_TITLE_RE used ${spamUses.length}x in queries — need it in both list and COUNT`);
+const uses = src.match(/\$\{testQuestionSql\("/g) || [];
+if (uses.length < 2) {
+  fail(`testQuestionSql used ${uses.length}x in queries — need it in both list and COUNT`);
 }
-if (!/SELECT COUNT\(\*\) c FROM questions q WHERE NOT \$\{SPAM_TITLE_RE\}/.test(src)) {
-  fail("COUNT(*) query does not apply SPAM_TITLE_RE — totals would diverge from items");
+if (!/SELECT COUNT\(\*\) c FROM questions q JOIN users u ON u\.id = q\.author_id\s+WHERE \$\{testQuestionSql\("/.test(src)) {
+  fail("COUNT(*) query does not apply testQuestionSql — totals would diverge from items");
 }
 
 let n = 0;
@@ -34,8 +41,11 @@ for (const tab of ["new", "hot"]) {
   const items = (await res.json()).items || [];
   for (const it of items) {
     n++;
-    if (BAD_TITLE.test(it.title || "")) {
-      fail(`tab=${tab} leaked spam title: ${JSON.stringify(it.title)}`);
+    if (isTestTitle(it.title)) {
+      fail(`tab=${tab} leaked test title: ${JSON.stringify(it.title)}`);
+    }
+    if (it.author && isTestNickname(it.author.nickname)) {
+      fail(`tab=${tab} leaked test author: ${JSON.stringify(it.author.nickname)}`);
     }
   }
 }
