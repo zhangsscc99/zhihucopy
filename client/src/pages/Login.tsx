@@ -29,7 +29,7 @@ export function Login() {
   return (
     <div className="authpage">
       <Card className="authcard">
-        <h1 className="page-title">登录知海</h1>
+        <h1 className="page-title">登录知乎（仿）</h1>
         <form onSubmit={submit} className="authform">
           <label className="form-label">
             邮箱

@@ -29,9 +29,9 @@ export function TopNav() {
   return (
     <header className="topnav">
       <div className="topnav__inner">
-        <Link to="/" className="brand" aria-label="知海首页">
+        <Link to="/" className="brand" aria-label="知乎（仿）首页">
           <span className="brand__seal">知</span>
-          <span className="brand__name">知海</span>
+          <span className="brand__name">知乎（仿）</span>
         </Link>
 
         <form className="topnav__search" onSubmit={submitSearch} role="search">
