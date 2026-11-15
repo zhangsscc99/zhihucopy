@@ -27,7 +27,10 @@ function snippet(md, q) {
   return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
 }
 
-// GET /search?q=&page=&limit=&type=question — 按关键词搜问题（标题/详情子串匹配）。
+// match_rank → 命中来源：标题 > 摘要 > 话题名。
+const MATCHED = { 1: "title", 2: "detail", 3: "topic" };
+
+// GET /search?q=&page=&limit=&type=question — 按关键词搜问题（标题/详情/所属话题名子串匹配）。
 // 说明：库内 FTS5 仅有 answer_fts（索引回答，缺答案的问题无法命中），且不得改表结构，
 // 故问题检索用 LIKE。TODO: type=answer|user|topic 分类检索。
 router.get("/", (req, res) => {
@@ -39,18 +42,49 @@ router.get("/", (req, res) => {
   }
   const pat = likePattern(q);
   const db = getDb();
-  const where = `NOT ${SPAM_TITLE_RE} AND (q.title LIKE ? ESCAPE '\\' OR q.detail_md LIKE ? ESCAPE '\\')`;
-  const items = db
+  // 话题名命中用 EXISTS 子查询而非 JOIN，避免一题多话题时重复行影响分页与 total。
+  const where = `NOT ${SPAM_TITLE_RE} AND (
+    q.title LIKE ? ESCAPE '\\' OR q.detail_md LIKE ? ESCAPE '\\' OR
+    EXISTS (SELECT 1 FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
+            WHERE qt.question_id = q.id AND t.name LIKE ? ESCAPE '\\')
+  )`;
+  const rows = db
     .prepare(
-      `SELECT q.*, ${AUTHOR_COLS} FROM questions q
+      `SELECT q.*, ${AUTHOR_COLS},
+         CASE WHEN q.title LIKE ? ESCAPE '\\' THEN 1
+              WHEN q.detail_md LIKE ? ESCAPE '\\' THEN 2
+              ELSE 3 END AS match_rank
+       FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${where}
-       ORDER BY (q.title LIKE ? ESCAPE '\\') DESC, q.created_at DESC
+       ORDER BY match_rank ASC, q.created_at DESC
        LIMIT ? OFFSET ?`
     )
-    .all(pat, pat, pat, limit, offset)
-    .map((row) => ({ ...questionRow(row), snippet: snippet(row.detail_md, q) }));
-  const total = db.prepare(`SELECT COUNT(*) c FROM questions q WHERE ${where}`).get(pat, pat).c;
+    .all(pat, pat, pat, pat, pat, limit, offset);
+
+  // 结果卡需要展示话题胶囊：一次性捞回本页问题的话题（id/name/slug），避免逐题查询。
+  const ids = rows.map((r) => r.id);
+  const topicsByQ = new Map();
+  if (ids.length) {
+    for (const t of db
+      .prepare(
+        `SELECT qt.question_id, t.id, t.name, t.slug FROM question_topics qt
+         JOIN topics t ON t.id = qt.topic_id
+         WHERE qt.question_id IN (${ids.map(() => "?").join(",")})`
+      )
+      .all(...ids)) {
+      const arr = topicsByQ.get(t.question_id) || [];
+      arr.push({ id: t.id, name: t.name, slug: t.slug });
+      topicsByQ.set(t.question_id, arr);
+    }
+  }
+
+  const items = rows.map((row) => ({
+    ...questionRow({ ...row, topics: topicsByQ.get(row.id) || [] }),
+    snippet: snippet(row.detail_md, q),
+    matched: MATCHED[row.match_rank],
+  }));
+  const total = db.prepare(`SELECT COUNT(*) c FROM questions q WHERE ${where}`).get(pat, pat, pat).c;
   res.json(pageResult(items, total, page, limit));
 });
 

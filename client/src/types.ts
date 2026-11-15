@@ -38,6 +38,7 @@ export interface Question {
   view_count: number;
   author: Author;
   topics: Topic[];
+  matched?: "title" | "detail" | "topic";
   followed?: boolean;
 }
 

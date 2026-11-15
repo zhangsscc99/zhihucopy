@@ -66,12 +66,12 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
 function FeedCard({ q, kw }: { q: Question; kw: string }) {
   return (
     <li className="feed__item">
-      {/* 列表接口暂不返回 topics（questionRow 恒为 []），保留条件渲染，后端补字段后自动生效 */}
+      {/* 搜索接口返回 topics；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
       {q.topics?.length ? (
         <div className="feed__topics">
           {q.topics.map((t) => (
             <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
-              {t.name}
+              <Highlight text={t.name} kw={q.matched === "topic" ? kw : ""} />
             </Link>
           ))}
         </div>
