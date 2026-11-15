@@ -15,12 +15,11 @@ function createApp() {
 
   const api = express.Router();
   api.get("/health", (_req, res) => res.json({ ok: true, service: "zhihucopy" }));
-  api.use("/auth", require("./routes/auth"));
-  api.use("/users", require("./routes/users"));
-  api.use("/questions", require("./routes/questions"));
-  api.use("/answers", require("./routes/answers"));
-  api.use("/votes", require("./routes/votes"));
-  api.use("/comments", require("./routes/comments"));
+  const routesDir = path.join(__dirname, "routes");
+  for (const file of fs.readdirSync(routesDir).filter((f) => f.endsWith(".js") && !f.startsWith("_") && !f.startsWith(".")).sort()) {
+    const name = file.slice(0, -".js".length);
+    api.use("/" + name, require(path.join(routesDir, file)));
+  }
   api.use((_req, res) => res.status(404).json({ error: "接口不存在" }));
   app.use("/zhihucopy/api", api);
 
