@@ -13,6 +13,7 @@ import { Topic } from "./pages/Topic";
 import { Topics } from "./pages/Topics";
 import { Unanswered } from "./pages/Unanswered";
 import { Notifications } from "./pages/Notifications";
+import { Admin } from "./pages/Admin";
 
 function Me() {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export function App() {
         <Route path="/u/:id" element={<Profile />} />
         <Route path="/me" element={<Me />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Empty title="页面不存在" hint="回到首页继续浏览" />} />
       </Routes>
     </Layout>

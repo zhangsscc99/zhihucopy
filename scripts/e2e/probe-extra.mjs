@@ -51,7 +51,7 @@ const main = async () => {
   out.mobile = {
     bottomNavVisible: await mp.locator("nav[aria-label=底部导航]").isVisible(),
     topnavVisible: await mp.locator("header.topnav").isVisible(),
-    searchVisible: await mp.getByLabel("搜索").isVisible(),
+    searchVisible: await mp.getByLabel("搜索", { exact: true }).isVisible(),
     cards: await mp.locator(".feed__item").count(),
     horizontalOverflow: await mp.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1),
     railVisible: await mp.locator("aside.rail").isVisible().catch(() => false),
@@ -78,7 +78,7 @@ const main = async () => {
     };
     await pub.screenshot({ path: path.join(SHOT_DIR, "public-home.png"), fullPage: false });
     // 公网搜索
-    const sb = pub.getByLabel("搜索");
+    const sb = pub.getByLabel("搜索", { exact: true });
     await sb.fill("编程");
     await sb.press("Enter");
     await pub.waitForTimeout(2500);

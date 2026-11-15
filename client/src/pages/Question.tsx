@@ -52,6 +52,27 @@ export function Question() {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // 回答草稿按问题落 localStorage：进入/切换问题时恢复，输入防抖写回，清空即删键。
+  const draftKey = `zhihu_answer_draft:q${id}`;
+  useEffect(() => {
+    try {
+      setDraft(localStorage.getItem(draftKey) ?? "");
+    } catch {
+      setDraft("");
+    }
+  }, [draftKey]);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        if (draft.trim()) localStorage.setItem(draftKey, draft);
+        else localStorage.removeItem(draftKey);
+      } catch {
+        // localStorage 不可用时退化为纯内存草稿，不打断输入。
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [draft, draftKey]);
+
   const [following, setFollowing] = useState<boolean | null>(null);
   const [followPending, setFollowPending] = useState(false);
   const [votes, setVotes] = useState<Record<number, number>>({});
@@ -440,6 +461,11 @@ export function Question() {
       setQuestion((q) => (q ? { ...q, answer_count: q.answer_count + 1 } : q));
       setNewId(answer.id);
       setDraft("");
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // 忽略
+      }
       toast("回答已发布");
     } catch (e) {
       toast((e as Error).message, "error");

@@ -320,8 +320,11 @@
 - [x] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红） ✅ (2026-11-15 devin)
   verify: node scripts/assert/smoke-fix.mjs
   risk: low
-
 ## 第八轮待办（2026-11-15 20:35，来源 docs/PRODUCT-REVIEW.md 第七轮 Playwright 实测）
+
+- [x] Z1017 /ask 编辑器与话题选择 + 回答编辑器预览/草稿持久化 + /admin 后台页 + e2e lib/probe-extra 修复（原 4 条既有 e2e 红灯，基线同样红） ✅ (2026-11-15 devin)
+  verify: node scripts/e2e/ask-editor.mjs && node scripts/e2e/answer-editor.mjs && node scripts/e2e/admin.mjs && node scripts/e2e/probe-extra.mjs
+  risk: med
 
 - [ ] Z1018 他人主页无「关注」按钮：`/u/:id` 头部只有 回答/提问 两 tab，「关注 N / 粉丝 M」是纯文本不可点，全站无法关注用户（P1）
   verify: node scripts/assert/follow-user.mjs
