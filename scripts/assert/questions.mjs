@@ -3,7 +3,8 @@ import { ok, req, register, expect, main, uniq } from "./lib.mjs";
 
 main("questions", async () => {
   const { token } = await register();
-  const title = `[assert] ${uniq("q")} — 提问接口验收？`;
+  // 标题避开自动化产物前缀（[assert] 等），否则会被列表接口的 SPAM_TITLE_RE 过滤。
+  const title = `assert-feed ${uniq("q")} — 提问接口验收？`;
   const { question } = await ok("POST", "/questions", { token, body: { title, detail_md: "assert probe", topic_ids: [] } });
   expect(question.id > 0, "no question id returned");
 
