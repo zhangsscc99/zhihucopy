@@ -12,6 +12,16 @@ const router = express.Router();
 const AUTHOR_COLS =
   "u.id AS author_id, u.nickname AS author_nickname, u.avatar_url AS author_avatar, u.bio AS author_bio";
 
+// 热榜热度分：互动加权（回答*3 + 关注*2 + 浏览），与 ORDER BY 用同一表达式，
+// 「分数即顺序」，无随机成分。/feed/hot 复用同一常量，两处口径一致。
+const HOT_SCORE_SQL =
+  "(q.answer_count * 3 + q.follower_count * 2 + q.view_count)";
+
+// 热榜排名快照（进程内存，无快照表/库列时的轻量口径）：上一次请求的整榜
+// id -> 名次，用于 rank_delta = 上次名次 - 本次名次（>0 即上升）。
+// 进程重启清零；首轮请求没有基线，不返回 rank_delta，前端不渲染上升标记。
+let prevHotRanks = null;
+
 // 自动化产物（巡检/e2e/assert 脚本创建的问题及其账号）不进公共列表与热榜；
 // 判定口径集中在 server/content-filter.js。详情页不受限，老链接仍可打开。
 
@@ -25,6 +35,8 @@ function questionRow(q) {
     answer_count: q.answer_count,
     follower_count: q.follower_count,
     view_count: q.view_count,
+    // hot 分支 SQL 里才算出的热度分，其他出口不夹带。
+    ...(q.hot_score === undefined ? {} : { hot_score: q.hot_score }),
     author: {
       id: q.author_id,
       nickname: q.author_nickname,
@@ -121,8 +133,10 @@ router.get("/", (req, res) => {
   const db = getDb();
   const order =
     tab === "hot"
-      ? "(q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC"
+      ? `${HOT_SCORE_SQL} DESC, q.created_at DESC`
       : "q.created_at DESC";
+  // 热度分随行返回（仅热榜），前端元信息行直接展示，无需二次计算。
+  const hotScoreCol = tab === "hot" ? `, ${HOT_SCORE_SQL} AS hot_score` : "";
   // ?author= 个人页口径：与 users.js stats.questions 同一段 WHERE（含测试内容过滤）。
   const conds = [testQuestionSql("q", "u")];
   const params = [];
@@ -140,13 +154,37 @@ router.get("/", (req, res) => {
   const where = conds.join(" AND ");
   const items = db
     .prepare(
-      `SELECT q.*, ${AUTHOR_COLS} FROM questions q
+      `SELECT q.*, ${AUTHOR_COLS}${hotScoreCol} FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${where}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset)
     .map(questionRow);
+  // rank_delta：本次整榜名次 vs 上次内存快照（author 过滤的列表不算整榜，
+  // 不比也不污染基线）。snapshot 用同一条 WHERE/ORDER 的全量 id 序重建。
+  if (tab === "hot" && req.query.author === undefined) {
+    const ranks = new Map(
+      db
+        .prepare(
+          `SELECT q.id FROM questions q
+           JOIN users u ON u.id = q.author_id
+           WHERE ${where} ORDER BY ${order}`
+        )
+        .all(...params)
+        .map((r, i) => [r.id, i + 1])
+    );
+    if (prevHotRanks) {
+      for (const it of items) {
+        const prev = prevHotRanks.get(it.id);
+        const now = ranks.get(it.id);
+        if (prev !== undefined && now !== undefined && prev !== now) {
+          it.rank_delta = prev - now;
+        }
+      }
+    }
+    prevHotRanks = ranks;
+  }
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
@@ -325,3 +363,4 @@ router.delete("/:id/follow", requireAuth, (req, res) => {
 module.exports = router;
 module.exports.questionRow = questionRow;
 module.exports.AUTHOR_QUESTIONS_WHERE = AUTHOR_QUESTIONS_WHERE;
+module.exports.HOT_SCORE_SQL = HOT_SCORE_SQL;

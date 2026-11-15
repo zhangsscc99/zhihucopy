@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
-const { questionRow } = require("./questions");
+const { questionRow, HOT_SCORE_SQL } = require("./questions");
 const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
@@ -108,14 +108,14 @@ router.get("/recommended", (req, res) => {
   res.json({ items, total, has_more: page * limit < total, page });
 });
 
-// GET /feed/hot — 热榜 Top20（与 /questions?tab=hot 同序：回答*3 + 关注*2 + 浏览）。
+// GET /feed/hot — 热榜 Top20（与 /questions?tab=hot 同一段 HOT_SCORE_SQL，热度分随行返回）。
 router.get("/hot", (_req, res) => {
   const items = getDb()
     .prepare(
-      `SELECT q.*, ${AUTHOR_COLS} FROM questions q
+      `SELECT q.*, ${AUTHOR_COLS}, ${HOT_SCORE_SQL} AS hot_score FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${testQuestionSql("q", "u")}
-       ORDER BY (q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC
+       ORDER BY ${HOT_SCORE_SQL} DESC, q.created_at DESC
        LIMIT 20`
     )
     .all()

@@ -48,6 +48,9 @@ export interface Question {
   topics: Topic[];
   matched?: "title" | "detail" | "topic";
   followed?: boolean;
+  // 仅热榜（/questions?tab=hot、/feed/hot）返回：热度分与排名变化。
+  hot_score?: number;
+  rank_delta?: number;
 }
 
 export interface Answer {
