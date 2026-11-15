@@ -1,21 +1,25 @@
 /* zhihucopy — 设计令牌见 docs/DESIGN.md
-   原则：阅读优先、发丝线而非卡片、衬线承载内容、朱砂红只作印记 */
+   原则：像知乎——蓝主色、灰阶层级、白卡细边框、圆角 3px、无重阴影、信息密度高 */
 
 :root {
-  --paper: #f6f7f8;
+  --paper: #f6f6f6;
   --surface: #ffffff;
-  --ink: #1b1e23;
-  --ink-2: #59616b;
-  --line: #e3e6ea;
-  --accent: #1f4ea1;
-  --accent-hover: #1a4389;
-  --seal: #b03a2e;
+  --ink: #121212;
+  --ink-2: #444444;
+  --ink-3: #8590a6;
+  --line: #ebebeb;
+  --accent: #0066ff;
+  --accent-hover: #005ce6;
+  --seal: #b03a2e; /* 兼容别名：仅错误态使用 */
+  --hot-1: #ff5a5f;
+  --hot-23: #ff7a45;
 
-  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
-  --sans: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-    "Noto Sans SC", sans-serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  /* 兼容别名：旧代码中的衬线引用统一回落到无衬线 */
+  --serif: var(--sans);
 
-  --radius: 4px;
+  --radius: 3px;
   --maxw: 1020px;
 }
 
@@ -29,8 +33,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 a {
@@ -53,10 +57,10 @@ textarea:focus-visible {
 .container {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 10px 16px 64px;
   display: grid;
   grid-template-columns: minmax(0, 694px) 296px;
-  gap: 30px;
+  gap: 10px;
   align-items: start;
 }
 .main-col {
@@ -75,7 +79,7 @@ textarea:focus-visible {
 .topnav__inner {
   max-width: var(--maxw);
   margin: 0 auto;
-  height: 56px;
+  height: 52px;
   padding: 0 16px;
   display: flex;
   align-items: center;
@@ -86,27 +90,29 @@ textarea:focus-visible {
   align-items: baseline;
   gap: 8px;
   text-decoration: none;
+  flex-shrink: 0;
 }
 .brand__seal {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 700;
   font-size: 20px;
   color: #fff;
-  background: var(--seal);
-  border-radius: 2px;
+  background: var(--accent);
+  border-radius: var(--radius);
   padding: 1px 5px 3px;
   line-height: 1;
   transform: translateY(2px);
 }
 .brand__name {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 22px;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--accent);
 }
 .topnav__search {
   flex: 1;
-  max-width: 360px;
+  max-width: 520px;
+  margin: 0 auto;
 }
 .topnav__links {
   display: flex;
@@ -125,6 +131,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 /* ---------- 控件 ---------- */
@@ -134,7 +141,7 @@ textarea:focus-visible {
   font-size: 14px;
   border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 7px 16px;
+  padding: 6px 16px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -157,6 +164,7 @@ textarea:focus-visible {
 }
 .btn--outline {
   border-color: var(--accent);
+  background: rgba(0, 102, 255, 0.06);
 }
 .btn--ghost {
   color: var(--ink-2);
@@ -174,7 +182,7 @@ textarea:focus-visible {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
-  padding: 8px 12px;
+  padding: 7px 12px;
 }
 .field:focus {
   outline: none;
@@ -182,6 +190,13 @@ textarea:focus-visible {
 }
 .field--search {
   background: var(--paper);
+  border-color: transparent;
+  height: 34px;
+  padding: 0 12px;
+}
+.field--search:focus {
+  background: var(--surface);
+  border-color: var(--accent);
 }
 .field--area {
   resize: vertical;
@@ -192,17 +207,19 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 16px 20px;
 }
 
 .tag {
   display: inline-block;
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: 12px;
+  color: var(--ink-3);
   background: var(--paper);
-  border: 1px solid var(--line);
+  border: none;
   border-radius: var(--radius);
-  padding: 1px 10px;
+  padding: 0 8px;
+  height: 24px;
+  line-height: 24px;
   margin-right: 8px;
 }
 
@@ -289,7 +306,9 @@ textarea:focus-visible {
 .tabs {
   display: flex;
   gap: 24px;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
   margin-bottom: 0;
   background: var(--surface);
   padding: 0 20px;
@@ -301,7 +320,7 @@ textarea:focus-visible {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  padding: 14px 0 11px;
+  padding: 12px 0 9px;
   cursor: pointer;
 }
 .tabs__tab--active {
@@ -315,15 +334,21 @@ textarea:focus-visible {
   margin: 0;
   padding: 0;
   background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 .feed__item {
-  padding: 18px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--line);
 }
+.feed__item:last-child {
+  border-bottom: none;
+}
 .feed__title {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
   line-height: 1.5;
 }
@@ -333,18 +358,23 @@ textarea:focus-visible {
 }
 .feed__excerpt {
   margin: 6px 0 8px;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--ink-2);
   line-height: 1.7;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 .feed__meta {
   display: flex;
   gap: 14px;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .feed__author {
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
 /* 列表底部：加载更多 / 到底提示 / 追加失败 */
@@ -353,9 +383,11 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 18px 20px 20px;
+  padding: 16px 20px;
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 .feed-foot--error {
   justify-content: space-between;
@@ -364,16 +396,18 @@ textarea:focus-visible {
 .feed-foot__text {
   margin: 0;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .feed-end {
   margin: 0;
-  padding: 20px;
+  padding: 16px 20px;
   text-align: center;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
 /* ---------- 问题详情 ---------- */
@@ -382,39 +416,41 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 28px;
+  padding: 20px 24px;
 }
 .question__topics {
   margin-bottom: 10px;
 }
 .question__title {
-  font-family: var(--serif);
-  font-size: 26px;
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 700;
   line-height: 1.4;
   margin: 0 0 10px;
 }
 .question__detail {
   color: var(--ink);
-  line-height: 1.8;
+  font-size: 15px;
+  line-height: 1.7;
   margin: 0 0 12px;
   white-space: pre-wrap;
 }
 .question__meta {
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
   display: flex;
   gap: 14px;
-  padding-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
 .question__meta a {
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
 .answers__count {
   font-size: 16px;
   font-weight: 600;
-  margin: 22px 0 4px;
+  margin: 18px 0 4px;
 }
 .answerlist {
   list-style: none;
@@ -422,7 +458,7 @@ textarea:focus-visible {
   padding: 0;
 }
 .answer {
-  padding: 18px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--line);
 }
 .answer__author {
@@ -437,22 +473,23 @@ textarea:focus-visible {
   font-weight: 600;
 }
 .answer__votes {
-  color: var(--ink-2);
+  color: var(--accent);
   font-size: 13px;
 }
 .answer__body {
   font-size: 15px;
-  line-height: 1.8;
+  line-height: 1.7;
+  max-width: 700px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .prose {
-  font-family: var(--serif);
+  font-family: var(--sans);
 }
 .answer__foot {
   margin-top: 10px;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
 .answer-editor {
@@ -465,19 +502,20 @@ textarea:focus-visible {
 }
 .answer-editor__hint {
   font-size: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
 /* ---------- 表单页 ---------- */
 
 .page-title {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 22px;
+  font-weight: 700;
   margin: 0 0 6px;
 }
 .page-hint {
   font-size: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
   margin: 0 0 18px;
 }
 .form-label {
@@ -510,7 +548,7 @@ textarea:focus-visible {
 .authcard__alt {
   margin: 16px 0 0;
   font-size: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 
 /* ---------- 侧栏 ---------- */
@@ -519,7 +557,7 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 16px 18px;
 }
 .rail-block__title {
   font-size: 15px;
@@ -530,7 +568,7 @@ textarea:focus-visible {
 }
 .rail-block__empty {
   font-size: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
   margin: 0;
 }
 .rail-block__foot {
@@ -538,13 +576,12 @@ textarea:focus-visible {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 12px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .hotlist {
   list-style: none;
   margin: 0;
   padding: 0;
-  counter-reset: hot;
 }
 .hotlist__item {
   display: flex;
@@ -553,16 +590,20 @@ textarea:focus-visible {
   align-items: baseline;
 }
 .hotlist__rank {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 15px;
-  font-weight: 700;
-  color: var(--ink-2);
+  font-weight: 600;
+  color: var(--ink-3);
   width: 18px;
   flex-shrink: 0;
   text-align: center;
 }
-.hotlist__rank--top {
-  color: var(--seal);
+.hotlist__item:nth-child(1) .hotlist__rank {
+  color: var(--hot-1);
+}
+.hotlist__item:nth-child(2) .hotlist__rank,
+.hotlist__item:nth-child(3) .hotlist__rank {
+  color: var(--hot-23);
 }
 .hotlist__link {
   color: var(--ink);
@@ -601,7 +642,7 @@ textarea:focus-visible {
 }
 .empty__hint {
   font-size: 14px;
-  color: var(--ink-2);
+  color: var(--ink-3);
   margin: 0;
 }
 .empty__action {
@@ -621,7 +662,7 @@ textarea:focus-visible {
 .errorbox__hint {
   margin-top: 6px;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .errorbox__actions {
   margin-top: 14px;
@@ -637,9 +678,11 @@ textarea:focus-visible {
 }
 .sk-feed {
   background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: none;
 }
 .sk-feed__item {
-  padding: 18px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--line);
 }
 .sk-feed__lines {
@@ -684,7 +727,7 @@ textarea:focus-visible {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ink-2);
+  background: var(--ink-3);
   animation: spinner-blink 1.2s infinite;
 }
 .spinner span:nth-child(2) {
@@ -711,8 +754,9 @@ textarea:focus-visible {
   align-items: flex-start;
 }
 .profile__name {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 22px;
+  font-weight: 700;
   margin: 0 0 4px;
 }
 .profile__bio {
@@ -723,7 +767,7 @@ textarea:focus-visible {
 .profile__joined {
   margin: 0;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .profile__stats {
   display: flex;
@@ -737,11 +781,11 @@ textarea:focus-visible {
 }
 .profile__stats dt {
   font-size: 12px;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .profile__stats dd {
   margin: 2px 0 0;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 20px;
   font-weight: 700;
 }
