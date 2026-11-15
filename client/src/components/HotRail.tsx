@@ -23,18 +23,31 @@ export function HotRail() {
       ) : items.length === 0 ? (
         <p className="rail-block__empty">还没有内容，来提第一个问题吧。</p>
       ) : (
-        <ol className="hotlist">
-          {items.map((q, i) => (
-            <li key={q.id} className="hotlist__item">
-              <span className={`hotlist__rank ${i < 3 ? "hotlist__rank--top" : ""}`}>
-                {i + 1}
-              </span>
-              <Link to={`/question/${q.id}`} className="hotlist__link">
-                {q.title}
-              </Link>
-            </li>
-          ))}
-        </ol>
+        <>
+          <ol className="hotlist">
+            {items.map((q, i) => (
+              <li key={q.id} className="hotlist__item">
+                <span
+                  className={`hotlist__rank ${
+                    i === 0
+                      ? "hotlist__rank--top1"
+                      : i < 3
+                        ? "hotlist__rank--top23"
+                        : ""
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <Link to={`/question/${q.id}`} className="hotlist__link">
+                  {q.title}
+                </Link>
+              </li>
+            ))}
+          </ol>
+          <Link to="/?tab=hot" className="rail-block__more">
+            查看全部热榜
+          </Link>
+        </>
       )}
       <footer className="rail-block__foot">知乎（仿） · 有问题，就会有答案</footer>
     </div>
