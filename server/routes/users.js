@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { publicUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
+const { testUserSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -26,15 +27,22 @@ function followUserItem(u) {
   };
 }
 
+// 计数与列表共用同一口径：排除测试账号（content-filter）。
 function countFollowing(db, userId) {
   return db
-    .prepare("SELECT COUNT(*) c FROM follows WHERE follower_id = ? AND target_type = 'user'")
+    .prepare(
+      `SELECT COUNT(*) c FROM follows f JOIN users u ON u.id = f.target_id
+       WHERE f.follower_id = ? AND f.target_type = 'user' AND ${testUserSql("u")}`
+    )
     .get(userId).c;
 }
 
 function countFollowers(db, userId) {
   return db
-    .prepare("SELECT COUNT(*) c FROM follows WHERE target_type = 'user' AND target_id = ?")
+    .prepare(
+      `SELECT COUNT(*) c FROM follows f JOIN users u ON u.id = f.follower_id
+       WHERE f.target_type = 'user' AND f.target_id = ? AND ${testUserSql("u")}`
+    )
     .get(userId).c;
 }
 
@@ -49,9 +57,7 @@ router.get("/:id", (req, res) => {
     questions: db
       .prepare("SELECT COUNT(*) c FROM questions WHERE author_id = ?")
       .get(user.id).c,
-    followers: db
-      .prepare("SELECT COUNT(*) c FROM follows WHERE target_type = 'user' AND target_id = ?")
-      .get(user.id).c,
+    followers: countFollowers(db, user.id),
     following: countFollowing(db, user.id),
     vote_up: db
       .prepare(
@@ -143,7 +149,7 @@ router.get("/:id/following", (req, res) => {
     .prepare(
       `SELECT u.id, u.nickname, u.avatar_url, u.bio
        FROM follows f JOIN users u ON u.id = f.target_id
-       WHERE f.follower_id = ? AND f.target_type = 'user'
+       WHERE f.follower_id = ? AND f.target_type = 'user' AND ${testUserSql("u")}
        ORDER BY f.created_at DESC, u.id DESC LIMIT ? OFFSET ?`
     )
     .all(user.id, limit, offset)
@@ -163,7 +169,7 @@ router.get("/:id/followers", (req, res) => {
     .prepare(
       `SELECT u.id, u.nickname, u.avatar_url, u.bio
        FROM follows f JOIN users u ON u.id = f.follower_id
-       WHERE f.target_type = 'user' AND f.target_id = ?
+       WHERE f.target_type = 'user' AND f.target_id = ? AND ${testUserSql("u")}
        ORDER BY f.created_at DESC, u.id DESC LIMIT ? OFFSET ?`
     )
     .all(user.id, limit, offset)

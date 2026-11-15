@@ -1,7 +1,8 @@
 const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult } = require("../util");
-const { questionRow, SPAM_TITLE_RE } = require("./questions");
+const { questionRow } = require("./questions");
+const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -32,7 +33,8 @@ const MATCHED = { 1: "title", 2: "detail", 3: "topic" };
 
 // GET /search?q=&page=&limit=&type=question — 按关键词搜问题（标题/详情/所属话题名子串匹配）。
 // 说明：库内 FTS5 仅有 answer_fts（索引回答，缺答案的问题无法命中），且不得改表结构，
-// 故问题检索用 LIKE。TODO: type=answer|user|topic 分类检索。
+// 故问题检索用 LIKE。TODO: type=answer|user|topic 分类检索（落地时同样要套
+// content-filter：问题用 testQuestionSql，用户结果用 testUserSql 排除测试账号）。
 router.get("/", (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 100);
   const { page, limit, offset } = parsePage(req);
@@ -43,7 +45,7 @@ router.get("/", (req, res) => {
   const pat = likePattern(q);
   const db = getDb();
   // 话题名命中用 EXISTS 子查询而非 JOIN，避免一题多话题时重复行影响分页与 total。
-  const where = `NOT ${SPAM_TITLE_RE} AND (
+  const where = `${testQuestionSql("q", "u")} AND (
     q.title LIKE ? ESCAPE '\\' OR q.detail_md LIKE ? ESCAPE '\\' OR
     EXISTS (SELECT 1 FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
             WHERE qt.question_id = q.id AND t.name LIKE ? ESCAPE '\\')
@@ -84,7 +86,11 @@ router.get("/", (req, res) => {
     snippet: snippet(row.detail_md, q),
     matched: MATCHED[row.match_rank],
   }));
-  const total = db.prepare(`SELECT COUNT(*) c FROM questions q WHERE ${where}`).get(pat, pat, pat).c;
+  const total = db
+    .prepare(
+      `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id WHERE ${where}`
+    )
+    .get(pat, pat, pat).c;
   res.json(pageResult(items, total, page, limit));
 });
 

@@ -1,9 +1,16 @@
 // Z004 — 提问接口 POST /questions + 列表 GET /questions。
-import { ok, req, register, expect, main, uniq } from "./lib.mjs";
+// 注意：列表会过滤测试产物（content-filter），因此用真实形态账号与标题验证链路。
+import { ok, req, expect, main, uniq } from "./lib.mjs";
 
 main("questions", async () => {
-  const { token } = await register();
-  const title = `[assert] ${uniq("q")} — 提问接口验收？`;
+  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const email = `${uniq("real")}@zhihucopy.dev`;
+  const reg = await req("POST", "/auth/register", {
+    body: { email, password: "assert-pass-123", nickname },
+  });
+  expect(reg.status === 201, `register -> ${reg.status}`);
+  const token = reg.data.token;
+  const title = `提问接口链路验证${uniq("q").replace(/-/g, "")}？`;
   const { question } = await ok("POST", "/questions", { token, body: { title, detail_md: "assert probe", topic_ids: [] } });
   expect(question.id > 0, "no question id returned");
 
