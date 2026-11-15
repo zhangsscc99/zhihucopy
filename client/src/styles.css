@@ -451,6 +451,61 @@ textarea:focus-visible {
   color: var(--ink-3);
 }
 
+/* 热榜卡：左侧排名色块 + 紧凑单行标题/摘要 + 热度，与推荐卡明确区分。
+   .feed__item 本体保持纯文本块卡（不得改 flex），色块走内层 .feed__hotline。 */
+.feed__hotline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.feed__rank {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-3); /* 11 名起：只显示序号、不填色 */
+}
+.feed__rank--top1 {
+  background: var(--hot-1);
+  color: #fff;
+}
+.feed__rank--top23 {
+  background: var(--hot-23);
+  color: #fff;
+}
+.feed__rank--top10 {
+  background: var(--paper); /* 4–10 名：灰底 #F6F6F6 深灰字 */
+  color: var(--ink-2);
+}
+.feed__hotmain {
+  flex: 1;
+  min-width: 0; /* flex 子项可缩，标题/摘要的 line-clamp 才能生效 */
+}
+.feed__title--hot {
+  font-size: 16px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.feed__excerpt--hot {
+  margin-top: 6px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.feed__heat {
+  color: var(--ink-2);
+}
+.feed__rise {
+  margin-left: 4px;
+  color: var(--hot-1);
+  font-weight: 700;
+}
+
 /* 列表底部：加载更多 / 到底提示 / 追加失败 */
 .feed-foot {
   display: flex;

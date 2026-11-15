@@ -22,6 +22,15 @@ function excerpt(md: string, n = 90) {
   return text.length > n ? text.slice(0, n) + "…" : text;
 }
 
+// 热度展示：>=10000 记「N.N 万热度」（整数万去小数点），否则「N 热度」。
+function heatLabel(score: number) {
+  if (score >= 10000) {
+    const w = score / 10000;
+    return `${Number.isInteger(w) ? w : w.toFixed(1)} 万热度`;
+  }
+  return `${Math.round(score)} 热度`;
+}
+
 const feedQuery = (tab: Tab, page: number) =>
   tab === "following"
     ? `/feed/following?page=${page}&limit=${PAGE_SIZE}`
@@ -92,6 +101,67 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         </Link>
         <span>{q.answer_count} 个回答</span>
         <span>{q.view_count} 次浏览</span>
+      </div>
+    </li>
+  );
+}
+
+// 热榜卡：与推荐卡明确区分 —— 左侧排名色块、16px 单行标题、单行摘要、
+// 元信息行带热度分；rank_delta>0 时热度旁跟上升级标记。
+function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
+  const rankCls =
+    rank === 1
+      ? "feed__rank feed__rank--top1"
+      : rank <= 3
+        ? "feed__rank feed__rank--top23"
+        : rank <= 10
+          ? "feed__rank feed__rank--top10"
+          : "feed__rank";
+  return (
+    <li className="feed__item">
+      {q.topics?.length ? (
+        <div className="feed__topics">
+          {q.topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+              {t.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      <div className="feed__hotline">
+        <span className={rankCls} aria-label={`热榜第 ${rank} 名`}>
+          {rank}
+        </span>
+        <div className="feed__hotmain">
+          <Link
+            to={`/question/${q.id}`}
+            className="feed__title feed__title--hot"
+          >
+            {q.title}
+          </Link>
+          {q.detail_md && (
+            <p className="feed__excerpt feed__excerpt--hot">
+              {excerpt(q.detail_md)}
+            </p>
+          )}
+          <div className="feed__meta">
+            <Link to={`/u/${q.author.id}`} className="feed__author">
+              {q.author.nickname}
+            </Link>
+            {typeof q.hot_score === "number" && (
+              <span className="feed__heat">
+                {heatLabel(q.hot_score)}
+                {q.rank_delta !== undefined && q.rank_delta > 0 && (
+                  <span className="feed__rise" title="排名上升">
+                    ↑{q.rank_delta}
+                  </span>
+                )}
+              </span>
+            )}
+            <span>{q.answer_count} 个回答</span>
+            <span>{q.view_count} 次浏览</span>
+          </div>
+        </div>
       </div>
     </li>
   );
@@ -401,9 +471,13 @@ function Feed() {
       ) : (
         <>
           <ul className="feed">
-            {items.map((q) => (
-              <FeedCard key={q.id} q={q} kw="" />
-            ))}
+            {items.map((q, i) =>
+              tab === "hot" ? (
+                <HotFeedCard key={q.id} q={q} rank={i + 1} />
+              ) : (
+                <FeedCard key={q.id} q={q} kw="" />
+              )
+            )}
           </ul>
           <FeedFoot
             hasMore={hasMore}
