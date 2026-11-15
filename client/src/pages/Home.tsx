@@ -161,17 +161,29 @@ export function Home() {
           <ul className="feed">
             {items.map((q) => (
               <li key={q.id} className="feed__item">
-                <Link to={`/question/${q.id}`} className="feed__title">
-                  {q.title}
-                </Link>
-                {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
-                <div className="feed__meta">
-                  <Link to={`/u/${q.author.id}`} className="feed__author">
-                    {q.author.nickname}
+                <div className="feed__body">
+                  {q.topics.length > 0 && (
+                    <div className="feed__topics">
+                      {q.topics.map((t) => (
+                        <span key={t.id} className="tag">
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <Link to={`/question/${q.id}`} className="feed__title">
+                    {q.title}
                   </Link>
-                  <span>{q.answer_count} 个回答</span>
-                  <span>{q.view_count} 次浏览</span>
+                  {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
+                  <div className="feed__meta">
+                    <Link to={`/u/${q.author.id}`} className="feed__author">
+                      {q.author.nickname}
+                    </Link>
+                    <span>{q.answer_count} 个回答</span>
+                    <span>{q.view_count} 次浏览</span>
+                  </div>
                 </div>
+                <div className="feed__thumb" aria-hidden="true" />
               </li>
             ))}
           </ul>
