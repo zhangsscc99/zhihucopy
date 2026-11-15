@@ -305,7 +305,7 @@
 
 ## 既有断言红灯（非本轮回归，基线 7f81b95 同样失败）
 
-- [ ] Z1012 举报接口缺失：`GET /api/admin/reports`、`POST /api/reports` 均 404（reports.mjs / admin-api.mjs 红）
+- [x] Z1012 举报接口缺失：`GET /api/admin/reports`、`POST /api/reports` 均 404（reports.mjs / admin-api.mjs 红） ✅ (2026-11-15 devin)
   verify: node scripts/assert/reports.mjs
   risk: med
 - [ ] Z1013 勋章系统未生效：首个回答后无勋章授予（badges.mjs 红）
