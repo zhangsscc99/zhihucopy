@@ -2,7 +2,9 @@ const express = require("express");
 const { getDb } = require("../db");
 const { publicUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
-const { testUserSql } = require("../content-filter");
+const { testUserSql, testQuestionSql } = require("../content-filter");
+const { AUTHOR_ANSWERS_SQL } = require("./answers");
+const { AUTHOR_QUESTIONS_WHERE } = require("./questions");
 
 const router = express.Router();
 
@@ -50,19 +52,21 @@ router.get("/:id", (req, res) => {
   const db = getDb();
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!user) return res.status(404).json({ error: "用户不存在" });
+  // 计数与列表接口共用同一口径：/questions?author= 与 /answers?author= 的 WHERE。
   const stats = {
     answers: db
-      .prepare("SELECT COUNT(*) c FROM answers WHERE author_id = ? AND is_deleted = 0")
+      .prepare(`SELECT COUNT(*) c ${AUTHOR_ANSWERS_SQL}`)
       .get(user.id).c,
     questions: db
-      .prepare("SELECT COUNT(*) c FROM questions WHERE author_id = ?")
+      .prepare(
+        `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
+         WHERE ${testQuestionSql("q", "u")} AND ${AUTHOR_QUESTIONS_WHERE}`
+      )
       .get(user.id).c,
     followers: countFollowers(db, user.id),
     following: countFollowing(db, user.id),
     vote_up: db
-      .prepare(
-        "SELECT COALESCE(SUM(vote_up), 0) s FROM answers WHERE author_id = ? AND is_deleted = 0"
-      )
+      .prepare(`SELECT COALESCE(SUM(a.vote_up), 0) s ${AUTHOR_ANSWERS_SQL}`)
       .get(user.id).s,
   };
   res.json({ user: publicUser(user), stats });

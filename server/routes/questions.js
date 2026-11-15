@@ -60,6 +60,9 @@ const ANSWER_SELECT = `
   JOIN users u ON u.id = a.author_id
   JOIN questions q ON q.id = a.question_id`;
 
+// ?author= 列表的附加过滤（在 testQuestionSql 之上）；users.js stats.questions 复用。
+const AUTHOR_QUESTIONS_WHERE = "q.author_id = ?";
+
 // POST /questions — create a question.
 router.post("/", requireAuth, (req, res) => {
   const { title, detail_md, topic_ids } = req.body || {};
@@ -97,7 +100,7 @@ router.post("/", requireAuth, (req, res) => {
   res.status(201).json({ question: questionRow(q) });
 });
 
-// GET /questions?tab=hot|new&page=&limit=
+// GET /questions?tab=hot|new&author=<id>&page=&limit=
 router.get("/", (req, res) => {
   const tab = req.query.tab === "hot" ? "hot" : "new";
   const { page, limit, offset } = parsePage(req);
@@ -106,21 +109,33 @@ router.get("/", (req, res) => {
     tab === "hot"
       ? "(q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC"
       : "q.created_at DESC";
+  // ?author= 个人页口径：与 users.js stats.questions 同一段 WHERE（含测试内容过滤）。
+  const conds = [testQuestionSql("q", "u")];
+  const params = [];
+  if (req.query.author !== undefined) {
+    const authorId = parseInt(req.query.author, 10);
+    if (!Number.isInteger(authorId) || authorId <= 0) {
+      return badRequest(res, "author 参数不合法");
+    }
+    conds.push(AUTHOR_QUESTIONS_WHERE);
+    params.push(authorId);
+  }
+  const where = conds.join(" AND ");
   const items = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${where}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
-    .all(limit, offset)
+    .all(...params, limit, offset)
     .map(questionRow);
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}`
+       WHERE ${where}`
     )
-    .get().c;
+    .get(...params).c;
   res.json(pageResult(items, total, page, limit));
 });
 
@@ -263,3 +278,4 @@ router.delete("/:id/follow", requireAuth, (req, res) => {
 
 module.exports = router;
 module.exports.questionRow = questionRow;
+module.exports.AUTHOR_QUESTIONS_WHERE = AUTHOR_QUESTIONS_WHERE;
