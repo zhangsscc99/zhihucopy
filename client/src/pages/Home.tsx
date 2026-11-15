@@ -161,6 +161,16 @@ export function Home() {
           <ul className="feed">
             {items.map((q) => (
               <li key={q.id} className="feed__item">
+                {/* 列表接口暂不返回 topics（questionRow 恒为 []），保留条件渲染，后端补字段后自动生效 */}
+                {q.topics?.length ? (
+                  <div className="feed__topics">
+                    {q.topics.map((t) => (
+                      <span key={t.id} className="tag">
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 <Link to={`/question/${q.id}`} className="feed__title">
                   {q.title}
                 </Link>
