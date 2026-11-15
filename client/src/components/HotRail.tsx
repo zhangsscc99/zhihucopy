@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { get } from "../api";
+import { RailSkeleton } from "./Skeleton";
 import type { Page, Question } from "../types";
 
 export function HotRail() {
   const [items, setItems] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     get<Page<Question>>("/questions?tab=hot&limit=10")
       .then((p) => setItems(p.items))
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="rail-block">
       <h2 className="rail-block__title">热榜</h2>
-      {items.length === 0 ? (
+      {loading ? (
+        <RailSkeleton rows={8} />
+      ) : items.length === 0 ? (
         <p className="rail-block__empty">还没有内容，来提第一个问题吧。</p>
       ) : (
         <ol className="hotlist">

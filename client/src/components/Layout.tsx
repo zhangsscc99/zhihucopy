@@ -23,22 +23,44 @@ export function Layout({ children, rail }: { children: ReactNode; rail?: ReactNo
   );
 }
 
-export function Empty({ title, hint }: { title: string; hint?: string }) {
+export function Empty({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="empty">
       <p className="empty__title">{title}</p>
       {hint && <p className="empty__hint">{hint}</p>}
+      {action && <div className="empty__action">{action}</div>}
     </div>
   );
 }
 
-export function ErrorBox({ message }: { message: string }) {
+export function ErrorBox({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
   return (
     <div className="errorbox" role="alert">
-      {message}
+      <p className="errorbox__msg">{message}</p>
       <div className="errorbox__hint">
         请稍后重试；若持续失败，请检查网络后刷新页面。
       </div>
+      {onRetry && (
+        <div className="errorbox__actions">
+          <button type="button" className="btn btn--outline" onClick={onRetry}>
+            重试
+          </button>
+        </div>
+      )}
     </div>
   );
 }
