@@ -2,6 +2,8 @@
 //
 // 生产库实况：大量回归脚本往库里灌了 `搜索验收-*`、`[assert] q-*`、`巡检：*` 等
 // 标题的问题，以及 `assert-*`/`e2e-*`/`巡检*` 昵称、`*@test.dev` 邮箱的账号。
+// Z1001 线上实测的演化形态（前缀/子串规则漏掉的）：`…链路验证<uniq 去连字符>`、
+// `第N轮巡检：…`、标题尾部 `srch<随机串>`、昵称 `用户<随机串>`/`巡检<随机串>`。
 // 本模块是唯一判定口径：公共读取路径（列表/热榜/搜索/话题流/用户列表/通知）
 // 一律用下面的 SQL 片段过滤；详情页故意不过滤，老链接仍可打开。
 // scripts/cleanup-test-content.js 复用同一套规则做物理删除。
@@ -29,25 +31,49 @@ const TITLE_PREFIXES = [
 // 标题方括号前缀（历史脚本形态：`[assert] q-*` 等；`[t]` 是 Z983 起统一标记）。
 const TITLE_BRACKETS = ["[e2e]", "[assert]", "[review]", "[probe]", "[test]", "[t]"];
 
-// 标题包含的子串。`-mw` 是历次测试 run 的标记段（`-mwi1ooge`、`-mwhts5gs` 等），
-// 单独成规；也隐含覆盖「含 验收 且含 -mwi 后缀」的组合形态。
-const TITLE_CONTAINS = ["-mw"];
+// 标题正则：朴素前缀/子串表达不了的形态。全部大小写敏感 —— 产物随机串恒为小写，
+// 借此排除 "100-mw"、"-MW1000" 这类真实写法（旧版裸 `-mw` 子串会误伤它们）。
+//   -mw[a-z0-9]{4,}        run 标记段（-mwi1ooge/-mwhts5gs）；须 ≥4 位才判，边界精确
+//   验证[a-z0-9]{8,}        「…链路验证<uniq 去连字符>」（问题关注链路验证qmwi5d99186yg？）
+//   第?[数]+\s*轮巡检        「第六轮巡检」「6 轮巡检」（「第」与内嵌空白可有可无）
+const TITLE_REGEXES = [
+  /-mw[a-z0-9]{4,}/,
+  /验证[a-z0-9]{8,}/,
+  /第?\s*[0-9一二三四五六七八九十]+\s*轮巡检/,
+];
 
-// 昵称前缀。`e2e`/`probe`/`review` 不要求分隔符（`e2e-mwi…` 与 `e2euser` 都算）。
+// 标题尾部全小写随机串：`[a-z][a-z0-9]{9,}` 落在结尾（允许再跟一个标点），
+// 且须串内含数字、标题长 > 12 才判定 —— 三重收窄：
+//   · 长度门槛 >12 与含数字：排除「What is CAP theorem?」这类纯词典词尾；
+//   · 串长 ≥10（而非 8）：断言脚本的真实侧命名会以 8–9 位随机后缀收尾
+//     （rid()=9 位、Date.now().toString(36)=8 位），真实产物 token ≥13。
+const TITLE_TAIL_RUN_RE = /([a-z][a-z0-9]{9,})[?？!！.。…\s]*$/;
+
+// 昵称前缀（大小写不敏感）。`e2e`/`probe` 不要求分隔符（`e2e-mwi…`/`e2euser`/`probe2`
+// 都算）；`巡检` 无分隔符（`巡检c41o`/`巡检用户`）。`review` 不在此列 —— 见下行。
 const NICK_PREFIXES = [
   "assert-",
   "assert_",
   "e2e",
   "probe",
-  "review",
   "搜索验收-",
   "验收-",
   "巡检",
 ];
 
-// 昵称包含的子串（同 TITLE_CONTAINS 的 run 标记，可兜住 `asker-*`/`prof-*`/
-// `answerer-*`/`user-*` 这类不在前缀表里的机器账号）。
-const NICK_CONTAINS = ["-mw"];
+// 边界前缀：`review` 仅当其后紧跟字符不是英文字母时才算测试号
+// （review_mwi…/review-x 命中；reviewer_zhang/reviews 这类真名形态豁免）。
+const NICK_BOUNDED_PREFIXES = ["review"];
+
+// 昵称正则（大小写敏感，同 TITLE_REGEXES 口径）：
+//   -mw[a-z0-9]{4,}    run 标记段（兜住 asker-*/prof-*/answerer-* 等机器账号）
+//   用户[a-z0-9]{8,}    「用户<uniq 去连字符>」批量注册号（用户nmwi5d93041xk）
+//   巡检[a-z0-9]{2,}    「巡检c41o」小号（开头的 巡检 已被前缀规则覆盖，此处兜中缀）
+const NICK_REGEXES = [
+  /-mw[a-z0-9]{4,}/,
+  /用户[a-z0-9]{8,}/,
+  /巡检[a-z0-9]{2,}/,
+];
 
 // 测试邮箱域。example.com/test.local 是约定形态；test.dev/t.dev 是本仓库
 // scripts/assert/lib.mjs 等回归脚本实际使用的注册域。
@@ -62,33 +88,46 @@ function startsWithAny(s, prefixes) {
   return prefixes.some((p) => v.startsWith(p.toLowerCase()));
 }
 
-function containsAny(s, subs) {
-  const v = String(s || "").toLowerCase();
-  return subs.some((p) => v.includes(p.toLowerCase()));
-}
-
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// JS 侧正则仅用于对外导出（脚本/测试可直接复用），判定走 startsWith/contains。
+// 边界前缀：s 以 p 开头且 p 之后的字符不是英文字母（或已到结尾）。
+function startsWithBounded(s, prefix) {
+  const v = String(s || "");
+  if (!v.toLowerCase().startsWith(prefix.toLowerCase())) return false;
+  return !/[a-z]/i.test(v[prefix.length] || "");
+}
+
+// JS 侧正则仅用于对外导出（脚本/测试可直接复用）；判定走 isTestTitle/isTestNickname。
+// TITLE_TAIL_RUN_RE 带长度/含数字附加条件，不折算进模式表。
 const TEST_TITLE_PATTERNS = [
   ...TITLE_PREFIXES.map((p) => new RegExp(`^${escapeRe(p)}`, "i")),
   ...TITLE_BRACKETS.map((p) => new RegExp(`^${escapeRe(p)}`, "i")),
-  ...TITLE_CONTAINS.map((p) => new RegExp(escapeRe(p), "i")),
+  ...TITLE_REGEXES,
 ];
 const TEST_NICK_PATTERNS = [
   ...NICK_PREFIXES.map((p) => new RegExp(`^${escapeRe(p)}`, "i")),
-  ...NICK_CONTAINS.map((p) => new RegExp(escapeRe(p), "i")),
+  ...NICK_BOUNDED_PREFIXES.map((p) => new RegExp(`^${escapeRe(p)}(?![a-z])`, "i")),
+  ...NICK_REGEXES,
 ];
 
 function isTestTitle(title) {
-  return startsWithAny(title, TITLE_PREFIXES.concat(TITLE_BRACKETS)) ||
-    containsAny(title, TITLE_CONTAINS);
+  const v = String(title || "");
+  if (startsWithAny(v, TITLE_PREFIXES.concat(TITLE_BRACKETS))) return true;
+  if (TITLE_REGEXES.some((re) => re.test(v))) return true;
+  if (v.length > 12) {
+    const m = TITLE_TAIL_RUN_RE.exec(v);
+    if (m && /[0-9]/.test(m[1])) return true;
+  }
+  return false;
 }
 
 function isTestNickname(nickname) {
-  return startsWithAny(nickname, NICK_PREFIXES) || containsAny(nickname, NICK_CONTAINS);
+  const v = String(nickname || "");
+  if (startsWithAny(v, NICK_PREFIXES)) return true;
+  if (NICK_BOUNDED_PREFIXES.some((p) => startsWithBounded(v, p))) return true;
+  return NICK_REGEXES.some((re) => re.test(v));
 }
 
 function isTestEmail(email) {
@@ -113,20 +152,39 @@ function likePrefix(col, prefix) {
   return `${col} LIKE '${likeLit(prefix)}%' ESCAPE '\\' COLLATE NOCASE`;
 }
 
-function likeContains(col, sub) {
-  return `${col} LIKE '%${likeLit(sub)}%' ESCAPE '\\' COLLATE NOCASE`;
-}
-
 function likeSuffix(col, suffix) {
   return `${col} LIKE '%${likeLit(suffix)}' ESCAPE '\\' COLLATE NOCASE`;
 }
 
-// 标题是测试产物的正向条件（不带 NOT）。
+// 边界前缀的 SQL 版：LIKE 前缀命中且紧跟字符不是英文字母（同 startsWithBounded）。
+// GLOB 区分大小写，[a-zA-Z] 双写覆盖两态；空前缀后缀（串长恰等于前缀）由
+// '' NOT GLOB '[a-zA-Z]' 天然放行。
+function likeBoundedPrefix(col, prefix) {
+  return `(${col} LIKE '${likeLit(prefix)}%' ESCAPE '\\' COLLATE NOCASE AND substr(${col}, ${prefix.length + 1}, 1) NOT GLOB '[a-zA-Z]')`;
+}
+
+// 「≥n 位小写字母数字」的 GLOB 形态：单字符类重复 n 次。
+const globRun = (n) => "[a-z0-9]".repeat(n);
+
+// 标题是测试产物的正向条件（不带 NOT）。与 isTestTitle 同口径：
+//   前缀/括号前缀 LIKE + TITLE_REGEXES 的 GLOB 化 + 尾串近似
+//   （结尾 10 连小写字母数字、或再多跟一个标点；末 16 字符内含数字；标题长 >12）。
+// GLOB 区分大小写，正好对应 JS 正则的大小写敏感。
 function titleMatchSql(titleCol) {
+  const t = titleCol;
+  const tailRun = `[a-z]${globRun(9)}`;
   const conds = [
-    ...TITLE_PREFIXES.map((p) => likePrefix(titleCol, p)),
-    ...TITLE_BRACKETS.map((p) => likePrefix(titleCol, p)),
-    ...TITLE_CONTAINS.map((p) => likeContains(titleCol, p)),
+    ...TITLE_PREFIXES.map((p) => likePrefix(t, p)),
+    ...TITLE_BRACKETS.map((p) => likePrefix(t, p)),
+    // -mw run 标记段（≥4 位小写随机串才判）
+    `${t} GLOB '*-mw${globRun(4)}*'`,
+    // 「验证」紧跟 ≥8 位小写随机串
+    `${t} GLOB '*验证${globRun(8)}*'`,
+    // 「第N轮巡检」：数字/中文数字紧邻（或隔一个空格）在「轮巡检」之前
+    `${t} GLOB '*[0-9一二三四五六七八九十]轮巡检*'`,
+    `${t} GLOB '*[0-9一二三四五六七八九十] 轮巡检*'`,
+    `(length(${t}) > 12 AND substr(${t}, -16) GLOB '*[0-9]*'
+      AND (${t} GLOB '*${tailRun}' OR ${t} GLOB '*${tailRun}[?？!！.。… ]'))`,
   ];
   return `(${conds.join(" OR ")})`;
 }
@@ -138,7 +196,11 @@ function userMatchSql(userAlias = "u", opts = {}) {
   const conds = [
     ...(opts.isTest === false ? [] : [`${u}.is_test = 1`]),
     ...NICK_PREFIXES.map((p) => likePrefix(`${u}.nickname`, p)),
-    ...NICK_CONTAINS.map((p) => likeContains(`${u}.nickname`, p)),
+    ...NICK_BOUNDED_PREFIXES.map((p) => likeBoundedPrefix(`${u}.nickname`, p)),
+    // run 标记段 / 批量注册「用户<随机串>」/「巡检<随机串>」中缀
+    `${u}.nickname GLOB '*-mw${globRun(4)}*'`,
+    `${u}.nickname GLOB '*用户${globRun(8)}*'`,
+    `${u}.nickname GLOB '*巡检${globRun(2)}*'`,
     ...TEST_EMAIL_DOMAINS.map((d) => likeSuffix(`${u}.email`, `@${d}`)),
   ];
   return `(${conds.join(" OR ")})`;
@@ -182,6 +244,7 @@ module.exports = {
   TEST_TITLE_PATTERNS,
   TEST_NICK_PATTERNS,
   TEST_EMAIL_DOMAINS,
+  TITLE_TAIL_RUN_RE,
   isTestTitle,
   isTestNickname,
   isTestEmail,

@@ -4,7 +4,7 @@
 import { ok, req, expect, main, uniq } from "./lib.mjs";
 
 async function realRegister() {
-  const nickname = `用户${uniq("n").replace(/-/g, "")}`.slice(0, 24);
+  const nickname = `真人${uniq("n").replace(/-/g, "")}`.slice(0, 24);
   const email = `${uniq("real")}@zhihucopy.dev`;
   const r = await req("POST", "/auth/register", {
     body: { email, password: "assert-pass-123", nickname },
