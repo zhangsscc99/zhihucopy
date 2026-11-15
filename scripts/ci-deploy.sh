@@ -188,7 +188,26 @@ end_step
 
 # --- f. restart ---------------------------------------------------------------
 step "pm2-restart"
-pm2 restart "$PM2_APP" --update-env
+# Never let test-time env leak into the production process: DB_PATH/LOG_PATH set by
+# the smoke step (or an inherited shell) would make pm2 serve a throwaway database.
+unset DB_PATH LOG_PATH SMOKE_PORT SMOKE_DB NODE_CHANNEL_FD NODE_CHANNEL_SERIALIZATION_MODE
+pm2 restart "$PM2_APP" --update-env >/dev/null 2>&1 || true
+restart_env_ok() {
+  local pid
+  pid="$(pm2 pid "$PM2_APP" 2>/dev/null | head -1)"
+  [[ -n "$pid" && -r "/proc/$pid/environ" ]] || return 1
+  ! tr '\0' '\n' <"/proc/$pid/environ" | grep -qE '^(DB_PATH|LOG_PATH)='
+}
+if ! restart_env_ok; then
+  # pm2 remembered the polluted env from a previous --update-env: rebuild the app
+  # from ecosystem.config.cjs so the process gets a clean environment.
+  log "pm2 kept DB_PATH/LOG_PATH in the process env — recreating from ecosystem.config.cjs"
+  pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
+  pm2 start ecosystem.config.cjs >/dev/null 2>&1 || { log "pm2 start ecosystem.config.cjs failed"; exit 1; }
+  pm2 save >/dev/null 2>&1 || true
+  sleep 2
+  restart_env_ok || { log "process env still carries DB_PATH/LOG_PATH"; history "deploy-fail" "stage=env-leak"; exit 1; }
+fi
 RESTARTED=1
 end_step
 
