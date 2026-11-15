@@ -1,0 +1,14 @@
+node_modules/
+client/dist/
+data/
+logs/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+.deploy.lock
+.agent-run.lock
+.DS_Store

@@ -1,0 +1,15 @@
+{
+  "name": "zhihucopy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Zhihu-like Q&A community. Express + better-sqlite3 + React/Vite/TS.",
+  "scripts": {
+    "dev": "concurrently -n server,client \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix client run build",
+    "start": "node server/index.js",
+    "test": "npm --prefix server test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

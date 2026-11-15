@@ -1,0 +1,37 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { get } from "../api";
+import type { Page, Question } from "../types";
+
+export function HotRail() {
+  const [items, setItems] = useState<Question[]>([]);
+
+  useEffect(() => {
+    get<Page<Question>>("/questions?tab=hot&limit=10")
+      .then((p) => setItems(p.items))
+      .catch(() => setItems([]));
+  }, []);
+
+  return (
+    <div className="rail-block">
+      <h2 className="rail-block__title">热榜</h2>
+      {items.length === 0 ? (
+        <p className="rail-block__empty">还没有内容，来提第一个问题吧。</p>
+      ) : (
+        <ol className="hotlist">
+          {items.map((q, i) => (
+            <li key={q.id} className="hotlist__item">
+              <span className={`hotlist__rank ${i < 3 ? "hotlist__rank--top" : ""}`}>
+                {i + 1}
+              </span>
+              <Link to={`/question/${q.id}`} className="hotlist__link">
+                {q.title}
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+      <footer className="rail-block__foot">知海 · 有问题，就会有答案</footer>
+    </div>
+  );
+}
