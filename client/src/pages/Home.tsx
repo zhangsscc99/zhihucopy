@@ -338,7 +338,11 @@ function SearchResults({ q }: { q: string }) {
 function Feed() {
   const { user, loading: authLoading } = useAuth();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get("tab") as Tab) || "recommended";
+  // 未识别（含缺失）的 tab 参数一律落回推荐，保证 aria-selected 永远唯一。
+  const tabParam = params.get("tab");
+  const tab: Tab = TABS.some((t) => t.key === tabParam)
+    ? (tabParam as Tab)
+    : "recommended";
 
   const [items, setItems] = useState<Question[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -422,6 +426,7 @@ function Feed() {
             key={t.key}
             role="tab"
             aria-selected={tab === t.key}
+            aria-current={tab === t.key ? "page" : undefined}
             className={`tabs__tab ${tab === t.key ? "tabs__tab--active" : ""}`}
             onClick={() => setTab(t.key)}
           >
@@ -436,11 +441,16 @@ function Feed() {
         ) : (
           <Empty
             title="登录后查看你关注的内容"
-            hint="登录后可关注用户、话题与问题"
+            hint="登录后可关注话题、问题与作者，他们的新动态会出现在这里"
             action={
-              <Link to="/login" className="btn btn--outline">
-                去登录
-              </Link>
+              <div className="empty__actions">
+                <Link to="/login" className="btn btn--outline">
+                  去登录
+                </Link>
+                <Link to="/" className="btn btn--ghost">
+                  先看看推荐
+                </Link>
+              </div>
             }
           />
         )
@@ -452,15 +462,20 @@ function Feed() {
         <Empty
           {...(tab === "following"
             ? {
-                title: "你关注的内容会出现在这里",
-                hint: "去推荐页关注感兴趣的问题",
+                title: "你还没有关注任何内容",
+                hint: "关注话题、问题或作者后，他们的新动态会出现在这里",
               }
             : EMPTY_COPY[tab === "hot" ? "hot" : "recommended"])}
           action={
             tab === "following" ? (
-              <Link to="/" className="btn btn--outline">
-                去看推荐
-              </Link>
+              <div className="empty__actions">
+                <Link to="/topics" className="btn btn--outline">
+                  去关注话题
+                </Link>
+                <Link to="/" className="btn btn--ghost">
+                  逛逛推荐问题
+                </Link>
+              </div>
             ) : (
               <Link to="/ask" className="btn btn--outline">
                 去提问
