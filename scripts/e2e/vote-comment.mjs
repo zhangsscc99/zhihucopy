@@ -50,16 +50,20 @@ run("vote-comment", async ({ browser }) => {
   }
   expect(after === before + 1, `vote count ${before} -> ${after}, expected +1`);
 
-  // 评论
+  // 评论（先展开评论区 —— 评论输入框在「N 条评论」点开后才进 DOM）
   const commentText = `[e2e] ${uniq("c")} — 赞同楼上，补充一点细节。`;
   const box = scope
     .getByPlaceholder(/评论/)
     .or(scope.locator(".comment-form textarea, [data-testid='comment-input'], textarea"))
     .first();
+  if ((await box.count()) === 0 || !(await box.isVisible().catch(() => false))) {
+    const toggle = scope.getByRole("button", { name: /条评论|收起评论|评论/ }).first();
+    await toggle.click();
+  }
   await box.fill(commentText);
   const submit = scope
-    .getByRole("button", { name: /发布|评论|发送|提交/ })
-    .or(scope.locator("[data-testid='comment-submit'], .comment-form button[type='submit']"))
+    .locator(".answer__comment-form button, .comment-form button, [data-testid='comment-submit']")
+    .or(scope.getByRole("button", { name: /发布|发送|提交/ }))
     .first();
   await submit.click();
   await page.getByText(commentText.slice(0, 30)).waitFor();

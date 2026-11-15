@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult, badRequest } = require("../util");
 const { testUserSql, testQuestionSql } = require("../content-filter");
+const { isCollected } = require("./collections");
 
 const router = express.Router();
 
@@ -106,6 +107,7 @@ router.get("/:id", (req, res) => {
       created_at: a.created_at,
       updated_at: a.updated_at,
       author: { id: a.author_id, nickname: a.author_nickname, avatar_url: a.author_avatar },
+      is_collected: isCollected(db, req.user && req.user.id, a.id),
     },
   });
 });

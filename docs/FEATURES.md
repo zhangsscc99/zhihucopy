@@ -266,7 +266,7 @@
 - [ ] Z1002 「邀请回答」死按钮：要么接用户搜索 + 邀请记录，要么置灰并给「即将上线」提示（实测点击后 URL/滚动/DOM 全无变化）
   verify: node scripts/assert/invite-answer.mjs
   risk: med
-- [ ] Z1003 收藏功能落地：`GET /api/collections` 当前 404；回答卡「收藏」点击无任何状态回写。补表/接口 + 「已收藏」态
+- [x] Z1003 收藏功能落地：`GET /api/collections` 当前 404；回答卡「收藏」点击无任何状态回写。补表/接口 + 「已收藏」态 ✅ (2026-11-15 devin)
   verify: node scripts/assert/collect.mjs
   risk: med
 - [ ] Z1004 404 统一组件：真 404 状态码 + 正确归因 + ≥2 出口，覆盖 question/user/topic/route（实测四种表现，其中三种 `main` 内 0 个可点元素且文案写「请检查网络」）

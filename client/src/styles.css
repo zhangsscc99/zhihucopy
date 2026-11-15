@@ -934,6 +934,13 @@ mark.hl {
 .answer__action:hover {
   color: var(--accent);
 }
+.answer__action--collected {
+  color: var(--accent);
+}
+.answer__action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .answer__date {
   margin-left: auto;
   font-size: 13px;
@@ -947,14 +954,18 @@ mark.hl {
   bottom: calc(100% + 6px);
   left: 0;
   z-index: 10;
-  min-width: 170px;
+  min-width: 200px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   padding: 6px 0;
 }
 .answer__fav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
   text-align: left;
   font: inherit;
@@ -968,11 +979,68 @@ mark.hl {
 .answer__fav-item:hover {
   background: var(--paper);
 }
+.answer__fav-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.answer__fav-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.answer__fav-item--on .answer__fav-name {
+  color: var(--accent);
+}
+.answer__fav-check {
+  color: var(--accent);
+  font-weight: 600;
+}
 .answer__fav-empty {
   margin: 0;
   padding: 8px 14px;
   font-size: 13px;
   color: var(--ink-3);
+}
+.answer__fav-new {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--line);
+}
+.answer__fav-input {
+  font: inherit;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 4px 8px;
+}
+.answer__fav-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.answer__fav-create {
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.answer__fav-create:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+.answer__fav-create:disabled {
+  color: var(--ink-3);
+  cursor: not-allowed;
 }
 .answer__comments {
   margin-top: 14px;

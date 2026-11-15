@@ -3,6 +3,7 @@ const { getDb } = require("../db");
 const { parsePage, pageResult, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { notifyQuestionAuthor } = require("./answers");
+const { collectedAnswerIds, isCollected } = require("./collections");
 const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
@@ -162,14 +163,22 @@ router.get("/:id", (req, res) => {
        JOIN question_topics qt ON qt.topic_id = t.id WHERE qt.question_id = ?`
     )
     .all(q.id);
-  const answers = db
+  const answerRows = db
     .prepare(
       `${ANSWER_SELECT}
        WHERE a.question_id = ? AND a.is_deleted = 0
        ORDER BY a.vote_up DESC, a.created_at ASC LIMIT 5`
     )
-    .all(q.id)
-    .map(answerRow);
+    .all(q.id);
+  const collected = collectedAnswerIds(
+    db,
+    req.user && req.user.id,
+    answerRows.map((a) => a.id)
+  );
+  const answers = answerRows.map((a) => ({
+    ...answerRow(a),
+    is_collected: collected.has(a.id),
+  }));
 
   const followed = req.user
     ? !!db
@@ -192,14 +201,22 @@ router.get("/:id/answers", (req, res) => {
     req.query.sort === "newest"
       ? "a.created_at DESC, a.id DESC"
       : "a.vote_up DESC, a.created_at ASC, a.id ASC";
-  const items = db
+  const answerRows = db
     .prepare(
       `${ANSWER_SELECT}
        WHERE a.question_id = ? AND a.is_deleted = 0
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
-    .all(req.params.id, limit, offset)
-    .map(answerRow);
+    .all(req.params.id, limit, offset);
+  const collected = collectedAnswerIds(
+    db,
+    req.user && req.user.id,
+    answerRows.map((a) => a.id)
+  );
+  const items = answerRows.map((a) => ({
+    ...answerRow(a),
+    is_collected: collected.has(a.id),
+  }));
   const total = db
     .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0")
     .get(req.params.id).c;
@@ -230,7 +247,9 @@ router.post("/:id/answers", requireAuth, (req, res) => {
   })();
 
   const a = db.prepare(`${ANSWER_SELECT} WHERE a.id = ?`).get(aid);
-  res.status(201).json({ answer: answerRow(a) });
+  res
+    .status(201)
+    .json({ answer: { ...answerRow(a), is_collected: isCollected(db, req.user.id, a.id) } });
 });
 
 function questionFollowerCount(db, qid) {

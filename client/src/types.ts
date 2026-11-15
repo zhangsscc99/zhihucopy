@@ -54,6 +54,7 @@ export interface Answer {
   created_at: string;
   updated_at: string;
   author: Author;
+  is_collected?: boolean;
 }
 
 export interface Page<T> {

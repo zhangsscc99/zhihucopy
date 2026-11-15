@@ -25,6 +25,7 @@ interface CollectionItem {
   id: number;
   name: string;
   item_count: number;
+  has_item?: number;
 }
 
 const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
@@ -62,6 +63,9 @@ export function Question() {
   const [commentSending, setCommentSending] = useState<Record<number, boolean>>({});
   const [favFor, setFavFor] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[] | null>(null);
+  const [favNewName, setFavNewName] = useState("");
+  const [favBusy, setFavBusy] = useState(false);
+  const [uncollecting, setUncollecting] = useState<Record<number, boolean>>({});
 
   // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
   const [sort, setSort] = useState<AnswerSort>("default");
@@ -315,12 +319,22 @@ export function Question() {
     }
   };
 
+  const setAnswerCollected = (answerId: number, val: boolean) =>
+    setAnswers((xs) => xs.map((x) => (x.id === answerId ? { ...x, is_collected: val } : x)));
+
   const toggleFav = async (answerId: number) => {
     if (!user) return needLogin();
-    setFavFor((f) => (f === answerId ? null : answerId));
-    if (collections !== null) return;
+    if (favFor === answerId) {
+      setFavFor(null);
+      return;
+    }
+    setFavFor(answerId);
+    setFavNewName("");
+    setCollections(null);
     try {
-      const d = await get<{ collections: CollectionItem[] }>("/collections/mine");
+      const d = await get<{ collections: CollectionItem[] }>(
+        `/collections?answer_id=${answerId}`
+      );
       setCollections(d.collections);
     } catch (e) {
       toast((e as Error).message, "error");
@@ -328,12 +342,80 @@ export function Question() {
   };
 
   const collect = async (c: CollectionItem, answerId: number) => {
+    if (favBusy) return;
+    setFavBusy(true);
     try {
-      await post(`/collections/${c.id}/items`, { answer_id: answerId });
-      setFavFor(null);
-      toast(`已收藏到「${c.name}」`);
+      const was = Boolean(c.has_item);
+      const d = was
+        ? await del<{ collected: boolean }>(`/collections/${c.id}/items/${answerId}`)
+        : await post<{ collected: boolean }>(`/collections/${c.id}/items`, {
+            answer_id: answerId,
+          });
+      setCollections((cs) =>
+        (cs ?? []).map((x) =>
+          x.id === c.id
+            ? { ...x, has_item: was ? 0 : 1, item_count: Math.max(0, x.item_count + (was ? -1 : 1)) }
+            : x
+        )
+      );
+      setAnswerCollected(answerId, was ? d.collected : true);
+      toast(was ? "已取消收藏" : `已收藏到「${c.name}」`);
+      if (!was) setFavFor(null);
     } catch (e) {
       toast((e as Error).message, "error");
+    } finally {
+      setFavBusy(false);
+    }
+  };
+
+  const createAndCollect = async (answerId: number) => {
+    const name = favNewName.trim();
+    if (!name || favBusy) return;
+    setFavBusy(true);
+    try {
+      const { collection } = await post<{ collection: CollectionItem }>("/collections", {
+        name,
+        is_public: false,
+      });
+      await post(`/collections/${collection.id}/items`, { answer_id: answerId });
+      setCollections((cs) => [
+        { ...collection, item_count: 1, has_item: 1 },
+        ...(cs ?? []),
+      ]);
+      setAnswerCollected(answerId, true);
+      setFavNewName("");
+      setFavFor(null);
+      toast(`已收藏到「${collection.name}」`);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setFavBusy(false);
+    }
+  };
+
+  // 「已收藏」再点一次 = 从当前用户所有收藏夹移除该回答。
+  const uncollect = async (answerId: number) => {
+    if (!user) return needLogin();
+    if (uncollecting[answerId]) return;
+    setUncollecting((u) => ({ ...u, [answerId]: true }));
+    try {
+      const d = await get<{ collections: CollectionItem[] }>(
+        `/collections?answer_id=${answerId}`
+      );
+      let still = false;
+      for (const c of d.collections.filter((x) => x.has_item)) {
+        const r = await del<{ collected: boolean }>(`/collections/${c.id}/items/${answerId}`);
+        still = r.collected;
+      }
+      setAnswerCollected(answerId, still);
+      setCollections((cs) =>
+        (cs ?? []).map((x) => (x.has_item ? { ...x, has_item: 0, item_count: Math.max(0, x.item_count - 1) } : x))
+      );
+      toast("已取消收藏");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setUncollecting((u) => ({ ...u, [answerId]: false }));
     }
   };
 
@@ -496,28 +578,66 @@ export function Question() {
                     <div className="answer__fav">
                       <button
                         type="button"
-                        className="answer__action"
-                        onClick={() => toggleFav(a.id)}
+                        className={`answer__action${
+                          a.is_collected ? " answer__action--collected" : ""
+                        }`}
+                        aria-pressed={Boolean(a.is_collected)}
+                        disabled={uncollecting[a.id]}
+                        onClick={() => (a.is_collected ? uncollect(a.id) : toggleFav(a.id))}
                       >
-                        收藏
+                        {a.is_collected ? "已收藏" : "收藏"}
                       </button>
                       {favFor === a.id && (
                         <div className="answer__fav-menu" role="menu">
                           {collections === null ? (
                             <p className="answer__fav-empty">加载中…</p>
-                          ) : collections.length === 0 ? (
-                            <p className="answer__fav-empty">你还没有收藏夹</p>
                           ) : (
-                            collections.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                className="answer__fav-item"
-                                onClick={() => collect(c, a.id)}
-                              >
-                                {c.name}（{c.item_count}）
-                              </button>
-                            ))
+                            <>
+                              {collections.length === 0 && (
+                                <p className="answer__fav-empty">
+                                  还没有收藏夹，先建一个吧
+                                </p>
+                              )}
+                              {collections.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className={`answer__fav-item${
+                                    c.has_item ? " answer__fav-item--on" : ""
+                                  }`}
+                                  disabled={favBusy}
+                                  onClick={() => collect(c, a.id)}
+                                >
+                                  <span className="answer__fav-name">
+                                    {c.name}（{c.item_count}）
+                                  </span>
+                                  {c.has_item ? (
+                                    <span className="answer__fav-check" aria-label="已在此收藏夹">
+                                      ✓
+                                    </span>
+                                  ) : null}
+                                </button>
+                              ))}
+                              <div className="answer__fav-new">
+                                <input
+                                  type="text"
+                                  className="answer__fav-input"
+                                  maxLength={50}
+                                  placeholder="新建收藏夹"
+                                  aria-label="新建收藏夹名称"
+                                  value={favNewName}
+                                  onChange={(e) => setFavNewName(e.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  className="answer__fav-create"
+                                  disabled={favBusy || !favNewName.trim()}
+                                  onClick={() => createAndCollect(a.id)}
+                                >
+                                  创建并收藏
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       )}

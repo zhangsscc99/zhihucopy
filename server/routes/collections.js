@@ -13,8 +13,38 @@ function canView(col, user) {
   return col.is_public || (user && user.id === col.owner_id);
 }
 
-// GET /mine — current user's collections with item counts.
-router.get("/mine", requireAuth, (req, res) => {
+// 当前用户是否已收藏该回答（跨其所有收藏夹）。answers/questions 的 is_collected 共用此口径。
+function isCollected(db, userId, answerId) {
+  if (!userId || !Number.isInteger(answerId)) return false;
+  return !!db
+    .prepare(
+      `SELECT EXISTS(
+         SELECT 1 FROM collection_items ci
+         JOIN collections c ON c.id = ci.collection_id
+         WHERE c.owner_id = ? AND ci.answer_id = ?
+       ) AS x`
+    )
+    .get(userId, answerId).x;
+}
+
+// 批量版：返回 answerIds 中已被 userId 收藏的 id 集合，与 isCollected 同一 EXISTS 口径。
+function collectedAnswerIds(db, userId, answerIds) {
+  if (!userId || !answerIds.length) return new Set();
+  const marks = answerIds.map(() => "?").join(",");
+  return new Set(
+    db
+      .prepare(
+        `SELECT DISTINCT ci.answer_id AS id FROM collection_items ci
+         JOIN collections c ON c.id = ci.collection_id
+         WHERE c.owner_id = ? AND ci.answer_id IN (${marks})`
+      )
+      .all(userId, ...answerIds)
+      .map((r) => r.id)
+  );
+}
+
+// GET / （与 /mine 同口径）— 当前用户收藏夹列表；?answer_id=<id> 时各条带 has_item 标记。
+function listMine(req, res) {
   const db = getDb();
   const collections = db
     .prepare(
@@ -22,8 +52,27 @@ router.get("/mine", requireAuth, (req, res) => {
        FROM collections c WHERE c.owner_id = ? ORDER BY c.id DESC`
     )
     .all(req.user.id);
+  if (req.query.answer_id !== undefined) {
+    const answerId = Number(req.query.answer_id);
+    if (!Number.isInteger(answerId) || answerId <= 0) {
+      return badRequest(res, "answer_id 必须是正整数");
+    }
+    const owned = db
+      .prepare(
+        `SELECT ci.collection_id AS id FROM collection_items ci
+         JOIN collections c ON c.id = ci.collection_id
+         WHERE c.owner_id = ? AND ci.answer_id = ?`
+      )
+      .all(req.user.id, answerId)
+      .map((r) => r.id);
+    const set = new Set(owned);
+    for (const c of collections) c.has_item = set.has(c.id) ? 1 : 0;
+  }
   res.json({ collections });
-});
+}
+
+router.get("/", requireAuth, listMine);
+router.get("/mine", requireAuth, listMine);
 
 // POST / — create a collection. Body: { name, is_public? }
 router.post("/", requireAuth, (req, res) => {
@@ -111,7 +160,8 @@ router.post("/:id/items", requireAuth, (req, res) => {
   const info = db
     .prepare("INSERT OR IGNORE INTO collection_items (collection_id, answer_id) VALUES (?, ?)")
     .run(id, answerId);
-  res.status(info.changes ? 201 : 200).json({ ok: true });
+  // 幂等：重复收藏返回 200 + collected:true，不当错误抛。
+  res.status(info.changes ? 201 : 200).json({ ok: true, collected: true });
 });
 
 // DELETE /:id/items/:answerId — remove an answer from the collection.
@@ -125,7 +175,8 @@ router.delete("/:id/items/:answerId", requireAuth, (req, res) => {
   if (!col) return res.status(404).json({ error: "收藏夹不存在" });
   if (col.owner_id !== req.user.id) return res.status(403).json({ error: "只能修改自己的收藏夹" });
   db.prepare("DELETE FROM collection_items WHERE collection_id = ? AND answer_id = ?").run(id, answerId);
-  res.status(204).end();
+  // collected 回传真实余态：该回答可能还躺在用户其它收藏夹里。
+  res.json({ ok: true, collected: isCollected(db, req.user.id, answerId) });
 });
 
 // DELETE /:id — delete own collection.
@@ -142,3 +193,5 @@ router.delete("/:id", requireAuth, (req, res) => {
 });
 
 module.exports = router;
+module.exports.isCollected = isCollected;
+module.exports.collectedAnswerIds = collectedAnswerIds;
