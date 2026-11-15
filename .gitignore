@@ -14,3 +14,4 @@ logs/
 .agent-run.lock
 .DS_Store
 .deploy/
+scripts/e2e/node_modules/

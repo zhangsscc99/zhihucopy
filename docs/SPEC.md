@@ -162,6 +162,31 @@ zhihucopy (Express, 127.0.0.1:3030)
 
 ---
 
+### 验收契约（强制，所有 FEATURES 条目必须遵守）
+
+每条待办格式：
+
+```
+- [ ] <FID> <一句话功能描述>
+  verify: <可执行的验收命令或断言>
+  risk: low|med|high
+```
+
+`verify:` 要求：
+- 后端接口类：`curl -s -X POST <url> -H 'Content-Type: application/json' -d '<body>' | jq -e '<断言>'`（必须能在本地 127.0.0.1 上跑通）
+- 前端页面类：`node scripts/e2e/<page>.mjs`（Playwright 断言关键元素与文案，退出码 0 = 通过）
+- 数据类：`node scripts/assert/<name>.mjs`（校验不变量，如计数一致）
+- 多条断言用 ` && ` 串联；**必须全绿才算完成**
+
+`risk:` 含义：
+- `low`：文案、样式、只读展示、种子数据 → 断言过即可自动上线
+- `med`：新增接口、业务逻辑 → 自动上线但进入「待人工复核」清单
+- `high`：认证、权限、删除、数据迁移、并发 → **必须人工确认后才合并**
+
+统一执行器：`scripts/verify.sh <FID>` 会从 FEATURES.md 抽出该条的 verify 命令并执行，返回 0/非 0。
+
+---
+
 ## 7. 里程碑
 
 - **M0** 壳子 + 认证 + 提问/回答读（可浏览、可发一条内容）

@@ -5,6 +5,7 @@
 # Env switches:
 #   SKIP_SMOKE=1   skip the isolated smoke-server suite (not recommended)
 #   SKIP_PUBLIC=1  skip the public https://openfolio.uk/zhihucopy check
+#   SKIP_E2E=1     skip the post-restart playwright e2e gate (not recommended)
 #   SMOKE_PORT     port for the throwaway smoke server (default 3987)
 set -euo pipefail
 
@@ -37,17 +38,19 @@ step() { STEP="$1"; STEP_START=$SECONDS; log "$STEP"; }
 end_step() { log "$STEP ok (${SECONDS}s elapsed, step took $((SECONDS - STEP_START))s)"; STEP=""; }
 
 cleanup_smoke() {
-  if [[ -n "$SMOKE_PID" ]] && kill -0 "$SMOKE_PID" 2>/dev/null; then
-    kill "$SMOKE_PID" 2>/dev/null || true
-    wait "$SMOKE_PID" 2>/dev/null || true
+  # ${VAR:-} everywhere: pm2-restart unsets the smoke vars before the EXIT
+  # trap can re-enter here — a bare expansion under `set -u` aborts the trap.
+  if [[ -n "${SMOKE_PID:-}" ]] && kill -0 "${SMOKE_PID:-}" 2>/dev/null; then
+    kill "${SMOKE_PID:-}" 2>/dev/null || true
+    wait "${SMOKE_PID:-}" 2>/dev/null || true
   fi
   SMOKE_PID=""
-  if [[ -n "$SMOKE_LOG" ]]; then
-    rm -f "$SMOKE_LOG"
+  if [[ -n "${SMOKE_LOG:-}" ]]; then
+    rm -f "${SMOKE_LOG:-}"
     SMOKE_LOG=""
   fi
-  if [[ -n "$SMOKE_DB" ]]; then
-    rm -f "$SMOKE_DB" "$SMOKE_DB-wal" "$SMOKE_DB-shm" "$SMOKE_DB-journal"
+  if [[ -n "${SMOKE_DB:-}" ]]; then
+    rm -f "${SMOKE_DB:-}" "${SMOKE_DB:-}-wal" "${SMOKE_DB:-}-shm" "${SMOKE_DB:-}-journal"
     SMOKE_DB=""
   fi
 }
@@ -229,6 +232,22 @@ else
   fi
   end_step
 fi
+
+# --- g2. e2e gate (post-restart) -----------------------------------------------
+step "e2e"
+if [[ "${SKIP_E2E:-0}" == "1" ]]; then
+  log "SKIP_E2E=1 — skipping e2e suite"
+elif [[ -f scripts/e2e/run-all.mjs ]]; then
+  # 机器验收门禁：REQUIRED 用例（基线 + 已勾选 FEATURES 覆盖项）失败 → 触发回滚。
+  if ! node scripts/e2e/run-all.mjs; then
+    log "e2e gate failed — rolling back"
+    history "deploy-fail" "stage=e2e"
+    exit 1
+  fi
+else
+  log "scripts/e2e/run-all.mjs missing — skipping e2e gate"
+fi
+end_step
 
 # --- h. success ----------------------------------------------------------------
 step "finalize"
