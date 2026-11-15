@@ -221,7 +221,7 @@
 - [ ] Z975 评论计数常显：评论区展开后「N 条评论」计数消失，展开态保留数量
   verify: node scripts/assert/comment-count.mjs
   risk: low
-- [ ] Z977 时间统一：7 天内相对时间、更早 `YYYY-MM-DD`，提问/回答/评论同一格式（Z958 收尾）
+- [x] Z977 时间统一：7 天内相对时间、更早 `YYYY-MM-DD`，提问/回答/评论同一格式（Z958 收尾） ✅ (2026-11-15 devin)
   verify: node scripts/assert/time-format.mjs
   risk: low
 - [ ] Z978 未登录文案去空格：「登录后即可回答」「登录后参与评论」（Z960 收尾）
@@ -236,7 +236,7 @@
 - [ ] Z976 桌面端通知入口 + 未读角标：顶栏/用户菜单加「通知」，角标读 `unread-count`，进 `/notifications` 后标已读
   verify: node scripts/assert/notify-entry.mjs
   risk: med
-- [ ] Z980 「发现」「等你来答」真实页面：新增 `/unanswered`（`tab=unanswered`，answer_count=0 的问题流）与话题广场入口，顶栏不得再有指向 `/` 或 `/?tab=hot` 的假链接
+- [x] Z980 「发现」「等你来答」真实页面：新增 `/unanswered`（`tab=unanswered`，answer_count=0 的问题流）与话题广场入口，顶栏不得再有指向 `/` 或 `/?tab=hot` 的假链接 ✅ (2026-11-15 devin)
   verify: node scripts/assert/nav-targets.mjs
   risk: med
 - [ ] Z981 清理测试作者在真实内容下的回答/评论（`巡检c41o` 之类混入 `/question/1`），并重算 questions.answer_count 保持一致
@@ -248,12 +248,75 @@
 
 ## 第六轮待办（2026-11-15 17:55，来自 Z970/Z971 集成审查与实测）
 
-- [ ] Z983 自动化产物自清理：assert/e2e 脚本结束后删除自己创建的问题/回答/账号（本轮清理前生产库 271 题中 211 题、662 账号中 415 个是历史产物；新断言仍在往里灌「关注流链路验证…」这类真实形态标题，过滤规则抓不到）
+- [x] Z983 自动化产物自清理：assert/e2e 脚本结束后删除自己创建的问题/回答/账号（本轮清理前生产库 271 题中 211 题、662 账号中 415 个是历史产物；新断言仍在往里灌「关注流链路验证…」这类真实形态标题，过滤规则抓不到） ✅ (2026-11-15 devin)
   verify: node scripts/assert/no-residue.mjs
   risk: med
 - [ ] Z984 content-filter 规则收窄 + 性能：裸前缀 `e2e`/`probe`/`review` 与子串 `-mw` 会误杀 `reviewer_zhang` 这类真实昵称，需加分隔符边界（如 `-mw[a-z0-9]{4,}`）；questions 列表每行约 26 个 LIKE + COLLATE NOCASE 且 title 无索引，量级上升前需换标记列
   verify: node scripts/assert/content-filter-precision.mjs
   risk: med
-- [ ] Z985 计数口径统一：`server/routes/users.js` 的 `stats.questions` 仍是裸 COUNT（其它计数已套 testUserSql），个人页数字与列表不一致
+- [x] Z985 计数口径统一：`server/routes/users.js` 的 `stats.questions` 仍是裸 COUNT（其它计数已套 testUserSql），个人页数字与列表不一致 ✅ (2026-11-15 devin)
   verify: node scripts/assert/stats-consistency.mjs
+  risk: low
+
+## 第七轮待办（2026-11-15 19:10，来源 docs/PRODUCT-REVIEW.md 第六轮 Playwright 实测）
+
+- [ ] Z1001 首页信息流彻底去测试数据：`is_test` 标记 + 「随机串/`*验证<随机>`」兜底规则，推荐/热榜/等你来答/搜索默认全过滤；清理库中存量造数（实测推荐首屏 20 卡中 13 卡是 e2e 产物，移动首屏 10 条中 8 条）
+  verify: node scripts/assert/feed-clean.mjs
+  risk: med
+- [ ] Z1002 「邀请回答」死按钮：要么接用户搜索 + 邀请记录，要么置灰并给「即将上线」提示（实测点击后 URL/滚动/DOM 全无变化）
+  verify: node scripts/assert/invite-answer.mjs
+  risk: med
+- [ ] Z1003 收藏功能落地：`GET /api/collections` 当前 404；回答卡「收藏」点击无任何状态回写。补表/接口 + 「已收藏」态
+  verify: node scripts/assert/collect.mjs
+  risk: med
+- [ ] Z1004 404 统一组件：真 404 状态码 + 正确归因 + ≥2 出口，覆盖 question/user/topic/route（实测四种表现，其中三种 `main` 内 0 个可点元素且文案写「请检查网络」）
+  verify: node scripts/assert/notfound-page.mjs
+  risk: low
+- [ ] Z1005 移动端搜索入口（Z972 重启）：390px 顶栏放大镜 → 全屏搜索层（连续第三轮无入口）
+  verify: node scripts/assert/mobile-search.mjs
+  risk: low
+- [ ] Z1006 搜索质量兜底：<2 字符或纯标点走空态并提示最少字数（实测 `?q=？` 返回 73 条）
+  verify: node scripts/assert/search-guard.mjs
+  risk: low
+- [ ] Z1007 通知条目可区分：事件类型图标 + 内容摘要片段（两条同作者通知文案相同）
+  verify: node scripts/assert/notify-detail.mjs
+  risk: low
+- [ ] Z1008 交互反馈文案：分享后「链接已复制」toast；评论发布按钮改「发布评论」（实测同页两个「发布」，误点会写成新回答）
+  verify: node scripts/assert/action-feedback.mjs
+  risk: low
+- [ ] Z1009 登录/注册表单可访问性：input 补 `label`/`aria-label`/`name`
+  verify: node scripts/assert/form-a11y.mjs
+  risk: low
+- [ ] Z1010 桌面右栏补第二模块（关注的话题 / 等你来答），消除首屏右下 200px+ 空白
+  verify: node scripts/assert/right-rail.mjs
+  risk: low
+- [ ] Z1011 未登录动作回跳：点赞/关注/回答前跳转带 `next`，登录后恢复原意图（旧 P2-1 连续多轮未落地）
+  verify: node scripts/assert/login-next.mjs
+  risk: med
+
+## 第七轮已合入（2026-11-15 19:35，本轮 devin 车道）
+
+- [x] Z986 断言/巡检自清理真正生效：spawn 用 `process.execPath`、显式传 `DB_PATH`，无 DB 权限时走 `--api` 模式（新增 `POST /api/test-support/cleanup`，requireAuth + 只删 owned/is_test 产物）；`feed-clean` 静态规则改为语义校验（list 与 COUNT 共用 `${where}`） ✅ (2026-11-15 devin)
+  verify: node scripts/assert/no-residue.mjs
+  risk: med
+- [x] Z987 用户公开接口脱敏 + 个人主页内容化：`publicUser` 只出 id/nickname/avatar_url/bio/created_at（email/salt_value/level/is_admin 走 `selfUser`）；`/u/:id` 新增「回答/提问」tab（接 Z985 的 `GET /answers?author=`），统计与列表互证 ✅ (2026-11-15 devin)
+  verify: node scripts/assert/user-public.mjs
+  risk: med
+
+## 既有断言红灯（非本轮回归，基线 7f81b95 同样失败）
+
+- [ ] Z1012 举报接口缺失：`GET /api/admin/reports`、`POST /api/reports` 均 404（reports.mjs / admin-api.mjs 红）
+  verify: node scripts/assert/reports.mjs
+  risk: med
+- [ ] Z1013 勋章系统未生效：首个回答后无勋章授予（badges.mjs 红）
+  verify: node scripts/assert/badges.mjs
+  risk: med
+- [ ] Z1014 盐值不增长：获赞后 `salt_value` 0 → 0（salt.mjs 红，server 无写入逻辑）
+  verify: node scripts/assert/salt.mjs
+  risk: low
+- [ ] Z1015 发帖限速未生效：4 连发全 201（antispam.mjs 红）
+  verify: node scripts/assert/antispam.mjs
+  risk: med
+- [ ] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红）
+  verify: node scripts/assert/smoke-fix.mjs
   risk: low
