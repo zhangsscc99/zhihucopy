@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { getDb } = require("../db");
-const { signToken, publicUser, badRequest } = require("../util");
+const { signToken, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { isTestEmail } = require("../content-filter");
 
@@ -32,7 +32,7 @@ router.post("/register", (req, res) => {
     .prepare("INSERT INTO users (email, password_hash, nickname, is_test) VALUES (?, ?, ?, ?)")
     .run(normalized, hash, nickname.trim(), isTest);
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
-  res.status(201).json({ token: signToken(user), user: publicUser(user) });
+  res.status(201).json({ token: signToken(user), user: selfUser(user) });
 });
 
 router.post("/login", (req, res) => {
@@ -46,11 +46,11 @@ router.post("/login", (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: "邮箱或密码不正确" });
   }
-  res.json({ token: signToken(user), user: publicUser(user) });
+  res.json({ token: signToken(user), user: selfUser(user) });
 });
 
 router.get("/me", requireAuth, (req, res) => {
-  res.json({ user: publicUser(req.user) });
+  res.json({ user: selfUser(req.user) });
 });
 
 module.exports = router;

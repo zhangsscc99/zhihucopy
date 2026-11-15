@@ -10,18 +10,28 @@ function signToken(user) {
   return jwt.sign({ uid: user.id }, SECRET, { expiresIn: "7d" });
 }
 
+// 公开字段：/users/:id、关注列表等任何人可见的出口一律用这个形态。
+// email / salt_value / level / is_admin 属私有字段，只走 selfUser。
 function publicUser(u) {
   if (!u) return null;
   return {
     id: u.id,
-    email: u.email,
     nickname: u.nickname,
     avatar_url: u.avatar_url,
     bio: u.bio,
+    created_at: u.created_at,
+  };
+}
+
+// 本人视角：公开字段 + 私有字段。仅 register/login、/auth/me、PATCH /users/me 使用。
+function selfUser(u) {
+  if (!u) return null;
+  return {
+    ...publicUser(u),
+    email: u.email,
     salt_value: u.salt_value,
     level: u.level,
     is_admin: u.is_admin,
-    created_at: u.created_at,
   };
 }
 
@@ -39,4 +49,4 @@ function badRequest(res, message) {
   return res.status(400).json({ error: message });
 }
 
-module.exports = { signToken, publicUser, parsePage, pageResult, badRequest, SECRET };
+module.exports = { signToken, publicUser, selfUser, parsePage, pageResult, badRequest, SECRET };
