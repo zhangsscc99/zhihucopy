@@ -23,7 +23,9 @@ function excerpt(md: string, n = 90) {
 }
 
 const feedQuery = (tab: Tab, page: number) =>
-  `/questions?tab=${tab === "hot" ? "hot" : "new"}&page=${page}&limit=${PAGE_SIZE}`;
+  tab === "following"
+    ? `/feed/following?page=${page}&limit=${PAGE_SIZE}`
+    : `/questions?tab=${tab === "hot" ? "hot" : "new"}&page=${page}&limit=${PAGE_SIZE}`;
 
 const searchQuery = (q: string, page: number) =>
   `/search?q=${encodeURIComponent(q)}&page=${page}&limit=${PAGE_SIZE}`;
@@ -264,7 +266,7 @@ function SearchResults({ q }: { q: string }) {
 }
 
 function Feed() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as Tab) || "recommended";
 
@@ -281,10 +283,8 @@ function Feed() {
   const requestSeq = useRef(0);
 
   useEffect(() => {
-    if (tab === "following") {
-      setInitialLoading(false);
-      return;
-    }
+    // 登录态未就绪先不发请求，避免已登录用户闪「去登录」空态。
+    if (tab === "following" && authLoading) return;
     const seq = ++requestSeq.current;
     setInitialLoading(true);
     setError("");
@@ -293,6 +293,11 @@ function Feed() {
     setItems([]);
     setHasMore(false);
     setPage(1);
+    // 关注流需登录：未登录直接渲染空态，不发请求。
+    if (tab === "following" && !user) {
+      setInitialLoading(false);
+      return;
+    }
     get<Page<Question>>(feedQuery(tab, 1))
       .then((res) => {
         if (seq !== requestSeq.current) return;
@@ -307,7 +312,7 @@ function Feed() {
         if (seq !== requestSeq.current) return;
         setInitialLoading(false);
       });
-  }, [tab, reloadToken]);
+  }, [tab, user, authLoading, reloadToken]);
 
   const loadMore = useCallback(() => {
     if (moreLoading || initialLoading) return;
@@ -355,33 +360,42 @@ function Feed() {
         ))}
       </div>
 
-      {tab === "following" ? (
-        <Empty
-          title={user ? "你关注的内容会出现在这里" : "登录后查看你关注的内容"}
-          hint={user ? "去推荐页找些感兴趣的问题吧" : "登录后可关注用户、话题与问题"}
-          action={
-            user ? (
-              <Link to="/" className="btn btn--outline">
-                去看推荐
-              </Link>
-            ) : (
+      {tab === "following" && !user ? (
+        authLoading ? (
+          <FeedSkeleton count={5} />
+        ) : (
+          <Empty
+            title="登录后查看你关注的内容"
+            hint="登录后可关注用户、话题与问题"
+            action={
               <Link to="/login" className="btn btn--outline">
                 去登录
               </Link>
-            )
-          }
-        />
+            }
+          />
+        )
       ) : initialLoading ? (
         <FeedSkeleton count={5} />
       ) : error ? (
         <ErrorBox message={error} onRetry={retry} />
       ) : items.length === 0 ? (
         <Empty
-          {...EMPTY_COPY[tab === "hot" ? "hot" : "recommended"]}
+          {...(tab === "following"
+            ? {
+                title: "你关注的内容会出现在这里",
+                hint: "去推荐页关注感兴趣的问题",
+              }
+            : EMPTY_COPY[tab === "hot" ? "hot" : "recommended"])}
           action={
-            <Link to="/ask" className="btn btn--outline">
-              去提问
-            </Link>
+            tab === "following" ? (
+              <Link to="/" className="btn btn--outline">
+                去看推荐
+              </Link>
+            ) : (
+              <Link to="/ask" className="btn btn--outline">
+                去提问
+              </Link>
+            )
           }
         />
       ) : (
