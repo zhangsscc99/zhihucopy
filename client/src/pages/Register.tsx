@@ -18,7 +18,7 @@ export function Register() {
     setBusy(true);
     try {
       await register(email, password, nickname);
-      toast("注册成功，欢迎来到知海");
+      toast("注册成功，欢迎来到知乎（仿）");
       navigate("/");
     } catch (err) {
       toast((err as Error).message, "error");
@@ -30,7 +30,7 @@ export function Register() {
   return (
     <div className="authpage">
       <Card className="authcard">
-        <h1 className="page-title">加入知海</h1>
+        <h1 className="page-title">加入知乎（仿）</h1>
         <form onSubmit={submit} className="authform">
           <label className="form-label">
             昵称

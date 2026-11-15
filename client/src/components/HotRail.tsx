@@ -36,7 +36,7 @@ export function HotRail() {
           ))}
         </ol>
       )}
-      <footer className="rail-block__foot">知海 · 有问题，就会有答案</footer>
+      <footer className="rail-block__foot">知乎（仿） · 有问题，就会有答案</footer>
     </div>
   );
 }
