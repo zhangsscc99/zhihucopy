@@ -471,6 +471,17 @@ textarea:focus-visible {
 .question__invite:hover {
   color: var(--accent);
 }
+.question__follow {
+  background: #ffffff;
+}
+.question__follow--on {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+.question__follow--on:hover {
+  color: var(--ink-2);
+}
 
 .answers__count {
   font-size: 15px;
@@ -560,31 +571,39 @@ textarea:focus-visible {
 .answer__vote {
   font: inherit;
   font-size: 14px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius);
   padding: 4px 12px;
   cursor: pointer;
 }
+.answer__vote:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .answer__vote--up {
-  color: var(--accent);
-  background: rgba(0, 102, 255, 0.08);
+  color: #0066ff;
+  background: #ffffff;
+  border-color: #0066ff;
 }
 .answer__vote--up:hover {
-  background: rgba(0, 102, 255, 0.14);
+  background: rgba(0, 102, 255, 0.08);
 }
 .answer__vote--up.is-active {
-  color: #fff;
-  background: var(--accent);
+  color: #ffffff;
+  background: #0066ff;
 }
 .answer__vote--down {
   color: var(--ink-3);
-  background: var(--paper);
+  background: #ffffff;
+  border-color: var(--ink-3);
 }
 .answer__vote--down:hover {
   color: var(--accent);
+  border-color: var(--accent);
 }
 .answer__vote--down.is-active {
   color: var(--accent);
+  border-color: var(--accent);
 }
 .answer__action {
   font: inherit;
@@ -681,6 +700,18 @@ textarea:focus-visible {
 .answer__comment-empty {
   margin: 2px 0 8px;
   color: var(--ink-3);
+}
+.answer__comment-retry {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 8px;
+  cursor: pointer;
+}
+.answer__comment-retry:hover {
+  text-decoration: underline;
 }
 .answer__comment-form {
   margin-top: 10px;

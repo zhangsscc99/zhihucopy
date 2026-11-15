@@ -27,6 +27,16 @@ interface CollectionItem {
 const fmtDate = (s: string) => new Date(s + "Z").toLocaleDateString("zh-CN");
 const fmtTime = (s: string) => new Date(s + "Z").toLocaleString("zh-CN");
 const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
+const relTime = (s: string) => {
+  const mins = Math.floor((Date.now() - new Date(s + "Z").getTime()) / 60000);
+  if (mins < 1) return "刚刚";
+  if (mins < 60) return `${mins} 分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天前`;
+  return fmtDate(s);
+};
 
 export function Question() {
   const { id } = useParams<{ id: string }>();
@@ -42,10 +52,13 @@ export function Question() {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [following, setFollowing] = useState(false);
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [followPending, setFollowPending] = useState(false);
   const [votes, setVotes] = useState<Record<number, number>>({});
+  const [votePending, setVotePending] = useState<Record<number, boolean>>({});
   const [openComments, setOpenComments] = useState<Record<number, boolean>>({});
   const [comments, setComments] = useState<Record<number, CommentNode[] | "loading">>({});
+  const [commentsError, setCommentsError] = useState<Record<number, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [commentSending, setCommentSending] = useState<Record<number, boolean>>({});
   const [favFor, setFavFor] = useState<number | null>(null);
@@ -59,6 +72,7 @@ export function Question() {
     get<{ question: QuestionType; answers: Answer[] }>(`/questions/${id}`)
       .then((d) => {
         setQuestion(d.question);
+        setFollowing(Boolean(d.question.followed));
         setAnswers(d.answers);
         setError("");
       })
@@ -92,17 +106,26 @@ export function Question() {
     navigate("/login");
   };
 
+  const followed = following ?? Boolean(question?.followed);
+
   const toggleFollow = async () => {
     if (!user) return needLogin();
+    if (followPending) return;
+    setFollowPending(true);
+    const was = followed;
+    setFollowing(!was);
     try {
-      const d = following
+      const d = was
         ? await del<{ following: boolean; follower_count: number }>(`/questions/${id}/follow`)
         : await post<{ following: boolean; follower_count: number }>(`/questions/${id}/follow`, {});
       setFollowing(d.following);
       setQuestion((q) => (q ? { ...q, follower_count: d.follower_count } : q));
       toast(d.following ? "已关注问题" : "已取消关注");
     } catch (e) {
+      setFollowing(was);
       toast((e as Error).message, "error");
+    } finally {
+      setFollowPending(false);
     }
   };
 
@@ -123,6 +146,8 @@ export function Question() {
 
   const vote = async (a: Answer, value: 1 | -1) => {
     if (!user) return needLogin();
+    if (votePending[a.id]) return;
+    setVotePending((v) => ({ ...v, [a.id]: true }));
     const next = (votes[a.id] ?? 0) === value ? 0 : value;
     try {
       const d = await post<{ vote: number; voteup_count: number; votedown_count: number }>(
@@ -137,23 +162,38 @@ export function Question() {
       );
     } catch (e) {
       toast((e as Error).message, "error");
+    } finally {
+      setVotePending((v) => ({ ...v, [a.id]: false }));
     }
   };
 
-  const toggleComments = async (answerId: number) => {
-    const willOpen = !openComments[answerId];
-    setOpenComments((o) => ({ ...o, [answerId]: willOpen }));
-    if (!willOpen || comments[answerId] !== undefined) return;
+  const loadComments = async (answerId: number) => {
     setComments((cs) => ({ ...cs, [answerId]: "loading" }));
+    setCommentsError((ce) => {
+      const next = { ...ce };
+      delete next[answerId];
+      return next;
+    });
     try {
       const d = await get<{ items: CommentNode[] }>(
         `/comments?target_type=answer&target_id=${answerId}`
       );
       setComments((cs) => ({ ...cs, [answerId]: d.items }));
     } catch (e) {
-      setComments((cs) => ({ ...cs, [answerId]: [] }));
+      setComments((cs) => {
+        const next = { ...cs };
+        delete next[answerId];
+        return next;
+      });
+      setCommentsError((ce) => ({ ...ce, [answerId]: (e as Error).message }));
       toast((e as Error).message, "error");
     }
+  };
+
+  const toggleComments = (answerId: number) => {
+    const willOpen = !openComments[answerId];
+    setOpenComments((o) => ({ ...o, [answerId]: willOpen }));
+    if (willOpen && comments[answerId] === undefined) void loadComments(answerId);
   };
 
   const submitComment = async (a: Answer) => {
@@ -247,13 +287,24 @@ export function Question() {
       <h1 className="question__title">{question.title}</h1>
       {question.detail_md && <p className="question__detail">{question.detail_md}</p>}
       <div className="question__meta">
+        <Link to={`/u/${question.author.id}`}>{question.author.nickname}</Link>
+        <span>提问于 {relTime(question.created_at)}</span>
+        <span aria-hidden="true">·</span>
+        <span>{question.follower_count} 人关注</span>
+        <span aria-hidden="true">·</span>
         <span>{question.answer_count} 个回答</span>
         <span aria-hidden="true">·</span>
         <span>{question.view_count} 次浏览</span>
       </div>
       <div className="question__actions">
-        <Button variant="outline" onClick={toggleFollow}>
-          {following ? "已关注" : "关注问题"}
+        <Button
+          variant="outline"
+          className={`question__follow${followed ? " question__follow--on" : ""}`}
+          onClick={toggleFollow}
+          disabled={followPending}
+          title={followed ? "取消关注" : undefined}
+        >
+          {followed ? "已关注" : "关注问题"}
         </Button>
         <Button onClick={writeAnswer}>写回答</Button>
         <button type="button" className="question__invite" onClick={invite}>
@@ -269,7 +320,6 @@ export function Question() {
           <ul className="answerlist">
             {answers.map((a) => {
               const my = votes[a.id] ?? 0;
-              const bio = (a.author as { bio?: string }).bio;
               const cs = comments[a.id];
               return (
                 <li key={a.id} className="answer" id={`answer-${a.id}`}>
@@ -289,7 +339,7 @@ export function Question() {
                       <Link to={`/u/${a.author.id}`} className="answer__name">
                         {a.author.nickname}
                       </Link>
-                      {bio && <p className="answer__bio">{bio}</p>}
+                      {a.author.bio && <p className="answer__bio">{a.author.bio}</p>}
                     </div>
                   </div>
                   <div className="answer__body prose">
@@ -306,6 +356,7 @@ export function Question() {
                       type="button"
                       className={`answer__vote answer__vote--up${my === 1 ? " is-active" : ""}`}
                       aria-pressed={my === 1}
+                      disabled={votePending[a.id]}
                       onClick={() => vote(a, 1)}
                     >
                       赞同{a.vote_up > 0 ? ` ${a.vote_up}` : ""}
@@ -314,6 +365,7 @@ export function Question() {
                       type="button"
                       className={`answer__vote answer__vote--down${my === -1 ? " is-active" : ""}`}
                       aria-pressed={my === -1}
+                      disabled={votePending[a.id]}
                       onClick={() => vote(a, -1)}
                     >
                       反对
@@ -325,7 +377,7 @@ export function Question() {
                     >
                       {openComments[a.id] ? "收起评论" : `${a.comment_count} 条评论`}
                     </button>
-                    <span className="answer__fav">
+                    <div className="answer__fav">
                       <button
                         type="button"
                         className="answer__action"
@@ -353,7 +405,7 @@ export function Question() {
                           )}
                         </div>
                       )}
-                    </span>
+                    </div>
                     <button type="button" className="answer__action" onClick={() => share(a)}>
                       分享
                     </button>
@@ -361,8 +413,19 @@ export function Question() {
                   </div>
                   {openComments[a.id] && (
                     <div className="answer__comments">
-                      {cs === undefined || cs === "loading" ? (
+                      {cs === "loading" || (cs === undefined && !commentsError[a.id]) ? (
                         <p className="answer__comment-empty">评论加载中…</p>
+                      ) : cs === undefined ? (
+                        <p className="answer__comment-empty">
+                          评论加载失败
+                          <button
+                            type="button"
+                            className="answer__comment-retry"
+                            onClick={() => void loadComments(a.id)}
+                          >
+                            重试
+                          </button>
+                        </p>
                       ) : (
                         <>
                           {cs.length === 0 ? (
