@@ -6,8 +6,36 @@ const { requireAuth } = require("../auth");
 const router = express.Router();
 
 const EXCERPT_LEN = 120;
+// 列表行摘要（去 Markdown 后）截断长度，前端单行展示。
+const LIST_EXCERPT_LEN = 60;
 // better-sqlite3 默认 SQLITE_MAX_VARIABLE_NUMBER 远大于 500，但保守截断防止 ids 过长。
 const MAX_READ_IDS = 500;
+
+// type → [event 语义标签, event_label 中文文案]。仅收录已可判定的类型；
+// 未收录的 type 不编造标签（event / event_label 返回 null）。
+const EVENT_LABELS = {
+  answer: ["answer_my_question", "回答了你的问题"],
+  comment: ["commented", "评论了你"],
+  agree: ["agreed", "赞同了你"],
+  vote: ["agreed", "赞同了你"],
+  follow: ["followed_you", "关注了你"],
+};
+
+// 去 Markdown 标记：代码围栏、行内码、链接/图片语法、标题、引用、列表符、
+// 强调符号剥掉后压平空白，只留纯文本供通知列表摘要用。
+function stripMarkdown(md) {
+  return String(md || "")
+    .replace(/```[^\n`]*\n?([\s\S]*?)```/g, "$1")
+    .replace(/`([^`\n]*)`/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
+    .replace(/\*\*|__|~~|\*|_/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // 通知 payload 由目标对象回查生成（notifications 表本身只有 target_type/target_id）。
 //   type='answer' → target_type='answer', target_id=<answers.id>：
@@ -34,6 +62,11 @@ function buildPayload(db, n) {
       const text = String(a.content_md || "").replace(/\s+/g, " ").trim();
       payload.answer_excerpt =
         text.length > EXCERPT_LEN ? `${text.slice(0, EXCERPT_LEN)}…` : text;
+      const plain = stripMarkdown(a.content_md);
+      payload.excerpt =
+        plain.length > LIST_EXCERPT_LEN
+          ? `${plain.slice(0, LIST_EXCERPT_LEN)}…`
+          : plain;
     }
     return payload;
   }
@@ -43,20 +76,26 @@ function buildPayload(db, n) {
     if (q) {
       payload.question_id = q.id;
       payload.question_title = q.title;
+      payload.excerpt = q.title;
     }
   }
   return payload;
 }
 
 function notificationRow(db, n) {
+  const payload = buildPayload(db, n);
+  const event = EVENT_LABELS[n.type] || null;
   return {
     id: n.id,
     type: n.type,
+    event: event ? event[0] : null,
+    event_label: event ? event[1] : null,
+    excerpt: payload.excerpt || null,
     actor: n.actor_id
       ? { id: n.actor_id, nickname: n.actor_nickname, avatar_url: n.actor_avatar }
       : null,
     target: n.target_type ? { type: n.target_type, id: n.target_id } : null,
-    payload: buildPayload(db, n),
+    payload,
     is_read: n.is_read === 1,
     created_at: n.created_at,
   };
