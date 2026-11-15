@@ -1,7 +1,40 @@
 const express = require("express");
 const { getDb } = require("../db");
+const { parsePage, pageResult, badRequest } = require("../util");
+const { testUserSql, testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
+
+// 个人页「该用户的回答」统一口径：未删除 + 作者非测试账号 + 所属问题非测试内容。
+// users.js 的 stats.answers / stats.vote_up 复用同一段 SQL，保证计数与列表一致。
+const AUTHOR_ANSWERS_SQL = `
+  FROM answers a
+  JOIN users u ON u.id = a.author_id
+  JOIN questions q ON q.id = a.question_id
+  JOIN users qu ON qu.id = q.author_id
+  WHERE a.author_id = ? AND a.is_deleted = 0
+    AND ${testUserSql("u")} AND ${testQuestionSql("q", "qu")}`;
+
+function answerRow(a) {
+  return {
+    id: a.id,
+    question_id: a.question_id,
+    question_title: a.question_title,
+    content_md: a.content_md,
+    vote_up: a.vote_up,
+    vote_down: a.vote_down,
+    comment_count: a.comment_count,
+    is_collapsed: a.is_collapsed,
+    created_at: a.created_at,
+    updated_at: a.updated_at,
+    author: {
+      id: a.author_id,
+      nickname: a.author_nickname,
+      avatar_url: a.author_avatar,
+      bio: a.author_bio,
+    },
+  };
+}
 
 // 有人回答别人的问题时，给问题作者插一条通知（自问自答不产生）。
 // 由发布回答的路由（questions.js POST /questions/:id/answers）在同一事务内调用。
@@ -21,6 +54,30 @@ function notifyQuestionAuthor(db, questionId, actorId, answerId) {
     .run(q.author_id, actorId, answerId);
   return info.lastInsertRowid;
 }
+
+// GET /answers?author=<id>&page=&limit= — 某用户可见的回答列表（个人页口径）。
+router.get("/", (req, res) => {
+  const authorId = parseInt(req.query.author, 10);
+  if (!Number.isInteger(authorId) || authorId <= 0) {
+    return badRequest(res, "author 参数不合法");
+  }
+  const { page, limit, offset } = parsePage(req);
+  const db = getDb();
+  const items = db
+    .prepare(
+      `SELECT a.*, q.title AS question_title,
+              u.id AS author_id, u.nickname AS author_nickname,
+              u.avatar_url AS author_avatar, u.bio AS author_bio
+       ${AUTHOR_ANSWERS_SQL}
+       ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?`
+    )
+    .all(authorId, limit, offset)
+    .map(answerRow);
+  const total = db
+    .prepare(`SELECT COUNT(*) c ${AUTHOR_ANSWERS_SQL}`)
+    .get(authorId).c;
+  res.json(pageResult(items, total, page, limit));
+});
 
 // GET /answers/:id — single answer with question context.
 router.get("/:id", (req, res) => {
@@ -55,3 +112,4 @@ router.get("/:id", (req, res) => {
 
 module.exports = router;
 module.exports.notifyQuestionAuthor = notifyQuestionAuthor;
+module.exports.AUTHOR_ANSWERS_SQL = AUTHOR_ANSWERS_SQL;
