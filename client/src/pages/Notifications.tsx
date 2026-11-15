@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
@@ -17,6 +17,9 @@ interface NotificationActor {
 interface NotificationItem {
   id: number;
   type: string;
+  event?: string | null;
+  event_label?: string | null;
+  excerpt?: string | null;
   actor: NotificationActor | null;
   target: { type: string; id: number } | null;
   payload: {
@@ -24,6 +27,7 @@ interface NotificationItem {
     question_title?: string;
     answer_id?: number;
     answer_excerpt?: string;
+    excerpt?: string;
   } | null;
   is_read: boolean;
   created_at: string;
@@ -55,6 +59,65 @@ function linkFor(n: NotificationItem): string | null {
   return qid ? `/question/${qid}` : null;
 }
 
+function questionLinkFor(n: NotificationItem): string | null {
+  const qid =
+    n.payload?.question_id ??
+    (n.target?.type === "question" ? n.target.id : null);
+  return qid ? `/question/${qid}` : null;
+}
+
+// 事件类型图标：内联 SVG、stroke=currentColor，颜色由 .ntf__icon 控制。
+function TypeIcon({ kind }: { kind: string }) {
+  const paths: Record<string, ReactNode> = {
+    // 回答：铅笔
+    answer_my_question: (
+      <>
+        <path d="M4 20h16" />
+        <path d="M14.5 4.5l4 4L8 19l-4.5.8L4.3 15 14.5 4.5z" />
+      </>
+    ),
+    // 评论：气泡
+    commented: (
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-4.4 3.6A.5.5 0 0 1 4 19.2V5.5z" />
+    ),
+    // 赞同：拇指
+    agreed: (
+      <>
+        <path d="M7 10.5v9" />
+        <path d="M7 11l3.6-7.2c1.4-.2 2.7.8 2.7 2.3 0 .9-.3 2.2-.8 3.4h5.6a2 2 0 0 1 2 2.4l-1.1 6a2 2 0 0 1-2 1.6H7" />
+      </>
+    ),
+    // 关注：人形 + 加号
+    followed_you: (
+      <>
+        <circle cx="10" cy="8" r="3.5" />
+        <path d="M4.5 20v-1a5.5 5.5 0 0 1 5.5-5.5h1" />
+        <path d="M19 14v6M16 17h6" />
+      </>
+    ),
+    // 兜底：铃铛
+    other: (
+      <>
+        <path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2 6.5-2 6.5h16s-2-1-2-6.5" />
+        <path d="M10.3 19a2 2 0 0 0 3.4 0" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[kind] || paths.other}
+    </svg>
+  );
+}
+
 function NotificationRow({
   n,
   onRead,
@@ -63,45 +126,52 @@ function NotificationRow({
   onRead: (n: NotificationItem) => void;
 }) {
   const actor = n.actor;
-  const action = ACTION_TEXT[n.type] ?? "与你互动了";
+  const action = n.event_label || ACTION_TEXT[n.type] || "与你互动了";
   const to = linkFor(n);
+  const qto = questionLinkFor(n);
   const title = n.payload?.question_title;
-
-  const body = (
-    <p className="ntf__line">
-      <span className="ntf__name">{actor?.nickname || "用户"}</span>
-      {" " + action}
-      {title ? `《${title}》` : ""}
-    </p>
-  );
+  const excerpt = n.excerpt || n.payload?.excerpt || n.payload?.answer_excerpt;
+  const kind = n.event || "other";
 
   return (
     <li className={`ntf__item${n.is_read ? "" : " ntf__item--unread"}`}>
-      {actor ? (
+      {to && (
         <Link
-          to={`/u/${actor.id}`}
-          className="avatar ntf__avatar"
-          aria-label={`${actor.nickname} 的主页`}
-        >
-          {actor.avatar_url ? (
-            <img src={actor.avatar_url} alt="" />
+          to={to}
+          className="ntf__hit"
+          aria-label={`${actor?.nickname || "用户"}${action}`}
+          onClick={() => onRead(n)}
+        />
+      )}
+      <span className="ntf__icon" aria-hidden="true">
+        <TypeIcon kind={kind} />
+      </span>
+      <div className="ntf__main">
+        <p className="ntf__line">
+          {actor ? (
+            <Link to={`/u/${actor.id}`} className="ntf__name">
+              {actor.nickname}
+            </Link>
           ) : (
-            actor.nickname.slice(0, 1) || "·"
+            <span className="ntf__name">用户</span>
           )}
-        </Link>
-      ) : (
-        <span className="avatar ntf__avatar">·</span>
-      )}
-      {to ? (
-        <Link to={to} className="ntf__body" onClick={() => onRead(n)}>
-          {body}
-        </Link>
-      ) : (
-        <div className="ntf__body">{body}</div>
-      )}
-      <time className="ntf__time" dateTime={n.created_at}>
-        {formatTime(n.created_at)}
-      </time>
+          <span className="ntf__action">{` · ${action}`}</span>
+        </p>
+        {title &&
+          (qto ? (
+            <Link to={qto} className="ntf__title" onClick={() => onRead(n)}>
+              {title}
+            </Link>
+          ) : (
+            <span className="ntf__title">{title}</span>
+          ))}
+        <div className="ntf__foot">
+          {excerpt ? <p className="ntf__excerpt">{excerpt}</p> : null}
+          <time className="ntf__time" dateTime={n.created_at}>
+            {formatTime(n.created_at)}
+          </time>
+        </div>
+      </div>
     </li>
   );
 }

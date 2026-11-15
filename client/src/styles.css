@@ -1710,6 +1710,7 @@ mark.hl {
   gap: 8px;
 }
 .ntf__item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -1718,52 +1719,99 @@ mark.hl {
   border-radius: var(--radius);
   padding: 14px 18px;
 }
+/* 未读：左侧 3px 蓝条 + 浅蓝底，与已读白卡区分 */
 .ntf__item--unread {
-  background: #f0f6ff;
-  border-left: 4px solid var(--accent);
-  padding-left: 15px;
+  background: #f0f7ff;
+  border-left: 3px solid var(--accent);
+  padding-left: 16px;
 }
-.ntf__avatar {
-  width: 38px;
-  height: 38px;
-  font-size: 16px;
+/* 整卡可点的覆盖链接：盖在图标/正文之上，昵称与标题链接靠
+   position:relative + DOM 顺序压回顶层。 */
+.ntf__hit {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
 }
-.ntf__avatar:hover {
+.ntf__hit:hover {
   text-decoration: none;
 }
-.ntf__body {
+.ntf__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: #ebf2ff;
+  color: var(--accent);
+}
+.ntf__icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.ntf__main {
   flex: 1;
   min-width: 0;
-  display: block;
-  color: var(--ink-2);
-  text-decoration: none;
-}
-.ntf__body:hover {
-  text-decoration: none;
 }
 .ntf__line {
   margin: 0;
   font-size: 15px;
   line-height: 1.6;
-  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ntf__name {
+  position: relative;
   color: var(--ink);
   font-weight: 500;
 }
+a.ntf__name:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ntf__action {
+  color: var(--ink-2);
+}
+.ntf__title {
+  position: relative;
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+a.ntf__title:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ntf__foot {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 4px;
+}
 .ntf__excerpt {
-  margin: 4px 0 0;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   color: var(--ink-3);
   line-height: 1.6;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ntf__time {
   flex-shrink: 0;
+  margin-left: auto;
   font-size: 13px;
   color: var(--ink-3);
   white-space: nowrap;
@@ -1774,14 +1822,14 @@ mark.hl {
 @media (max-width: 767px) {
   .ntf__item {
     padding: 12px 14px;
+    gap: 10px;
   }
   .ntf__item--unread {
-    padding-left: 11px;
+    padding-left: 12px;
   }
-  .ntf__avatar {
+  .ntf__icon {
     width: 32px;
     height: 32px;
-    font-size: 14px;
   }
 }
 
