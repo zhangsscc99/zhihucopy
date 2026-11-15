@@ -4,6 +4,7 @@ import { get } from "../api";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
 import type { User } from "../types";
+import { formatTime } from "../lib/time";
 
 interface ProfileData {
   user: User;
@@ -44,7 +45,7 @@ export function Profile() {
           <h1 className="profile__name">{user.nickname}</h1>
           <p className="profile__bio">{user.bio || "这个人还没有写简介。"}</p>
           <p className="profile__joined">
-            {new Date(user.created_at + "Z").toLocaleDateString("zh-CN")} 加入
+            {formatTime(user.created_at)} 加入
           </p>
         </div>
       </div>
