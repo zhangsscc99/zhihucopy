@@ -2049,6 +2049,27 @@ a.ntf__title:hover {
   font-size: 13px;
   color: var(--ink-3);
 }
+.profile__info {
+  flex: 1;
+  min-width: 0;
+}
+.profile__follow {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.profile__follow:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+.profile__follow--on,
+.profile__follow--on:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-3);
+}
 .profile__stats {
   display: flex;
   gap: 28px;

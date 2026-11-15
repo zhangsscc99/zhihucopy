@@ -51,3 +51,14 @@ export const get = <T>(path: string) => api<T>("GET", path);
 export const post = <T>(path: string, body?: unknown) => api<T>("POST", path, body);
 export const patch = <T>(path: string, body?: unknown) => api<T>("PATCH", path, body);
 export const del = <T>(path: string) => api<T>("DELETE", path);
+
+export interface FollowUserResult {
+  following: boolean;
+  follower_count: number;
+  following_count: number;
+}
+
+export const followUser = (userId: number) =>
+  post<FollowUserResult>(`/users/${userId}/follow`, {});
+export const unfollowUser = (userId: number) =>
+  del<FollowUserResult>(`/users/${userId}/follow`);
