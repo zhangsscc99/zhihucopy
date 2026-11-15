@@ -320,3 +320,27 @@
 - [ ] Z1016 ci-deploy smoke 未覆盖 votes/comments（smoke-fix.mjs 红）
   verify: node scripts/assert/smoke-fix.mjs
   risk: low
+
+## 第八轮待办（2026-11-15 20:35，来源 docs/PRODUCT-REVIEW.md 第七轮 Playwright 实测）
+
+- [ ] Z1018 他人主页无「关注」按钮：`/u/:id` 头部只有 回答/提问 两 tab，「关注 N / 粉丝 M」是纯文本不可点，全站无法关注用户（P1）
+  verify: node scripts/assert/follow-user.mjs
+  risk: med
+- [ ] Z1019 通知只覆盖「回答我的问题」：赞同/评论/关注均不产生通知，与空态文案「赞同、评论与关注会出现在这里」不符（P1）
+  verify: node scripts/assert/notify-events.mjs
+  risk: med
+- [ ] Z1020 自己的内容无编辑/删除入口：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1）
+  verify: node scripts/assert/edit-delete.mjs
+  risk: med
+- [ ] Z1021 收藏后无处查看：收藏夹无页面路由（`/collections/:id` 不存在），个人主页无「收藏」tab，收藏仍半闭环（P0 残留）
+  verify: node scripts/assert/collection-page.mjs
+  risk: med
+- [ ] Z1022 热榜与推荐无区分度：热榜卡片无排名色块/热度分/上升标记，样式与推荐流相同（P2）
+  verify: node scripts/assert/hot-rank.mjs
+  risk: low
+- [ ] Z1023 未登录点「写回答」完全无反应：无 toast、无跳转，引导文案在 2000px 外视口外（P1，Z1011 收尾）
+  verify: node scripts/assert/answer-login-cta.mjs
+  risk: low
+- [ ] Z1024 404 返回 HTTP 200（软 404）：`/question/999999`、`/u/999999`、`/nonexistent` 均 200，不利监控/SEO（Z1004 收尾）
+  verify: node scripts/assert/notfound-status.mjs
+  risk: low
