@@ -4,6 +4,7 @@ const { parsePage, pageResult, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { notifyQuestionAuthor } = require("./answers");
 const { testQuestionSql } = require("../content-filter");
+const { grantFor } = require("../badges");
 
 const router = express.Router();
 
@@ -97,6 +98,7 @@ router.post("/", requireAuth, (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q JOIN users u ON u.id = q.author_id WHERE q.id = ?`
     )
     .get(created);
+  grantFor(req.user.id, "first_question");
   res.status(201).json({ question: questionRow(q) });
 });
 
@@ -230,6 +232,8 @@ router.post("/:id/answers", requireAuth, (req, res) => {
   })();
 
   const a = db.prepare(`${ANSWER_SELECT} WHERE a.id = ?`).get(aid);
+  grantFor(req.user.id, "first_answer");
+  grantFor(req.user.id, "answer_5");
   res.status(201).json({ answer: answerRow(a) });
 });
 

@@ -2,6 +2,8 @@ const express = require("express");
 const { getDb } = require("../db");
 const { requireAuth } = require("../auth");
 const { badRequest } = require("../util");
+const { applyUpvoteDelta } = require("../salt");
+const { grantFor } = require("../badges");
 
 const router = express.Router();
 
@@ -35,7 +37,7 @@ router.post("/", requireAuth, (req, res) => {
   const id = Number(target_id);
   const target =
     target_type === "answer"
-      ? db.prepare(`SELECT id FROM answers WHERE id = ? AND is_deleted = 0`).get(id)
+      ? db.prepare(`SELECT id, author_id FROM answers WHERE id = ? AND is_deleted = 0`).get(id)
       : db.prepare(`SELECT id FROM questions WHERE id = ?`).get(id);
   if (!target) return res.status(404).json({ error: t.notFound });
 
@@ -63,8 +65,15 @@ router.post("/", requireAuth, (req, res) => {
         `UPDATE ${t.table} SET vote_up = vote_up + ?, vote_down = vote_down + ? WHERE id = ?`
       ).run(du, dd, id);
     }
+    return { du, dd };
   });
-  tx();
+  const delta = tx();
+
+  // Z1014: 回答作者盐值（赞同 +2 / 取消 -2，自赞不计）；Z1013: 累计获赞 10 授勋。
+  if (target_type === "answer" && delta && target.author_id !== req.user.id) {
+    applyUpvoteDelta(target.author_id, delta.du);
+    if (delta.du > 0) grantFor(target.author_id, "upvote_10");
+  }
 
   const counts = db.prepare(`SELECT vote_up, vote_down FROM ${t.table} WHERE id = ?`).get(id);
   res.json({ vote: value, voteup_count: counts.vote_up, votedown_count: counts.vote_down });

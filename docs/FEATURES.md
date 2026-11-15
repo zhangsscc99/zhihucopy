@@ -308,12 +308,10 @@
 - [ ] Z1012 举报接口缺失：`GET /api/admin/reports`、`POST /api/reports` 均 404（reports.mjs / admin-api.mjs 红）
   verify: node scripts/assert/reports.mjs
   risk: med
-- [ ] Z1013 勋章系统未生效：首个回答后无勋章授予（badges.mjs 红）
+- [x] Z1013 勋章系统 ✅ (2026-11-15 devin)
   verify: node scripts/assert/badges.mjs
-  risk: med
-- [ ] Z1014 盐值不增长：获赞后 `salt_value` 0 → 0（salt.mjs 红，server 无写入逻辑）
+- [x] Z1014 盐值/等级 ✅ (2026-11-15 devin)
   verify: node scripts/assert/salt.mjs
-  risk: low
 - [ ] Z1015 发帖限速未生效：4 连发全 201（antispam.mjs 红）
   verify: node scripts/assert/antispam.mjs
   risk: med

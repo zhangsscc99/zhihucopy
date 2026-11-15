@@ -1797,3 +1797,32 @@ mark.hl {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 勋章胶囊：白底、#EBEBEB 边框、3px 圆角，主色仅用于图标强调 */
+.medals {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.medals__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 18px;
+}
+.medals__icon {
+  display: inline-flex;
+  align-items: center;
+}
+.medals__name {
+  font-weight: 500;
+}

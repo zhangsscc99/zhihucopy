@@ -1,3 +1,11 @@
+export interface Badge {
+  code: string;
+  name: string;
+  description: string;
+  icon_svg: string;
+  granted_at?: string;
+}
+
 export interface User {
   id: number;
   email: string;

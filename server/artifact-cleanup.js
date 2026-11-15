@@ -201,7 +201,8 @@ const DEPS = [
   ["votes(user)", `DELETE FROM votes WHERE user_id IN ${SEL.u}`],
   ["question_votes(user)", `DELETE FROM question_votes WHERE user_id IN ${SEL.u}`],
   ["comments(user)", `DELETE FROM comments WHERE author_id IN ${SEL.u}`],
-  ["badges", `DELETE FROM badges WHERE user_id IN ${SEL.u}`],
+  ["user_badges", `DELETE FROM user_badges WHERE user_id IN ${SEL.u}`],
+  ["badge_grants_legacy", `DELETE FROM badge_grants_legacy WHERE user_id IN ${SEL.u}`],
   ["reports(reporter)", `DELETE FROM reports WHERE reporter_id IN ${SEL.u} OR (target_type = 'user' AND target_id IN ${SEL.u})`],
   ["reports(handled_by)", `UPDATE reports SET handled_by = NULL WHERE handled_by IN ${SEL.u}`],
   ["mod_logs", `DELETE FROM mod_logs WHERE admin_id IN ${SEL.u}`],
@@ -228,7 +229,12 @@ const RECOMPUTE = [
 function deleteMarked(db) {
   const stats = {};
   for (const [key, sql] of DEPS) {
-    stats[key] = (stats[key] || 0) + db.prepare(sql).run().changes;
+    try {
+      stats[key] = (stats[key] || 0) + db.prepare(sql).run().changes;
+    } catch (e) {
+      // 可选表（如 badge_grants_legacy / reports）在部分库上不存在，跳过。
+      if (!/no such table/.test(e.message)) throw e;
+    }
   }
   return stats;
 }
