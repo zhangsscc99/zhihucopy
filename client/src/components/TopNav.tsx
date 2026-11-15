@@ -30,11 +30,38 @@ export function TopNav() {
     <header className="topnav">
       <div className="topnav__inner">
         <Link to="/" className="brand" aria-label="知乎（仿）首页">
-          <span className="brand__seal">知</span>
           <span className="brand__name">知乎（仿）</span>
         </Link>
 
+        <nav className="topnav__links">
+          <NavLink to="/" end className="topnav__link">
+            首页
+          </NavLink>
+          <Link to="/" className="topnav__link">
+            发现
+          </Link>
+          <Link to="/?tab=hot" className="topnav__link">
+            等你来答
+          </Link>
+        </nav>
+
         <form className="topnav__search" onSubmit={submitSearch} role="search">
+          <svg
+            className="topnav__search-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+            <path
+              d="m20 20-3.8-3.8"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
           <input
             className="field field--search"
             placeholder="搜索问题、回答、用户"
@@ -44,14 +71,10 @@ export function TopNav() {
           />
         </form>
 
-        <nav className="topnav__links">
-          <NavLink to="/" end className="topnav__link">
-            首页
-          </NavLink>
-        </nav>
-
         <div className="topnav__actions">
-          <Button onClick={() => navigate("/ask")}>提问</Button>
+          <Button className="topnav__ask" onClick={() => navigate("/ask")}>
+            提问
+          </Button>
           {user ? (
             <div className="usermenu" ref={menuRef}>
               <button
