@@ -347,6 +347,35 @@ textarea:focus-visible {
   color: var(--ink-2);
 }
 
+/* 列表底部：加载更多 / 到底提示 / 追加失败 */
+.feed-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 20px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.feed-foot--error {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.feed-foot__text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.feed-end {
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
 /* ---------- 问题详情 ---------- */
 
 .question {
@@ -546,6 +575,18 @@ textarea:focus-visible {
 
 /* ---------- 状态 ---------- */
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .empty {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -563,6 +604,9 @@ textarea:focus-visible {
   color: var(--ink-2);
   margin: 0;
 }
+.empty__action {
+  margin-top: 18px;
+}
 .errorbox {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -571,11 +615,65 @@ textarea:focus-visible {
   padding: 16px 20px;
   font-size: 15px;
 }
+.errorbox__msg {
+  margin: 0;
+}
 .errorbox__hint {
   margin-top: 6px;
   font-size: 13px;
   color: var(--ink-2);
 }
+.errorbox__actions {
+  margin-top: 14px;
+}
+
+/* ---------- 骨架屏 ---------- */
+
+.sk-bar {
+  display: block;
+  background: var(--line);
+  border-radius: 2px;
+  animation: sk-pulse 1.5s ease-in-out infinite;
+}
+.sk-feed {
+  background: var(--surface);
+}
+.sk-feed__item {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.sk-feed__lines {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sk-feed__meta {
+  margin-top: 14px;
+  display: flex;
+  gap: 14px;
+}
+.sk-rail__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+@keyframes sk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-bar {
+    animation: none !important;
+  }
+}
+
 .spinner {
   display: flex;
   gap: 6px;
