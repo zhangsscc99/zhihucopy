@@ -31,6 +31,15 @@ function snippet(md, q) {
 // match_rank → 命中来源：标题 > 摘要 > 话题名。
 const MATCHED = { 1: "title", 2: "detail", 3: "topic" };
 
+// Z1028 搜索守卫：剔除标点/空白/符号（含 emoji）后的「有效词条」为空，或整串
+// 只有 1 个非汉字有效字符（"a"/"x"）时直接空结果——否则单字符 LIKE 会兜底成
+// 全站列表、属漏召回污染。汉字单字（"码"）与技术词（"C++"/"C#"/".NET"/"Go"）
+// 词条有效、原始 query 不止一字符，仍走正常检索。
+function effectiveTerm(q) {
+  return q.replace(/[^\p{L}\p{N}]+/gu, "");
+}
+const HAS_HAN = /\p{Script=Han}/u;
+
 // GET /search?q=&page=&limit=&type=question — 按关键词搜问题（标题/详情/所属话题名子串匹配）。
 // 说明：库内 FTS5 仅有 answer_fts（索引回答，缺答案的问题无法命中），且不得改表结构，
 // 故问题检索用 LIKE。TODO: type=answer|user|topic 分类检索（落地时同样要套
@@ -39,8 +48,15 @@ router.get("/", (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 100);
   const { page, limit, offset } = parsePage(req);
   const type = String(req.query.type || "question");
-  if (!q || type !== "question") {
+  if (type !== "question") {
     return res.json(pageResult([], 0, page, limit));
+  }
+  const term = effectiveTerm(q);
+  if (
+    term.length === 0 ||
+    (term.length === 1 && q.trim().length === 1 && !HAS_HAN.test(term))
+  ) {
+    return res.json({ ...pageResult([], 0, page, limit), reason: "too_short" });
   }
   const pat = likePattern(q);
   const db = getDb();
