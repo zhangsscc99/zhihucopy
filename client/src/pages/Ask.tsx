@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
-import { Button, Card, Input, Textarea } from "../components/ui";
+import MarkdownEditor from "../components/MarkdownEditor";
+import { Button, Card, Input } from "../components/ui";
 import type { Question } from "../types";
 
 export function Ask() {
@@ -49,15 +50,16 @@ export function Ask() {
           onChange={(e) => setTitle(e.target.value)}
         />
       </label>
-      <label className="form-label">
-        补充说明（可选）
-        <Textarea
+      <div className="form-label">
+        <span id="ask-detail-label">补充说明（可选）</span>
+        <MarkdownEditor
           rows={6}
           value={detail}
-          placeholder="背景、你已经尝试过的方法、期望的回答方向…"
+          aria-labelledby="ask-detail-label"
+          placeholder="背景、你已经尝试过的方法、期望的回答方向…（支持 Markdown）"
           onChange={(e) => setDetail(e.target.value)}
         />
-      </label>
+      </div>
       <div className="form-actions">
         <Button onClick={submit} disabled={submitting || !title.trim()}>
           {submitting ? "发布中…" : "发布问题"}

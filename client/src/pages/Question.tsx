@@ -4,6 +4,8 @@ import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
+import Markdown from "../components/Markdown";
+import MarkdownEditor from "../components/MarkdownEditor";
 import { Button, Textarea } from "../components/ui";
 import type { Answer, Page, Question as QuestionType } from "../types";
 
@@ -391,7 +393,9 @@ export function Question() {
         </div>
       )}
       <h1 className="question__title">{question.title}</h1>
-      {question.detail_md && <p className="question__detail">{question.detail_md}</p>}
+      {question.detail_md && (
+        <Markdown source={question.detail_md} className="question__detail prose" />
+      )}
       <div className="question__meta">
         <Link to={`/u/${question.author.id}`}>{question.author.nickname}</Link>
         <span>提问于 {relTime(question.created_at)}</span>
@@ -473,15 +477,7 @@ export function Question() {
                       {a.author.bio && <p className="answer__bio">{a.author.bio}</p>}
                     </div>
                   </div>
-                  <div className="answer__body prose">
-                    {a.content_md
-                      .split(/\n{2,}/)
-                      .map((p) => p.trim())
-                      .filter(Boolean)
-                      .map((p, i) => (
-                        <p key={i}>{p}</p>
-                      ))}
-                  </div>
+                  <Markdown source={a.content_md} className="answer__body prose" />
                   <div className="answer__actions">
                     <button
                       type="button"
@@ -660,12 +656,13 @@ export function Question() {
       </section>
 
       <section className="answer-editor" ref={editorBoxRef}>
-        <h2 className="answers__count">写下你的回答</h2>
+        <h2 className="answers__count" id="answer-editor-label">写下你的回答</h2>
         {user ? (
           <>
-            <Textarea
+            <MarkdownEditor
               ref={editorRef}
               rows={6}
+              aria-labelledby="answer-editor-label"
               placeholder="分享你的见解…（支持 Markdown）"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
