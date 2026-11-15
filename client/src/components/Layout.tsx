@@ -1,8 +1,12 @@
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { TopNav } from "./TopNav";
+import { useAuth } from "../auth";
+import { useNotifications } from "../notifications";
 
 export function Layout({ children, rail }: { children: ReactNode; rail?: ReactNode }) {
+  const { user } = useAuth();
+  const { unread } = useNotifications();
   return (
     <div className="shell">
       <TopNav />
@@ -16,7 +20,12 @@ export function Layout({ children, rail }: { children: ReactNode; rail?: ReactNo
         </NavLink>
         <NavLink to="/?tab=hot">热榜</NavLink>
         <NavLink to="/ask">发布</NavLink>
-        <NavLink to="/notifications">通知</NavLink>
+        <NavLink to="/notifications">
+          通知
+          {user && unread > 0 && (
+            <span className="badge">{unread > 99 ? "99+" : unread}</span>
+          )}
+        </NavLink>
         <NavLink to="/me">我</NavLink>
       </nav>
     </div>
