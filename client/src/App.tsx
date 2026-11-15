@@ -10,6 +10,8 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Profile } from "./pages/Profile";
 import { Topic } from "./pages/Topic";
+import { Topics } from "./pages/Topics";
+import { Unanswered } from "./pages/Unanswered";
 import { Notifications } from "./pages/Notifications";
 
 function Me() {
@@ -25,6 +27,8 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/question/:id" element={<Question />} />
         <Route path="/topic/:key" element={<Topic />} />
+        <Route path="/topics" element={<Topics />} />
+        <Route path="/unanswered" element={<Unanswered />} />
         <Route path="/ask" element={<Ask />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

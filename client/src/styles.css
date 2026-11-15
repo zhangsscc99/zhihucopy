@@ -483,6 +483,52 @@ textarea:focus-visible {
   border-radius: var(--radius);
 }
 
+/* 频道页头部（等你来答 / 话题广场）：白卡 + 标题 + 一行引导 */
+.page-head {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.page-head__title {
+  margin: 0 0 6px;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.page-head__desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-3);
+  line-height: 1.7;
+}
+
+/* 话题广场条目：名称加粗、简介一行、灰色元信息 */
+.topic-item__name {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.topic-item__name:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.topic-item__desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
 /* 搜索结果头部 + 命中高亮 */
 .search-head {
   display: flex;

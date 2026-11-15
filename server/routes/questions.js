@@ -97,20 +97,26 @@ router.post("/", requireAuth, (req, res) => {
   res.status(201).json({ question: questionRow(q) });
 });
 
-// GET /questions?tab=hot|new&page=&limit=
+// GET /questions?tab=hot|new|unanswered&page=&limit=
 router.get("/", (req, res) => {
-  const tab = req.query.tab === "hot" ? "hot" : "new";
+  const tab =
+    req.query.tab === "hot" || req.query.tab === "unanswered"
+      ? req.query.tab
+      : "new";
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
   const order =
     tab === "hot"
       ? "(q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC"
       : "q.created_at DESC";
+  const where = `WHERE ${testQuestionSql("q", "u")}${
+    tab === "unanswered" ? " AND q.answer_count = 0" : ""
+  }`;
   const items = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       ${where}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
@@ -118,7 +124,7 @@ router.get("/", (req, res) => {
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}`
+       ${where}`
     )
     .get().c;
   res.json(pageResult(items, total, page, limit));
