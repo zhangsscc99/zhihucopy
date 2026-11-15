@@ -5,6 +5,39 @@ const { requireAuth } = require("../auth");
 
 const router = express.Router();
 
+// 分页：兼容 ?limit=&offset= 与 ?page=（verify 与本仓库其它列表接口风格）。
+function parseOffsetPage(req) {
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const rawOffset = parseInt(req.query.offset, 10);
+  const offset =
+    Number.isFinite(rawOffset) && rawOffset >= 0
+      ? rawOffset
+      : (Math.max(1, parseInt(req.query.page, 10) || 1) - 1) * limit;
+  return { limit, offset };
+}
+
+function followUserItem(u) {
+  return {
+    id: u.id,
+    nickname: u.nickname,
+    avatar_url: u.avatar_url,
+    headline: u.bio || "",
+    bio: u.bio || "",
+  };
+}
+
+function countFollowing(db, userId) {
+  return db
+    .prepare("SELECT COUNT(*) c FROM follows WHERE follower_id = ? AND target_type = 'user'")
+    .get(userId).c;
+}
+
+function countFollowers(db, userId) {
+  return db
+    .prepare("SELECT COUNT(*) c FROM follows WHERE target_type = 'user' AND target_id = ?")
+    .get(userId).c;
+}
+
 router.get("/:id", (req, res) => {
   const db = getDb();
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
@@ -19,9 +52,7 @@ router.get("/:id", (req, res) => {
     followers: db
       .prepare("SELECT COUNT(*) c FROM follows WHERE target_type = 'user' AND target_id = ?")
       .get(user.id).c,
-    following: db
-      .prepare("SELECT COUNT(*) c FROM follows WHERE follower_id = ?")
-      .get(user.id).c,
+    following: countFollowing(db, user.id),
     vote_up: db
       .prepare(
         "SELECT COALESCE(SUM(vote_up), 0) s FROM answers WHERE author_id = ? AND is_deleted = 0"
@@ -60,6 +91,85 @@ router.patch("/me", requireAuth, (req, res) => {
   }
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
   res.json({ user: publicUser(user) });
+});
+
+// POST /users/:id/follow — 关注用户（幂等，不能关注自己）。
+router.post("/:id/follow", requireAuth, (req, res) => {
+  const db = getDb();
+  const targetId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(targetId)) return badRequest(res, "用户 ID 不合法");
+  const target = db.prepare("SELECT id FROM users WHERE id = ?").get(targetId);
+  if (!target) return res.status(404).json({ error: "用户不存在" });
+  if (target.id === req.user.id) return badRequest(res, "不能关注自己");
+
+  db.prepare(
+    "INSERT OR IGNORE INTO follows (follower_id, target_type, target_id) VALUES (?, 'user', ?)"
+  ).run(req.user.id, target.id);
+
+  res.json({
+    following: true,
+    follower_count: countFollowers(db, target.id),
+    following_count: countFollowing(db, req.user.id),
+  });
+});
+
+// DELETE /users/:id/follow — 取消关注（幂等）。
+router.delete("/:id/follow", requireAuth, (req, res) => {
+  const db = getDb();
+  const targetId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(targetId)) return badRequest(res, "用户 ID 不合法");
+  const target = db.prepare("SELECT id FROM users WHERE id = ?").get(targetId);
+  if (!target) return res.status(404).json({ error: "用户不存在" });
+
+  db.prepare(
+    "DELETE FROM follows WHERE follower_id = ? AND target_type = 'user' AND target_id = ?"
+  ).run(req.user.id, target.id);
+
+  res.json({
+    following: false,
+    follower_count: countFollowers(db, target.id),
+    following_count: countFollowing(db, req.user.id),
+  });
+});
+
+// GET /users/:id/following — 该用户关注的人。
+router.get("/:id/following", (req, res) => {
+  const db = getDb();
+  const user = db.prepare("SELECT id FROM users WHERE id = ?").get(req.params.id);
+  if (!user) return res.status(404).json({ error: "用户不存在" });
+  const { limit, offset } = parseOffsetPage(req);
+
+  const items = db
+    .prepare(
+      `SELECT u.id, u.nickname, u.avatar_url, u.bio
+       FROM follows f JOIN users u ON u.id = f.target_id
+       WHERE f.follower_id = ? AND f.target_type = 'user'
+       ORDER BY f.created_at DESC, u.id DESC LIMIT ? OFFSET ?`
+    )
+    .all(user.id, limit, offset)
+    .map(followUserItem);
+  const total = countFollowing(db, user.id);
+  res.json({ items, total, has_more: offset + items.length < total });
+});
+
+// GET /users/:id/followers — 该用户的粉丝。
+router.get("/:id/followers", (req, res) => {
+  const db = getDb();
+  const user = db.prepare("SELECT id FROM users WHERE id = ?").get(req.params.id);
+  if (!user) return res.status(404).json({ error: "用户不存在" });
+  const { limit, offset } = parseOffsetPage(req);
+
+  const items = db
+    .prepare(
+      `SELECT u.id, u.nickname, u.avatar_url, u.bio
+       FROM follows f JOIN users u ON u.id = f.follower_id
+       WHERE f.target_type = 'user' AND f.target_id = ?
+       ORDER BY f.created_at DESC, u.id DESC LIMIT ? OFFSET ?`
+    )
+    .all(user.id, limit, offset)
+    .map(followUserItem);
+  const total = countFollowers(db, user.id);
+  res.json({ items, total, has_more: offset + items.length < total });
 });
 
 module.exports = router;

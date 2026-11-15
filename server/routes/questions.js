@@ -181,4 +181,53 @@ router.post("/:id/answers", requireAuth, (req, res) => {
   res.status(201).json({ answer: answerRow(a) });
 });
 
+function questionFollowerCount(db, qid) {
+  return db.prepare("SELECT follower_count FROM questions WHERE id = ?").get(qid)
+    .follower_count;
+}
+
+// POST /questions/:id/follow — 关注问题（幂等，只在真正新插入时 follower_count +1）。
+router.post("/:id/follow", requireAuth, (req, res) => {
+  const db = getDb();
+  const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  if (!q) return res.status(404).json({ error: "问题不存在" });
+
+  db.transaction(() => {
+    const info = db
+      .prepare(
+        "INSERT OR IGNORE INTO follows (follower_id, target_type, target_id) VALUES (?, 'question', ?)"
+      )
+      .run(req.user.id, q.id);
+    if (info.changes > 0) {
+      db.prepare(
+        "UPDATE questions SET follower_count = follower_count + 1 WHERE id = ?"
+      ).run(q.id);
+    }
+  })();
+
+  res.json({ following: true, follower_count: questionFollowerCount(db, q.id) });
+});
+
+// DELETE /questions/:id/follow — 取消关注（幂等，真的删掉了才 follower_count -1）。
+router.delete("/:id/follow", requireAuth, (req, res) => {
+  const db = getDb();
+  const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  if (!q) return res.status(404).json({ error: "问题不存在" });
+
+  db.transaction(() => {
+    const info = db
+      .prepare(
+        "DELETE FROM follows WHERE follower_id = ? AND target_type = 'question' AND target_id = ?"
+      )
+      .run(req.user.id, q.id);
+    if (info.changes > 0) {
+      db.prepare(
+        "UPDATE questions SET follower_count = MAX(follower_count - 1, 0) WHERE id = ?"
+      ).run(q.id);
+    }
+  })();
+
+  res.json({ following: false, follower_count: questionFollowerCount(db, q.id) });
+});
+
 module.exports = router;
