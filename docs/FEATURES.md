@@ -350,16 +350,16 @@
 
 ## 第九轮待办（2026-11-15 22:0x，来源 docs/PRODUCT-REVIEW.md 第八轮 Playwright 实测）
 
-- [ ] Z1025 未读角标进入 `/notifications` 后不清零：实测 unread-count 仍为 2，只有手点「全部标为已读」才清零；进入页面即应把当前列表标为已读并回写角标（Z954 回归）
+- [x] Z1025 未读角标进入 `/notifications` 后不清零：实测 unread-count 仍为 2，只有手点「全部标为已读」才清零；进入页面即应把当前列表标为已读并回写角标（Z954 回归） ✅ (2026-11-15 devin)
   verify: node scripts/assert/unread-reset.mjs
   risk: med
-- [ ] Z1026 「关注」tab 是假的：匿名与 0 关注用户都渲染 20 卡推荐流，三个 tab `aria-selected` 全为 false；应该走真实关注流 + 正确的 selected 态 + 未登录引导
+- [x] Z1026 「关注」tab 是假的：匿名与 0 关注用户都渲染 20 卡推荐流，三个 tab `aria-selected` 全为 false；应该走真实关注流 + 正确的 selected 态 + 未登录引导 ✅ (2026-11-15 devin)
   verify: node scripts/assert/following-tab.mjs
   risk: med
-- [ ] Z1027 他人主页「关注」按钮（Z1018 收口）：`/u/:id` 的「关注 N / 粉丝 M」是 `<dt>` 纯文本，全站无法关注用户（follow API 已就绪）
+- [x] Z1027 他人主页「关注」按钮（Z1018 收口）：`/u/:id` 的「关注 N / 粉丝 M」是 `<dt>` 纯文本，全站无法关注用户（follow API 已就绪） ✅ (2026-11-15 devin)
   verify: node scripts/assert/follow-user.mjs
   risk: med
-- [ ] Z1028 搜索纯标点/短词守卫（Z1006 收口）：实测 `?q=？` 返回 61 条、`?q=a` 19 条，应按「无有效词条」走空态并提示最少字数
+- [x] Z1028 搜索纯标点/短词守卫（Z1006 收口）：实测 `?q=？` 返回 61 条、`?q=a` 19 条，应按「无有效词条」走空态并提示最少字数 ✅ (2026-11-15 devin)
   verify: node scripts/assert/search-guard.mjs
   risk: low
 - [ ] Z1029 评论展开后「N 条评论」计数消失（Z975 收口）
@@ -367,4 +367,25 @@
   risk: low
 - [ ] Z1030 断言质量返修：`scripts/assert/answer-login-cta.mjs` 中 `!/登录 后/` 对基线源码恒真（空断言）；`collection-page.mjs` 注释声称断言 `last_collected_at` 但无对应 expect
   verify: node scripts/assert/answer-login-cta.mjs
+  risk: low
+
+## 第十轮待办（2026-11-15 22:5x，来源 docs/PRODUCT-REVIEW.md 第十轮 Playwright 实测）
+
+- [ ] Z1031 移动端（390×844）零搜索入口（P0）：顶栏搜索 form/input 宽 0、底栏 5 项无搜索，`?q=` 深链结果页也无可见输入框（只能看结果不能改词）；补放大镜图标 → 全屏搜索层，结果页顶部保留可编辑输入框
+  verify: node scripts/assert/mobile-search-entry.mjs
+  risk: med
+- [ ] Z1032 回答发布后在默认排序里沉底且无提示（P1）：发布 8→9 条、当屏可见，刷新后默认排序 5 条里找不到自己的回答，只有切「最新」才有；发布成功后应乐观置顶或自动切「最新」并提示排序
+  verify: node scripts/assert/answer-publish-visibility.mjs
+  risk: med
+- [ ] Z1033 内容主权：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1，Z1020 收口）：补编辑/删除（含确认与计数回写）
+  verify: node scripts/assert/content-ownership.mjs
+  risk: med
+- [ ] Z1034 404 归因与出口（P1，Z1004/Z1024 收口）：`/question/99999999`、`/u/99999999` 文案写「请检查网络」且 main 内 0 个可点元素；`/no-such-xyz` 的「回到首页」不是链接；需真 404 状态码 + ≥2 出口
+  verify: node scripts/assert/notfound-cta.mjs
+  risk: low
+- [ ] Z1035 未登录「写回答」只弹 toast 不跳转（P1，Z1023 残留）：同页匿名赞同/收藏/关注问题都会跳 `/login?next=`，只有写回答不跳；统一带 next 覆盖所有写操作入口
+  verify: node scripts/assert/login-next-coverage.mjs
+  risk: low
+- [ ] Z1036 同一动作弹两个同文案 toast + 「邀请回答」空按钮（P2）：toast 去重；邀请回答改为真实邀请或置灰并提示
+  verify: node scripts/assert/toast-dedupe.mjs
   risk: low
