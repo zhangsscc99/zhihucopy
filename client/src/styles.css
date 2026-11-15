@@ -306,7 +306,9 @@ textarea:focus-visible {
 .tabs {
   display: flex;
   gap: 24px;
-  padding: 0 4px;
+  padding: 6px 18px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 .tabs__tab {
   font: inherit;
@@ -339,16 +341,10 @@ textarea:focus-visible {
   gap: 8px;
 }
 .feed__item {
-  display: flex;
-  gap: 16px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px;
-}
-.feed__body {
-  flex: 1;
-  min-width: 0;
 }
 .feed__topics {
   margin-bottom: 8px;
@@ -399,13 +395,6 @@ textarea:focus-visible {
 .feed__author {
   color: var(--ink-3);
 }
-.feed__thumb {
-  width: 120px;
-  height: 80px;
-  flex-shrink: 0;
-  background: var(--paper);
-  border-radius: var(--radius);
-}
 
 /* 列表底部：加载更多 / 到底提示 / 追加失败 */
 .feed-foot {
@@ -442,9 +431,6 @@ textarea:focus-visible {
 @media (max-width: 767px) {
   .feed__item {
     padding: 14px;
-  }
-  .feed__thumb {
-    display: none;
   }
 }
 

@@ -161,29 +161,27 @@ export function Home() {
           <ul className="feed">
             {items.map((q) => (
               <li key={q.id} className="feed__item">
-                <div className="feed__body">
-                  {q.topics.length > 0 && (
-                    <div className="feed__topics">
-                      {q.topics.map((t) => (
-                        <span key={t.id} className="tag">
-                          {t.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <Link to={`/question/${q.id}`} className="feed__title">
-                    {q.title}
-                  </Link>
-                  {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
-                  <div className="feed__meta">
-                    <Link to={`/u/${q.author.id}`} className="feed__author">
-                      {q.author.nickname}
-                    </Link>
-                    <span>{q.answer_count} 个回答</span>
-                    <span>{q.view_count} 次浏览</span>
+                {/* 列表接口暂不返回 topics（questionRow 恒为 []），保留条件渲染，后端补字段后自动生效 */}
+                {q.topics?.length ? (
+                  <div className="feed__topics">
+                    {q.topics.map((t) => (
+                      <span key={t.id} className="tag">
+                        {t.name}
+                      </span>
+                    ))}
                   </div>
+                ) : null}
+                <Link to={`/question/${q.id}`} className="feed__title">
+                  {q.title}
+                </Link>
+                {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
+                <div className="feed__meta">
+                  <Link to={`/u/${q.author.id}`} className="feed__author">
+                    {q.author.nickname}
+                  </Link>
+                  <span>{q.answer_count} 个回答</span>
+                  <span>{q.view_count} 次浏览</span>
                 </div>
-                <div className="feed__thumb" aria-hidden="true" />
               </li>
             ))}
           </ul>
