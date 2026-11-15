@@ -19,6 +19,7 @@ function createApp() {
   api.use("/users", require("./routes/users"));
   api.use("/questions", require("./routes/questions"));
   api.use("/answers", require("./routes/answers"));
+  api.use("/comments", require("./routes/comments"));
   api.use((_req, res) => res.status(404).json({ error: "接口不存在" }));
   app.use("/zhihucopy/api", api);
 
