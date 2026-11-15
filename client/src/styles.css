@@ -696,6 +696,23 @@ mark.hl {
   font-size: 13px;
   color: var(--ink-3);
 }
+.answers__login-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.answers__login-cta {
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.answers__login-cta:hover {
+  text-decoration: underline;
+}
 .answer--new {
   animation: answer-new-fade 2.4s ease-out;
 }

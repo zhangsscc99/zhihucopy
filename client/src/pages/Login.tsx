@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
@@ -7,6 +7,7 @@ import { Button, Card, Input } from "../components/ui";
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +19,8 @@ export function Login() {
     try {
       await login(email, password);
       toast("欢迎回来");
-      navigate("/");
+      const next = searchParams.get("next");
+      navigate(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
