@@ -165,9 +165,9 @@ export function Home() {
                 {q.topics?.length ? (
                   <div className="feed__topics">
                     {q.topics.map((t) => (
-                      <span key={t.id} className="tag">
+                      <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
                         {t.name}
-                      </span>
+                      </Link>
                     ))}
                   </div>
                 ) : null}

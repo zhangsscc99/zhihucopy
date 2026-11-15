@@ -4,7 +4,7 @@ import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
-import { Button, Tag, Textarea } from "../components/ui";
+import { Button, Textarea } from "../components/ui";
 import type { Answer, Question as QuestionType } from "../types";
 
 interface CommentNode {
@@ -280,7 +280,9 @@ export function Question() {
       {question.topics.length > 0 && (
         <div className="question__topics">
           {question.topics.map((t) => (
-            <Tag key={t.id}>{t.name}</Tag>
+            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+              {t.name}
+            </Link>
           ))}
         </div>
       )}
