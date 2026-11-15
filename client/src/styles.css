@@ -528,6 +528,53 @@ textarea:focus-visible {
   font-weight: 600;
   margin: 18px 0 0;
 }
+.answers__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.answers__sort {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.answers__sort-btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.answers__sort-btn:hover {
+  color: var(--accent);
+}
+.answers__sort-btn--active,
+.answers__sort-btn--active:hover {
+  color: var(--ink);
+  font-weight: 600;
+}
+.answers__sort-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.answers__sort-hint {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.answer--new {
+  animation: answer-new-fade 2.4s ease-out;
+}
+@keyframes answer-new-fade {
+  0% {
+    background: rgba(0, 102, 255, 0.12);
+  }
+  100% {
+    background: transparent;
+  }
+}
 .answerlist {
   list-style: none;
   margin: 0;

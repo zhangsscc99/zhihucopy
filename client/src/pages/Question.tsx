@@ -5,7 +5,7 @@ import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
 import { Button, Textarea } from "../components/ui";
-import type { Answer, Question as QuestionType } from "../types";
+import type { Answer, Page, Question as QuestionType } from "../types";
 
 interface CommentNode {
   id: number;
@@ -38,6 +38,14 @@ const relTime = (s: string) => {
   return fmtDate(s);
 };
 
+type AnswerSort = "default" | "newest";
+
+const ANSWER_PAGE_SIZE = 10;
+const ANSWER_SORTS: { key: AnswerSort; label: string }[] = [
+  { key: "default", label: "默认" },
+  { key: "newest", label: "最新" },
+];
+
 export function Question() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -64,23 +72,118 @@ export function Question() {
   const [favFor, setFavFor] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[] | null>(null);
 
+  // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
+  const [sort, setSort] = useState<AnswerSort>("default");
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [moreError, setMoreError] = useState("");
+  const [sortLoading, setSortLoading] = useState(false);
+  const [newId, setNewId] = useState<number | null>(null);
+  const answersReq = useRef(0);
+
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const editorBoxRef = useRef<HTMLElement>(null);
 
   const load = useCallback(() => {
+    const seq = ++answersReq.current;
     setLoading(true);
+    setSort("default");
+    setPage(0);
+    setHasMore(false);
+    setMoreLoading(false);
+    setSortLoading(false);
+    setMoreError("");
+    setNewId(null);
     get<{ question: QuestionType; answers: Answer[] }>(`/questions/${id}`)
       .then((d) => {
+        if (seq !== answersReq.current) return;
         setQuestion(d.question);
         setFollowing(Boolean(d.question.followed));
         setAnswers(d.answers);
+        setHasMore(d.question.answer_count > d.answers.length);
         setError("");
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (seq !== answersReq.current) return;
+        setError(e.message);
+      })
+      .finally(() => {
+        if (seq !== answersReq.current) return;
+        setLoading(false);
+      });
   }, [id]);
 
   useEffect(load, [load]);
+
+  const answersUrl = (s: AnswerSort, p: number) =>
+    `/questions/${id}/answers?sort=${s}&page=${p}&limit=${ANSWER_PAGE_SIZE}`;
+
+  const loadMoreAnswers = () => {
+    if (moreLoading || sortLoading || !hasMore) return;
+    const seq = answersReq.current;
+    const next = page + 1;
+    setMoreLoading(true);
+    setMoreError("");
+    get<Page<Answer>>(answersUrl(sort, next))
+      .then((res) => {
+        if (seq !== answersReq.current) return;
+        setAnswers((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          return [...prev, ...res.items.filter((a) => !seen.has(a.id))];
+        });
+        setPage(next);
+        setHasMore(res.has_more);
+      })
+      .catch((e: Error) => {
+        if (seq !== answersReq.current) return;
+        setMoreError(e.message || "加载更多失败");
+      })
+      .finally(() => {
+        if (seq !== answersReq.current) return;
+        setMoreLoading(false);
+      });
+  };
+
+  const switchSort = (next: AnswerSort) => {
+    if (next === sort || sortLoading) return;
+    const seq = ++answersReq.current;
+    const prev = { sort, page, hasMore };
+    setSort(next);
+    setPage(0);
+    setHasMore(false);
+    setMoreLoading(false);
+    setMoreError("");
+    setSortLoading(true);
+    get<Page<Answer>>(answersUrl(next, 1))
+      .then((res) => {
+        if (seq !== answersReq.current) return;
+        setAnswers(res.items);
+        setPage(1);
+        setHasMore(res.has_more);
+      })
+      .catch((e: Error) => {
+        if (seq !== answersReq.current) return;
+        setSort(prev.sort);
+        setPage(prev.page);
+        setHasMore(prev.hasMore);
+        toast(`切换排序失败：${e.message || "网络错误"}`, "error");
+      })
+      .finally(() => {
+        if (seq !== answersReq.current) return;
+        setSortLoading(false);
+      });
+  };
+
+  // 刚发布的回答：本地置顶后滚动定位 + 短暂高亮
+  useEffect(() => {
+    if (newId === null) return;
+    document
+      .getElementById(`answer-${newId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const t = window.setTimeout(() => setNewId(null), 2400);
+    return () => window.clearTimeout(t);
+  }, [newId]);
 
   const answerIdsKey = answers.map((a) => a.id).join(",");
   useEffect(() => {
@@ -260,8 +363,9 @@ export function Question() {
       const { answer } = await post<{ answer: Answer }>(`/questions/${id}/answers`, {
         content_md: draft,
       });
-      setAnswers((xs) => [answer, ...xs]);
+      setAnswers((xs) => [answer, ...xs.filter((x) => x.id !== answer.id)]);
       setQuestion((q) => (q ? { ...q, answer_count: q.answer_count + 1 } : q));
+      setNewId(answer.id);
       setDraft("");
       toast("回答已发布");
     } catch (e) {
@@ -315,7 +419,28 @@ export function Question() {
       </div>
 
       <section className="answers">
-        <h2 className="answers__count">{question.answer_count} 个回答</h2>
+        <div className="answers__head">
+          <h2 className="answers__count">{question.answer_count} 个回答</h2>
+          {question.answer_count > 0 && (
+            <div className="answers__sort" role="group" aria-label="回答排序">
+              {ANSWER_SORTS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={`answers__sort-btn${
+                    sort === s.key ? " answers__sort-btn--active" : ""
+                  }`}
+                  aria-pressed={sort === s.key}
+                  disabled={sortLoading}
+                  onClick={() => switchSort(s.key)}
+                >
+                  {s.label}
+                </button>
+              ))}
+              {sortLoading && <span className="answers__sort-hint">加载中…</span>}
+            </div>
+          )}
+        </div>
         {answers.length === 0 ? (
           <Empty title="还没有回答" hint="写下第一个回答，帮提问的人一把" />
         ) : (
@@ -324,7 +449,11 @@ export function Question() {
               const my = votes[a.id] ?? 0;
               const cs = comments[a.id];
               return (
-                <li key={a.id} className="answer" id={`answer-${a.id}`}>
+                <li
+                  key={a.id}
+                  className={`answer${a.id === newId ? " answer--new" : ""}`}
+                  id={`answer-${a.id}`}
+                >
                   <div className="answer__author">
                     <Link
                       to={`/u/${a.author.id}`}
@@ -496,6 +625,38 @@ export function Question() {
             })}
           </ul>
         )}
+        {answers.length > 0 &&
+          (moreError ? (
+            <div className="feed-foot feed-foot--error" role="alert">
+              <p className="feed-foot__text">加载更多失败：{moreError}</p>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={loadMoreAnswers}
+              >
+                重试
+              </button>
+            </div>
+          ) : hasMore ? (
+            <div className="feed-foot">
+              <button
+                type="button"
+                className="btn btn--outline"
+                disabled={moreLoading || sortLoading}
+                onClick={loadMoreAnswers}
+              >
+                {moreLoading
+                  ? "加载中…"
+                  : page === 0
+                    ? `查看全部 ${question.answer_count} 个回答`
+                    : "加载更多回答"}
+              </button>
+            </div>
+          ) : page > 0 ? (
+            <p className="feed-end" role="status">
+              已经到底了
+            </p>
+          ) : null)}
       </section>
 
       <section className="answer-editor" ref={editorBoxRef}>
