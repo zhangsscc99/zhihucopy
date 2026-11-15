@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
+import { useNotifications } from "../notifications";
 import { Button } from "./ui";
 
 export function TopNav() {
   const { user, logout } = useAuth();
+  const { unread } = useNotifications();
   const [menuOpen, setMenuOpen] = useState(false);
   const [params] = useSearchParams();
   const qParam = params.get("q") || "";
@@ -100,6 +102,38 @@ export function TopNav() {
         </form>
 
         <div className="topnav__actions">
+          {user && (
+            <Link
+              to="/notifications"
+              className="topnav__bell"
+              aria-label={unread > 0 ? `通知，${unread} 条未读` : "通知"}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-4-5.7V5a2 2 0 1 0-4 0v.3A6 6 0 0 0 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.5 17a2.5 2.5 0 0 0 5 0"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              {unread > 0 && (
+                <span className="badge">{unread > 99 ? "99+" : unread}</span>
+              )}
+            </Link>
+          )}
           <Button className="topnav__ask" onClick={() => navigate("/ask")}>
             提问
           </Button>

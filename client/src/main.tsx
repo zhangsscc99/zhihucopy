@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { AuthProvider } from "./auth";
+import { NotificationsProvider } from "./notifications";
 import { ToastProvider } from "./toast";
 import "./styles.css";
 
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter basename="/zhihucopy">
       <ToastProvider>
         <AuthProvider>
-          <App />
+          <NotificationsProvider>
+            <App />
+          </NotificationsProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
