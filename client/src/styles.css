@@ -121,13 +121,52 @@ textarea:focus-visible {
   margin: 0 auto;
   position: relative;
 }
-.topnav__search-icon {
+.topnav__search-submit {
   position: absolute;
-  left: 12px;
+  left: 0;
+  top: 0;
+  height: 34px;
+  width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.topnav__search-submit:hover {
+  color: var(--accent);
+}
+.topnav__search-submit:disabled {
+  cursor: default;
+}
+.topnav__search-icon {
+  display: block;
+}
+.topnav__search-clear {
+  position: absolute;
+  right: 5px;
   top: 50%;
   transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
   color: var(--ink-3);
-  pointer-events: none;
+  cursor: pointer;
+}
+.topnav__search-clear:hover {
+  color: var(--ink);
+  background: var(--line);
 }
 .topnav__actions {
   margin-left: auto;
@@ -199,7 +238,7 @@ textarea:focus-visible {
   border: 1px solid transparent;
   border-radius: var(--radius);
   height: 34px;
-  padding: 0 12px 0 34px;
+  padding: 0 30px 0 34px;
 }
 .field--search:focus {
   background: var(--surface);
@@ -444,9 +483,57 @@ textarea:focus-visible {
   border-radius: var(--radius);
 }
 
+/* 搜索结果头部 + 命中高亮 */
+.search-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+.search-head__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.search-head__q {
+  color: var(--accent);
+}
+.search-head__total {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.search-head__exit {
+  flex-shrink: 0;
+}
+mark.hl {
+  background: rgba(0, 102, 255, 0.1);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.empty__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 767px) {
   .feed__item {
     padding: 14px;
+  }
+  .search-head {
+    padding: 12px 14px;
   }
 }
 
