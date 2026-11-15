@@ -166,8 +166,8 @@ router.get("/:id/answers", (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const order =
     req.query.sort === "newest"
-      ? "a.created_at DESC"
-      : "a.vote_up DESC, a.created_at ASC";
+      ? "a.created_at DESC, a.id DESC"
+      : "a.vote_up DESC, a.created_at ASC, a.id ASC";
   const items = db
     .prepare(
       `${ANSWER_SELECT}
