@@ -2764,9 +2764,37 @@ a.ntf__title:hover {
   text-align: center;
 }
 
-/* 搜索结果页移动端可编辑输入框：桌面端隐藏 */
+/* Z1041 — 搜索结果页内嵌可编辑输入框：桌面+移动都渲染，原地换词续搜。
+   白卡 + #EBEBEB 边 + 3px 圆角，与 .search-head 同宽左对齐，蓝色实心小按钮。 */
 .msearchbar {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 8px 6px 12px;
+}
+.msearchbar__input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border-color: transparent;
+  background: transparent;
+  padding: 0 4px;
+}
+.msearchbar__input:focus {
+  border-color: transparent;
+}
+.msearchbar__go {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: var(--accent);
+  color: #fff;
+}
+.msearchbar__go:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 @media (max-width: 767px) {
