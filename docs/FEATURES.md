@@ -492,7 +492,7 @@
 
 ## 第十八轮待办（2026-11-16 09:5x，Z1052 两轮审查 + 部署后真实浏览器复验产出）
 
-- [ ] Z1066 评论计数两态口径不一致（P2）：同一回答的「N 条评论」（收起态用服务端 `comment_count`，不含软删）与「收起评论（N）」（展开态=渲染行数，含「该评论已删除」占位）在存在删除占位时差 1，用户切换时数字跳变；需定一个口径（建议两态都用渲染口径或两态都用服务端口径）并同步改断言
+- [x] Z1066 评论计数两态口径不一致（P2）：同一回答的「N 条评论」（收起态用服务端 `comment_count`，不含软删）与「收起评论（N）」（展开态=渲染行数，含「该评论已删除」占位）在存在删除占位时差 1，用户切换时数字跳变；需定一个口径（建议两态都用渲染口径或两态都用服务端口径）并同步改断言 ✅ (2026-11-16 devin：两态共用 `displayCommentCount()` = 非删除可见数（未加载回落 `a.comment_count`），占位行仍渲染但不计数；新增 comment-count-parity（含服务端 comment_count 交叉校验 + reload 一致性 + 两态锚定奇偶）；probe-round15 计数契约同步新口径；基线 3167 反向 RC=1)
   verify: node scripts/assert/comment-count-parity.mjs
   risk: low
 - [ ] Z1067 回复表单细节（P2）：Esc 同时绑在 `.answer__reply-form` 容器与 textarea 上（幂等但冗余）；收起态的「回复」按钮仍输出 `aria-controls="reply-form-N"` 指向不存在节点；放弃草稿提示 `toast(..., "error")` 用红色报错语义（应为 info）
