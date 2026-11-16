@@ -435,3 +435,7 @@
   verify: node scripts/assert/deploy-e2e-warmup.mjs
   risk: low
 
+- [x] Z1044b 搜索结果页切分类 tab 整站白屏（P0 回归，Z1044 引入）：`?type=answer` 结果页点「用户」后 `document.body.innerText` 归零、控制台连报 `Cannot read properties of undefined (reading 'slice')`——scope 随 URL 立刻变、items 仍是旧 scope 对象，新行组件拿错 shape 渲染且无 ErrorBoundary ✅ (2026-11-16 devin：itemsScope 门控切 tab 骨架过渡 + UserResultRow/AnswerResultCard/FeedCard/Highlight 字段守卫 + 结果区 ErrorBoundary 错误卡重试 + e2e 逐 tab 白屏断言)
+  verify: node scripts/assert/search-tab-crash.mjs
+  risk: high
+
