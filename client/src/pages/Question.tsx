@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { del, get, post } from "../api";
+import { del, get, patch, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
@@ -50,6 +50,28 @@ const answerExcerpt = (md: string, n = 80) => {
   const text = md.replace(/[#>*`[\]()!]/g, "").replace(/\s+/g, " ").trim();
   return text.length > n ? `${text.slice(0, n)}…` : text;
 };
+
+// 从两级评论树里摘掉被删评论：无子回复的整条移除；有子回复的降级为
+// 「该评论已删除」占位（与刷新后服务端返回的软删形态一致，保住子回复）。
+const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
+  list.flatMap((c) => {
+    if (c.id === id) {
+      if (!c.children?.length) return [];
+      return [
+        {
+          ...c,
+          is_deleted: true,
+          content: null,
+          author: null,
+          placeholder: "该评论已删除",
+        },
+      ];
+    }
+    if (c.children?.some((k) => k.id === id)) {
+      return [{ ...c, children: c.children.filter((k) => k.id !== id) }];
+    }
+    return [c];
+  });
 
 export function Question() {
   const { id } = useParams<{ id: string }>();
@@ -115,6 +137,14 @@ export function Question() {
   const [myAnswers, setMyAnswers] = useState<Answer[]>([]);
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [delPending, setDelPending] = useState<Record<number, boolean>>({});
+  // 回答卡「⋯」菜单 / 内联编辑 / 卡内删除确认条（confirmDelId 是固定条的确认态，互不影响）。
+  const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [cardConfirmDelId, setCardConfirmDelId] = useState<number | null>(null);
+  const [confirmDelCommentId, setConfirmDelCommentId] = useState<number | null>(null);
+  const [commentDelPending, setCommentDelPending] = useState<Record<number, boolean>>({});
   const answersReq = useRef(0);
 
   // sort / sortLoading 都留一份 ref 影子值：effect 和 promise 回调里要读
@@ -152,6 +182,11 @@ export function Question() {
     setNewId(null);
     setMyAnswers([]);
     setConfirmDelId(null);
+    setMenuFor(null);
+    setEditingId(null);
+    setEditSaving(false);
+    setCardConfirmDelId(null);
+    setConfirmDelCommentId(null);
     get<{ question: QuestionType; answers: Answer[]; my_answers?: Answer[] }>(
       `/questions/${id}`
     )
@@ -295,6 +330,23 @@ export function Question() {
     applySort(wanted, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, loading, question, id]);
+
+  // 「⋯」菜单：点外部或 Esc 收起。
+  useEffect(() => {
+    if (menuFor === null) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".answer__more")) setMenuFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuFor(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuFor]);
 
   // 刚发布的回答：本地置顶后滚动定位 + 短暂高亮
   useEffect(() => {
@@ -440,13 +492,50 @@ export function Question() {
         [a.id]: [...(Array.isArray(cs[a.id]) ? (cs[a.id] as CommentNode[]) : []), comment],
       }));
       setCommentDrafts((d) => ({ ...d, [a.id]: "" }));
-      setAnswers((xs) =>
-        xs.map((x) => (x.id === a.id ? { ...x, comment_count: x.comment_count + 1 } : x))
-      );
+      bumpCommentCount(a.id, 1);
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
       setCommentSending((s) => ({ ...s, [a.id]: false }));
+    }
+  };
+
+  // 评论计数同步改两处：回答列表与「你的回答」固定条展示的是同一条 answer。
+  const bumpCommentCount = (answerId: number, delta: number) => {
+    const bump = (xs: Answer[]) =>
+      xs.map((x) =>
+        x.id === answerId
+          ? { ...x, comment_count: Math.max(0, x.comment_count + delta) }
+          : x
+      );
+    setAnswers(bump);
+    setMyAnswers(bump);
+  };
+
+  const startEdit = (a: Answer) => {
+    setMenuFor(null);
+    setCardConfirmDelId(null);
+    setEditingId(a.id);
+    setEditDraft(a.content_md);
+  };
+
+  const saveEdit = async (a: Answer) => {
+    if (editSaving || !editDraft.trim()) return;
+    setEditSaving(true);
+    try {
+      const { answer } = await patch<{ answer: Answer }>(`/answers/${a.id}`, {
+        content_md: editDraft,
+      });
+      const apply = (xs: Answer[]) =>
+        xs.map((x) => (x.id === a.id ? { ...x, ...answer } : x));
+      setAnswers(apply);
+      setMyAnswers(apply);
+      setEditingId(null);
+      toast("已保存");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -562,11 +651,35 @@ export function Question() {
         q ? { ...q, answer_count: Math.max(0, q.answer_count - 1) } : q
       );
       setConfirmDelId(null);
+      setCardConfirmDelId(null);
+      setMenuFor(null);
+      if (editingId === a.id) setEditingId(null);
       toast("回答已删除");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
       setDelPending((d) => ({ ...d, [a.id]: false }));
+    }
+  };
+
+  // 删除自己的评论：软删后从评论树摘除并把卡片上「N 条评论」-1。
+  const removeComment = async (a: Answer, c: CommentNode) => {
+    if (commentDelPending[c.id]) return;
+    setCommentDelPending((d) => ({ ...d, [c.id]: true }));
+    try {
+      await del(`/comments/${c.id}`);
+      setComments((cs) => {
+        const list = cs[a.id];
+        if (!Array.isArray(list)) return cs;
+        return { ...cs, [a.id]: dropComment(list, c.id) };
+      });
+      bumpCommentCount(a.id, -1);
+      setConfirmDelCommentId(null);
+      toast("评论已删除");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setCommentDelPending((d) => ({ ...d, [c.id]: false }));
     }
   };
 
@@ -781,8 +894,73 @@ export function Question() {
                       </Link>
                       {a.author.bio && <p className="answer__bio">{a.author.bio}</p>}
                     </div>
+                    {user && a.author.id === user.id && (
+                      <div className="answer__more">
+                        <button
+                          type="button"
+                          className="answer__more-btn"
+                          aria-label="更多操作"
+                          aria-expanded={menuFor === a.id}
+                          onClick={() =>
+                            setMenuFor((m) => (m === a.id ? null : a.id))
+                          }
+                        >
+                          ⋯
+                        </button>
+                        {menuFor === a.id && (
+                          <div className="answer__more-menu" role="menu">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="answer__more-item"
+                              onClick={() => startEdit(a)}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="answer__more-item answer__more-item--danger"
+                              onClick={() => {
+                                setMenuFor(null);
+                                setEditingId(null);
+                                setCardConfirmDelId(a.id);
+                              }}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Markdown source={a.content_md} className="answer__body prose" />
+                  {editingId === a.id ? (
+                    <div className="answer__edit">
+                      <MarkdownEditor
+                        rows={6}
+                        aria-label="编辑回答"
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                      />
+                      <div className="answer__edit-actions">
+                        <Button
+                          onClick={() => void saveEdit(a)}
+                          disabled={editSaving || !editDraft.trim()}
+                        >
+                          {editSaving ? "保存中…" : "保存"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          disabled={editSaving}
+                          onClick={() => setEditingId(null)}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Markdown source={a.content_md} className="answer__body prose" />
+                  )}
                   <div className="answer__actions">
                     <button
                       type="button"
@@ -807,7 +985,9 @@ export function Question() {
                       className="answer__action"
                       onClick={() => toggleComments(a.id)}
                     >
-                      {openComments[a.id] ? "收起评论" : `${a.comment_count} 条评论`}
+                      {openComments[a.id]
+                        ? `收起评论（${a.comment_count}）`
+                        : `${a.comment_count} 条评论`}
                     </button>
                     <div className="answer__fav">
                       <button
@@ -881,6 +1061,29 @@ export function Question() {
                     </button>
                     <span className="answer__date">发布于 {formatTime(a.created_at)}</span>
                   </div>
+                  {cardConfirmDelId === a.id && (
+                    <div className="answer__del-confirm" role="alert">
+                      <span className="answer__del-confirm-text">
+                        删除后不可恢复
+                      </span>
+                      <button
+                        type="button"
+                        className="answer__del-confirm-btn answer__del-confirm-btn--danger"
+                        disabled={delPending[a.id]}
+                        onClick={() => void removeAnswer(a)}
+                      >
+                        {delPending[a.id] ? "删除中…" : "确认删除"}
+                      </button>
+                      <button
+                        type="button"
+                        className="answer__del-confirm-btn"
+                        disabled={delPending[a.id]}
+                        onClick={() => setCardConfirmDelId(null)}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  )}
                   {openComments[a.id] && (
                     <div className="answer__comments">
                       {cs === "loading" || (cs === undefined && !commentsError[a.id]) ? (
@@ -911,12 +1114,55 @@ export function Question() {
                                       c.parent_id ? " answer__comment--child" : ""
                                     }`}
                                   >
-                                    <span className="answer__comment-name">
-                                      {c.author ? c.author.nickname : "已注销用户"}
-                                    </span>
-                                    <span className="answer__comment-time">
-                                      {formatTime(c.created_at)}
-                                    </span>
+                                    <div className="answer__comment-head">
+                                      <span className="answer__comment-name">
+                                        {c.author ? c.author.nickname : "已注销用户"}
+                                      </span>
+                                      <span className="answer__comment-time">
+                                        {formatTime(c.created_at)}
+                                      </span>
+                                      {user &&
+                                        c.author &&
+                                        c.author.id === user.id &&
+                                        !c.is_deleted && (
+                                          <span className="answer__comment-ops">
+                                            {confirmDelCommentId === c.id ? (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  className="answer__comment-op answer__comment-op--danger"
+                                                  disabled={commentDelPending[c.id]}
+                                                  onClick={() => void removeComment(a, c)}
+                                                >
+                                                  {commentDelPending[c.id]
+                                                    ? "删除中…"
+                                                    : "确认删除"}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="answer__comment-op"
+                                                  disabled={commentDelPending[c.id]}
+                                                  onClick={() =>
+                                                    setConfirmDelCommentId(null)
+                                                  }
+                                                >
+                                                  取消
+                                                </button>
+                                              </>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                className="answer__comment-op"
+                                                onClick={() =>
+                                                  setConfirmDelCommentId(c.id)
+                                                }
+                                              >
+                                                删除
+                                              </button>
+                                            )}
+                                          </span>
+                                        )}
+                                    </div>
                                     <p
                                       className={`answer__comment-body${
                                         c.is_deleted ? " answer__comment-body--deleted" : ""

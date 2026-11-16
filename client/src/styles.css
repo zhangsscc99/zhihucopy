@@ -1195,6 +1195,97 @@ mark.hl {
   color: var(--ink-3);
   cursor: not-allowed;
 }
+.answer__more {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.answer__more-btn {
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.answer__more-btn:hover {
+  color: var(--ink-2);
+  background: var(--paper);
+}
+.answer__more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  min-width: 96px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 0;
+}
+.answer__more-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.answer__more-item:hover {
+  background: var(--paper);
+}
+.answer__more-item--danger,
+.answer__more-item--danger:hover {
+  color: var(--seal);
+}
+.answer__edit-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.answer__del-confirm {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.answer__del-confirm-text {
+  flex: 1;
+}
+.answer__del-confirm-btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.answer__del-confirm-btn:hover {
+  color: var(--accent);
+}
+.answer__del-confirm-btn--danger,
+.answer__del-confirm-btn--danger:hover {
+  color: var(--seal);
+}
+.answer__del-confirm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .answer__comments {
   margin-top: 14px;
   background: var(--paper);
@@ -1216,6 +1307,36 @@ mark.hl {
 }
 .answer__comment--child {
   margin-left: 22px;
+}
+.answer__comment-head {
+  display: flex;
+  align-items: baseline;
+}
+.answer__comment-ops {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.answer__comment-op {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.answer__comment-op:hover {
+  color: var(--accent);
+}
+.answer__comment-op--danger,
+.answer__comment-op--danger:hover {
+  color: var(--seal);
+}
+.answer__comment-op:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .answer__comment-name {
   color: var(--ink);
