@@ -2027,6 +2027,28 @@ mark.hl {
   margin-top: 14px;
 }
 
+/* ---------- ErrorBoundary 兜底错误卡（Z1044b） ---------- */
+.crashbox {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 32px 24px;
+}
+.crashbox__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.crashbox__hint {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.crashbox__retry {
+  margin-top: 16px;
+}
+
 /* ---------- 统一 404 / 服务异常页 ---------- */
 .notfound {
   background: var(--surface);

@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
 import { Empty, ErrorBox } from "../components/Layout";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { FeedSkeleton } from "../components/Skeleton";
 import { saveRecentSearch } from "../lib/searchHistory";
 import { searchHref } from "../lib/searchHref";
@@ -27,7 +28,10 @@ const TABS: { key: Tab; label: string }[] = [
 const PAGE_SIZE = 20;
 
 function excerpt(md: string, n = 90) {
-  const text = md.replace(/[#>*`\-[\]()!]/g, "").replace(/\s+/g, " ").trim();
+  const text = (md || "")
+    .replace(/[#>*`\-[\]()!]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return text.length > n ? text.slice(0, n) + "…" : text;
 }
 
@@ -71,7 +75,7 @@ const EMPTY_COPY: Record<Exclude<Tab, "following">, { title: string; hint: strin
 
 // 命中词高亮：标题/摘要中的关键词片段包 <mark class="hl">，大小写不敏感。
 function Highlight({ text, kw }: { text: string; kw: string }) {
-  if (!kw) return <>{text}</>;
+  if (!kw || !text) return <>{text}</>;
   const hay = text.toLowerCase();
   const needle = kw.toLowerCase();
   const parts: ReactNode[] = [];
@@ -115,8 +119,8 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         </p>
       )}
       <div className="feed__meta">
-        <Link to={`/u/${q.author.id}`} className="feed__author">
-          {q.author.nickname}
+        <Link to={`/u/${q.author?.id}`} className="feed__author">
+          {q.author?.nickname}
         </Link>
         <span>{q.answer_count} 个回答</span>
         <span>{q.view_count} 次浏览</span>
@@ -141,11 +145,11 @@ function AnswerResultCard({ a, kw }: { a: AnswerResult; kw: string }) {
         </p>
       )}
       <div className="feed__meta">
-        <Link to={`/u/${a.author.id}`} className="feed__author">
-          {a.author.nickname}
+        <Link to={`/u/${a.author?.id}`} className="feed__author">
+          {a.author?.nickname}
         </Link>
         <span>赞同 {a.vote_up}</span>
-        <span>{formatTime(a.created_at)}</span>
+        <span>{formatTime(a.created_at || "")}</span>
       </div>
       {a.topics?.length ? (
         <div className="feed__topics feed__topics--tail">
@@ -166,11 +170,15 @@ function UserResultRow({ u, kw }: { u: UserResult; kw: string }) {
     <li className="feed__item urow">
       <Link to={`/u/${u.id}`} className="urow__link">
         <span className="avatar urow__avatar">
-          {u.avatar_url ? <img src={u.avatar_url} alt="" /> : u.nickname.slice(0, 1)}
+          {u.avatar_url ? (
+            <img src={u.avatar_url} alt="" />
+          ) : (
+            u.nickname?.slice(0, 1)
+          )}
         </span>
         <span className="urow__main">
           <span className="urow__name">
-            <Highlight text={u.nickname} kw={kw} />
+            <Highlight text={u.nickname || ""} kw={kw} />
           </span>
           {u.bio && (
             <span className="urow__bio">
@@ -225,8 +233,8 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
             </p>
           )}
           <div className="feed__meta">
-            <Link to={`/u/${q.author.id}`} className="feed__author">
-              {q.author.nickname}
+            <Link to={`/u/${q.author?.id}`} className="feed__author">
+              {q.author?.nickname}
             </Link>
             {typeof q.hot_score === "number" && (
               <span className="feed__heat">
@@ -299,6 +307,10 @@ function SearchResults({ q }: { q: string }) {
   const [qInput, setQInput] = useState(q);
 
   const [items, setItems] = useState<(Question | AnswerResult | UserResult)[]>([]);
+  // items 属于哪个 scope：切 tab 后 URL/scope 先变，items 还是旧 scope 的对象，
+  // 必须等本次请求回来（items 与 itemsScope 同批更新）才允许渲染列表，
+  // 否则新 scope 的行组件拿旧 shape 渲染会抛 undefined.slice → 整树卸载白屏。
+  const [itemsScope, setItemsScope] = useState<SearchScope | null>(null);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<SearchCounts | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -319,6 +331,7 @@ function SearchResults({ q }: { q: string }) {
     setMoreError("");
     setMoreLoading(false);
     setItems([]);
+    setItemsScope(null);
     setTotal(0);
     setHasMore(false);
     setReason("");
@@ -333,6 +346,7 @@ function SearchResults({ q }: { q: string }) {
       .then((res) => {
         if (seq !== requestSeq.current) return;
         setItems(res.items);
+        setItemsScope(scope);
         setTotal(res.total);
         setCounts(res.counts || null);
         setReason(res.reason || "");
@@ -438,6 +452,9 @@ function SearchResults({ q }: { q: string }) {
         <FeedSkeleton count={5} />
       ) : error ? (
         <ErrorBox message={error} onRetry={retry} />
+      ) : itemsScope !== scope ? (
+        // scope 已切、本 scope 数据未回：骨架过渡，绝不拿旧 scope 数据配新渲染器。
+        <FeedSkeleton count={5} />
       ) : items.length === 0 ? (
         reason === "too_short" ? (
           <Empty
@@ -687,6 +704,12 @@ function Feed() {
 export function Home() {
   const [params] = useSearchParams();
   const q = (params.get("q") || "").trim();
-  if (q) return <SearchResults q={q} />;
+  // 搜索结果区整体套错误边界：任何行组件渲染异常 → 错误卡 + 重试，不整站白屏。
+  if (q)
+    return (
+      <ErrorBoundary>
+        <SearchResults q={q} />
+      </ErrorBoundary>
+    );
   return <Feed />;
 }
