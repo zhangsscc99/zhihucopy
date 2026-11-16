@@ -15,9 +15,9 @@ const MAX_READ_IDS = 500;
 // 未收录的 type 不编造标签（event / event_label 返回 null）。
 const EVENT_LABELS = {
   answer: ["answer_my_question", "回答了你的问题"],
-  comment: ["commented", "评论了你"],
-  agree: ["agreed", "赞同了你"],
-  vote: ["agreed", "赞同了你"],
+  comment: ["commented", "评论了你的回答"],
+  agree: ["agreed", "赞同了你的回答"],
+  vote: ["agreed", "赞同了你的回答"],
   follow: ["followed_you", "关注了你"],
 };
 
@@ -52,13 +52,15 @@ function buildPayload(db, n) {
         `SELECT a.id, a.content_md, a.question_id, q.title AS question_title
          FROM answers a
          JOIN questions q ON q.id = a.question_id
-         WHERE a.id = ?`
+         WHERE a.id = ? AND a.is_deleted = 0`
       )
       .get(n.target_id);
     if (a) {
       payload.question_id = a.question_id;
       payload.question_title = a.question_title;
       payload.answer_id = a.id;
+      // Z1038: 回答类事件（answer/comment/agree）落点锚点，前端拼进 href。
+      payload.anchor = `#answer-${a.id}`;
       const text = String(a.content_md || "").replace(/\s+/g, " ").trim();
       payload.answer_excerpt =
         text.length > EXCERPT_LEN ? `${text.slice(0, EXCERPT_LEN)}…` : text;

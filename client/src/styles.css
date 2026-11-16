@@ -801,6 +801,8 @@ mark.hl {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
+  /* 深链兜底项也走 scrollIntoView 落点，同 .answer 避开吸顶栏。 */
+  scroll-margin-top: 60px;
 }
 .myanswers__item + .myanswers__item {
   border-top: 1px solid var(--line);
@@ -861,6 +863,18 @@ mark.hl {
     background: transparent;
   }
 }
+/* #answer-N 深链命中：同款主色淡底高亮，2s 淡出（无阴影）。 */
+.answer--anchor {
+  animation: answer-anchor-fade 2s ease-out;
+}
+@keyframes answer-anchor-fade {
+  0% {
+    background: rgba(0, 102, 255, 0.12);
+  }
+  100% {
+    background: transparent;
+  }
+}
 .answerlist {
   list-style: none;
   margin: 0;
@@ -869,6 +883,8 @@ mark.hl {
 .answer {
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
+  /* 吸顶顶栏（~52px）会遮住 scrollIntoView 落点的作者行，留出余量。 */
+  scroll-margin-top: 60px;
 }
 .answer:last-child {
   border-bottom: none;
@@ -2261,6 +2277,31 @@ a.ntf__title:hover {
 }
 .toast--error {
   background: var(--seal);
+}
+/* #answer-N 深链目标补页后仍不存在：底部一行提示 + 回到顶部（toast 同款位）。 */
+.anchor-miss {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: var(--radius);
+}
+.anchor-miss__top {
+  font: inherit;
+  color: #fff;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* ---------- 移动端 ---------- */
