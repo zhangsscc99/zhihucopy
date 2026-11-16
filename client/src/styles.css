@@ -622,6 +622,89 @@ mark.hl {
   border-radius: 2px;
   padding: 0 1px;
 }
+
+/* 搜索分类 tab：纯文本 14px，选中态 = 深色字 + 2px 蓝色下划线；容器底边 1px 线。 */
+.stabs {
+  display: flex;
+  gap: 32px;
+  margin-top: 8px;
+  padding: 0 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  scrollbar-width: none; /* firefox */
+}
+.stabs::-webkit-scrollbar {
+  display: none;
+}
+.stabs__tab {
+  flex: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 0 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stabs__tab:hover {
+  color: var(--ink);
+}
+.stabs__tab--active,
+.stabs__tab--active:hover {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* 回答结果卡：话题胶囊跟在元信息之后 */
+.feed__topics--tail {
+  margin: 10px 0 0;
+}
+
+/* 用户结果行：整行可点 = 头像 + 昵称/bio/元信息 */
+.urow {
+  padding: 0;
+}
+.urow__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+.urow__avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+.urow__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.urow__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.urow__bio {
+  font-size: 14px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.urow__meta {
+  font-size: 13px;
+  color: var(--ink-3);
+}
 .empty__actions {
   display: flex;
   gap: 10px;

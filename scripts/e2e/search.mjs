@@ -19,6 +19,23 @@ run("search", async ({ page }) => {
   const hit = page.locator("main, .main-col, body").getByText(keyword, { exact: false }).first();
   await hit.waitFor({ timeout: 8000 });
 
+  // Z1044 分类 tab：切「回答」后 URL 带 type=answer 且该 tab aria-selected="true"。
+  const ansTab = page.getByRole("tab", { name: /^回答/ }).first();
+  await ansTab.waitFor({ timeout: 8000 });
+  await ansTab.click();
+  await page.waitForLoadState("networkidle");
+  expect(/[?&]type=answer/.test(page.url()), `切「回答」tab 后 URL 无 type=answer（url=${page.url()}）`);
+  expect(
+    (await ansTab.getAttribute("aria-selected")) === "true",
+    "「回答」tab 未置 aria-selected=\"true\""
+  );
+
+  // 顶栏再提交回到默认「问题」tab（URL 不带 type）。
+  await box.fill(keyword);
+  await box.press("Enter");
+  await page.waitForLoadState("networkidle");
+  expect(!/[?&]type=/.test(page.url()), `再提交后 URL 不应带 type（url=${page.url()}）`);
+
   // 空结果
   const none = uniq("nohit");
   await box.fill(none);
