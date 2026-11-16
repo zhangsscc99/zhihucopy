@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { HotRail } from "./components/HotRail";
@@ -22,11 +22,19 @@ function Me() {
   return <Navigate to={user ? `/u/${user.id}` : "/login"} replace />;
 }
 
+// /search 仅承载结果页：无 q 参数时回首页，避免三 tab feed 渲染在 /search 路径下。
+function Search() {
+  const [params] = useSearchParams();
+  if (!(params.get("q") || "").trim()) return <Navigate to="/" replace />;
+  return <Home />;
+}
+
 export function App() {
   return (
     <Layout rail={<HotRail />}>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/question/:id" element={<Question />} />
         <Route path="/topic/:key" element={<Topic />} />
         <Route path="/topics" element={<Topics />} />
