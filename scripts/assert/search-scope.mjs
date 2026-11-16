@@ -12,7 +12,7 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { ok, req, expect, main, uniq } from "./lib.mjs";
+import { ok, req, expect, main, uniq, login } from "./lib.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const requireFromServer = createRequire(join(root, "server", "package.json"));
@@ -35,8 +35,84 @@ async function registerReal() {
   return { token: r.data.token, user: r.data.user, nickname };
 }
 
+// Z1050 自清：本 run 注册的「真实可见」账号不被 testUserSql 过滤，/cleanup 的
+// u: 口径删不掉 → 运行结束必须走 purge-residue（admin 白名单硬删）清掉自己，
+// 否则「用户」tab 搜 z1044user 残留越积越多。
+const ADMIN_EMAIL = "admin@zhihucopy.dev"; // 种子管理员（scripts/seed.js）
+const ADMIN_PASSWORD = "zhihu123456";
+
+// 降级通道：拿不到 admin 时直连 DB_PATH，只按本 run 的 user.id 删
+// （显式 id 进删除集后走共享级联机械；绝不 LIKE 批量）。
+function dbPurgeUserById(userId) {
+  const dbPath = process.env.DB_PATH;
+  if (!dbPath) return false;
+  const Database = requireFromServer("better-sqlite3");
+  const {
+    initDelTables,
+    cascadeFromDelUsers,
+    deleteMarked,
+    recomputeDerived,
+  } = requireFromServer("./artifact-cleanup.js");
+  let db;
+  try {
+    db = new Database(dbPath);
+    db.pragma("foreign_keys = ON");
+    db.transaction(() => {
+      initDelTables(db);
+      db.prepare("INSERT OR IGNORE INTO _del_u (id) VALUES (?)").run(userId);
+      cascadeFromDelUsers(db);
+      deleteMarked(db);
+      recomputeDerived(db);
+    })();
+    return true;
+  } catch (e) {
+    console.error(`[self-clean] DB 级自清失败 u:${userId}: ${e.message || e}`);
+    return false;
+  } finally {
+    if (db) db.close();
+  }
+}
+
+async function purgeResidueSelf(userId, nickname) {
+  // 首选 API 通道：admin 登录 → POST /test-support/purge-residue
+  // （白名单硬删，连带本 run 的题/答与历史残留号一起清）。
+  try {
+    const lr = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+    if (lr.status === 200 && lr.data.token) {
+      const pr = await req("POST", "/test-support/purge-residue", {
+        token: lr.data.token,
+        body: {},
+      });
+      if (pr.status === 200 && pr.data.ok) {
+        console.log(
+          `[self-clean] purge-residue OK: deleted.u=${pr.data.deleted?.u ?? "?"} ` +
+            `purged=${JSON.stringify(pr.data.purged_nicknames || [])}`
+        );
+        return true;
+      }
+      console.warn(
+        `[self-clean] purge-residue -> ${pr.status} ${JSON.stringify(pr.data).slice(0, 160)}，转 DB 级自清`
+      );
+    } else {
+      console.warn(`[self-clean] admin 登录 -> ${lr.status}，转 DB 级自清`);
+    }
+  } catch (e) {
+    console.warn(`[self-clean] API purge 异常: ${e.message || e}，转 DB 级自清`);
+  }
+  if (dbPurgeUserById(userId)) {
+    console.log(`[self-clean] DB 级自清完成 u:${userId} (${nickname})`);
+    return true;
+  }
+  console.error(
+    "[self-clean] FAIL: 无 admin purge 通道且无 DB_PATH 写权限，残留账号未清"
+  );
+  return false;
+}
+
 main("search-scope", async () => {
   const { token, user, nickname } = await registerReal();
+  let cleaned = false;
+  try {
 
   // 1) 问题 + 含唯一随机串的回答（标题不带 kw，保证问题 scope 不命中）。
   const title = "代码质量保障有哪些值得借鉴的实践？";
@@ -107,4 +183,12 @@ main("search-scope", async () => {
     `  ids: user=${user.id} question=${questionId} answer=${answerId} kw=${kw} ` +
       `counts(q/a/u)=${aRes.counts.question}/${aRes.counts.answer}/${aRes.counts.user}`
   );
+  } finally {
+    cleaned = await purgeResidueSelf(user.id, nickname).catch((e) => {
+      console.error(`[self-clean] 异常: ${e.message || e}`);
+      return false;
+    });
+  }
+  // 断言本身失败后也要先自清再向上抛；只有断言全过时才走到这里复核自清结果。
+  expect(cleaned, "Z1050 自清失败：admin purge 与 DB 降级均不可用，残留账号未清");
 });
