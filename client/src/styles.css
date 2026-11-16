@@ -1491,6 +1491,30 @@ mark.hl {
   margin: 8px 0 0;
   color: var(--ink-3);
 }
+.answer__reply-form {
+  margin-top: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.answer__reply-form .field--area {
+  font-size: 14px;
+}
+.answer__reply-error {
+  margin: 6px 0 0;
+  color: var(--seal);
+  font-size: 12px;
+}
+.answer__reply-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.answer__reply-actions .btn--ghost {
+  color: var(--ink-3);
+}
 
 .answer-editor {
   margin-top: 18px;

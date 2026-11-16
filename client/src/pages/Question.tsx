@@ -76,6 +76,10 @@ const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
     return [c];
   });
 
+// 评论区展开态的计数口径 = 实际渲染行数（一级 + 二级，含「该评论已删除」占位）。
+const commentRowCount = (list: CommentNode[]) =>
+  list.reduce((n, c) => n + 1 + (c.children?.length ?? 0), 0);
+
 export function Question() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -160,6 +164,11 @@ export function Question() {
   const [cardConfirmDelId, setCardConfirmDelId] = useState<number | null>(null);
   const [confirmDelCommentId, setConfirmDelCommentId] = useState<number | null>(null);
   const [commentDelPending, setCommentDelPending] = useState<Record<number, boolean>>({});
+  // 评论「回复」内联表单：replyFor=展开中的父评论 id（全局同一时刻只开一个）。
+  const [replyFor, setReplyFor] = useState<number | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [replyError, setReplyError] = useState("");
   const answersReq = useRef(0);
 
   // sort / sortLoading 都留一份 ref 影子值：effect 和 promise 回调里要读
@@ -203,6 +212,8 @@ export function Question() {
     setEditSaving(false);
     setCardConfirmDelId(null);
     setConfirmDelCommentId(null);
+    setReplyFor(null);
+    setReplyError("");
     get<{ question: QuestionType; answers: Answer[]; my_answers?: Answer[] }>(
       `/questions/${id}`
     )
@@ -568,10 +579,67 @@ export function Question() {
       }));
       setCommentDrafts((d) => ({ ...d, [a.id]: "" }));
       bumpCommentCount(a.id, 1);
+      toast("评论已发布");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
       setCommentSending((s) => ({ ...s, [a.id]: false }));
+    }
+  };
+
+  // 「回复」入口：未登录按站内写操作惯例跳登录；登录则在目标评论下方开/切
+  // 内联表单（切换目标时重置草稿与错误，同一时刻只保留一个表单）。
+  const toggleReplyForm = (c: CommentNode) => {
+    if (!user) return needLogin();
+    setConfirmDelCommentId(null);
+    setReplyError("");
+    // 切到另一条评论时草稿被静默丢弃，补一条提示（同一条收起不提示）。
+    if (replyFor !== null && replyFor !== c.id && replyDraft.trim()) {
+      toast("已放弃上一条未发送的回复", "error");
+    }
+    setReplyDraft("");
+    setReplyFor((cur) => (cur === c.id ? null : c.id));
+  };
+
+  const closeReplyForm = () => {
+    setReplyFor(null);
+    setReplyDraft("");
+    setReplyError("");
+  };
+
+  // 二级回复提交：成功后乐观挂到父评论 children 末尾、计数 +1、收起表单。
+  // 失败时错误落在表单内（role=alert），不关表单、不丢草稿。
+  const submitReply = async (a: Answer, parent: CommentNode) => {
+    const body = replyDraft.trim();
+    if (!body || replySending) return;
+    setReplySending(true);
+    setReplyError("");
+    try {
+      const { comment } = await post<{ comment: CommentNode }>("/comments", {
+        target_type: "answer",
+        target_id: a.id,
+        parent_id: parent.id,
+        body,
+      });
+      setComments((cs) => {
+        const list = cs[a.id];
+        if (!Array.isArray(list)) return cs;
+        return {
+          ...cs,
+          [a.id]: (list as CommentNode[]).map((c) =>
+            c.id === parent.id
+              ? { ...c, children: [...(c.children ?? []), comment] }
+              : c
+          ),
+        };
+      });
+      bumpCommentCount(a.id, 1);
+      closeReplyForm();
+      toast("回复已发布");
+    } catch (e) {
+      setReplyError((e as Error).message || "回复失败，请重试");
+    } finally {
+      setReplySending(false);
     }
   };
 
@@ -750,6 +818,9 @@ export function Question() {
       });
       bumpCommentCount(a.id, -1);
       setConfirmDelCommentId(null);
+      // 有子回复的一级评论删除后降级为占位行，挂在它下面的回复表单必须一并
+      // 关掉——占位行没有「回复」入口，留着表单提交只会被服务端拒。
+      if (replyFor === c.id) closeReplyForm();
       toast("评论已删除");
     } catch (e) {
       toast((e as Error).message, "error");
@@ -1072,7 +1143,11 @@ export function Question() {
                       onClick={() => toggleComments(a.id)}
                     >
                       {openComments[a.id]
-                        ? `收起评论（${a.comment_count}）`
+                        ? `收起评论（${
+                            Array.isArray(cs)
+                              ? commentRowCount(cs as CommentNode[])
+                              : a.comment_count
+                          }）`
                         : `${a.comment_count} 条评论`}
                     </button>
                     <div className="answer__fav">
@@ -1193,7 +1268,16 @@ export function Question() {
                             <ul className="answer__comment-list">
                               {cs
                                 .flatMap((c) => [c, ...(c.children ?? [])])
-                                .map((c) => (
+                                .map((c) => {
+                                  const cName = c.author
+                                    ? c.author.nickname
+                                    : "已注销用户";
+                                  // 回复只挂一级未删评论（后端只支持两级）；删除仍限本人。
+                                  const canReply = c.parent_id == null && !c.is_deleted;
+                                  const canDelete = Boolean(
+                                    user && c.author && c.author.id === user.id && !c.is_deleted
+                                  );
+                                  return (
                                   <li
                                     key={c.id}
                                     className={`answer__comment${
@@ -1202,17 +1286,27 @@ export function Question() {
                                   >
                                     <div className="answer__comment-head">
                                       <span className="answer__comment-name">
-                                        {c.author ? c.author.nickname : "已注销用户"}
+                                        {cName}
                                       </span>
                                       <span className="answer__comment-time">
                                         {formatTime(c.created_at)}
                                       </span>
-                                      {user &&
-                                        c.author &&
-                                        c.author.id === user.id &&
-                                        !c.is_deleted && (
-                                          <span className="answer__comment-ops">
-                                            {confirmDelCommentId === c.id ? (
+                                      {(canReply || canDelete) && (
+                                        <span className="answer__comment-ops">
+                                          {canReply && (
+                                            <button
+                                              type="button"
+                                              className="answer__comment-op"
+                                              aria-label={`回复 ${cName} 的评论`}
+                                              aria-expanded={replyFor === c.id}
+                                              aria-controls={`reply-form-${c.id}`}
+                                              onClick={() => toggleReplyForm(c)}
+                                            >
+                                              回复
+                                            </button>
+                                          )}
+                                          {canDelete &&
+                                            (confirmDelCommentId === c.id ? (
                                               <>
                                                 <button
                                                   type="button"
@@ -1245,9 +1339,9 @@ export function Question() {
                                               >
                                                 删除
                                               </button>
-                                            )}
-                                          </span>
-                                        )}
+                                            ))}
+                                        </span>
+                                      )}
                                     </div>
                                     <p
                                       className={`answer__comment-body${
@@ -1256,8 +1350,51 @@ export function Question() {
                                     >
                                       {c.is_deleted ? c.placeholder ?? "该评论已删除" : c.content}
                                     </p>
+                                    {replyFor === c.id && (
+                                      <div
+                                        className="answer__reply-form"
+                                        id={`reply-form-${c.id}`}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") closeReplyForm();
+                                        }}
+                                      >
+                                        <Textarea
+                                          autoFocus
+                                          rows={2}
+                                          maxLength={500}
+                                          aria-label={`回复 ${cName}`}
+                                          placeholder={`回复 ${cName}：`}
+                                          value={replyDraft}
+                                          onChange={(e) => setReplyDraft(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Escape") closeReplyForm();
+                                          }}
+                                        />
+                                        {replyError && (
+                                          <p className="answer__reply-error" role="alert">
+                                            {replyError}
+                                          </p>
+                                        )}
+                                        <div className="answer__reply-actions">
+                                          <Button
+                                            onClick={() => void submitReply(a, c)}
+                                            disabled={replySending || !replyDraft.trim()}
+                                          >
+                                            {replySending ? "回复中…" : "回复"}
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            disabled={replySending}
+                                            onClick={closeReplyForm}
+                                          >
+                                            取消
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </li>
-                                ))}
+                                  );
+                                })}
                             </ul>
                           )}
                           {user ? (
@@ -1278,7 +1415,7 @@ export function Question() {
                                     commentSending[a.id] || !(commentDrafts[a.id] ?? "").trim()
                                   }
                                 >
-                                  {commentSending[a.id] ? "发布中…" : "发布"}
+                                  {commentSending[a.id] ? "发布中…" : "发布评论"}
                                 </Button>
                               </div>
                             </div>
