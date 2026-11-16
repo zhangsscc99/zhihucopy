@@ -113,6 +113,52 @@ router.get("/:id", (req, res) => {
   });
 });
 
+// PATCH /answers/:id — 只能编辑自己的回答。校验口径与发布一致
+// （去空白后非空、≤50000 字符）；旧版本先存入 answer_revisions 再覆盖。
+router.patch("/:id", requireAuth, (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return badRequest(res, "回答 id 无效");
+  const id = Number(req.params.id);
+  const { content_md } = req.body || {};
+  if (
+    typeof content_md !== "string" ||
+    !content_md.trim() ||
+    content_md.length > 50000
+  ) {
+    return badRequest(res, "回答内容需要 1–50000 个字符");
+  }
+
+  const db = getDb();
+  const a = db.prepare("SELECT * FROM answers WHERE id = ?").get(id);
+  if (!a || a.is_deleted) return res.status(404).json({ error: "回答不存在" });
+  if (a.author_id !== req.user.id) {
+    return res.status(403).json({ error: "只能编辑自己的回答" });
+  }
+
+  db.transaction(() => {
+    db.prepare(
+      "INSERT INTO answer_revisions (answer_id, content_md) VALUES (?, ?)"
+    ).run(id, a.content_md);
+    db.prepare(
+      "UPDATE answers SET content_md = ?, updated_at = datetime('now') WHERE id = ?"
+    ).run(content_md, id);
+  })();
+
+  const row = db
+    .prepare(
+      `SELECT a.*, q.title AS question_title,
+              u.id AS author_id, u.nickname AS author_nickname,
+              u.avatar_url AS author_avatar, u.bio AS author_bio
+       FROM answers a
+       JOIN users u ON u.id = a.author_id
+       JOIN questions q ON q.id = a.question_id
+       WHERE a.id = ?`
+    )
+    .get(id);
+  res.json({
+    answer: { ...answerRow(row), is_collected: isCollected(db, req.user.id, id) },
+  });
+});
+
 // DELETE /answers/:id — 只能删除自己的回答（管理员可删任意），软删除且幂等。
 router.delete("/:id", requireAuth, (req, res) => {
   if (!/^\d+$/.test(req.params.id)) return badRequest(res, "回答 id 无效");
