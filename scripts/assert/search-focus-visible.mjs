@@ -131,6 +131,9 @@ async function main() {
     const input = page.locator(".msearchbar__input").first();
     await input.waitFor({ state: "visible", timeout: 8000 });
 
+    const bodyLen = await page.evaluate(() => document.body.innerText.length);
+    expect(bodyLen > 200, `页面内容过少：innerText=${bodyLen}`);
+
     const before = await page.evaluate(snapshot);
     console.log(`[ASSERT] focus-vis before=${JSON.stringify(before)}`);
 
@@ -153,6 +156,18 @@ async function main() {
       outlineVis,
       `输入框自身无可见 outline：style=${after.outlineStyle} width=${after.outlineWidth}（需 style!=none 且 >=2px）；` +
         `容器 border before=${before.barBorderColor} after=${after.barBorderColor}（容器变色不足以达标）`
+    );
+    // 令牌门禁：outline 颜色必须取自主色令牌 --accent (#0066FF → rgb(0, 102, 255))，
+    // 防止「任意 2px 实线（如红色）也算过」的伪通过。
+    expect(
+      after.outlineColor === "rgb(0, 102, 255)",
+      `outline-color 不是主色令牌：实际=${after.outlineColor}，期望 rgb(0, 102, 255)（--accent #0066FF）`
+    );
+    // 容器 :focus-within 边框必须相对基线真实变化（证明焦点态联动，非恒常量）。
+    expect(
+      barChanged,
+      `容器 :focus-within 边框/阴影相对基线无变化：border ${before.barBorderColor} -> ${after.barBorderColor}，` +
+        `shadow ${before.barBoxShadow} -> ${after.barBoxShadow}`
     );
 
     // 反向守卫：移走焦点 → outline 必须恢复 none（证明是焦点态而非恒常量）

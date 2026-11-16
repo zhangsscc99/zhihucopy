@@ -109,7 +109,7 @@ async function main() {
     await injectErrs(page);
 
     const SCOPES = [
-      { key: "question", url: `${BASE}/search?q=${ZERO}`, keepCta: null },
+      { key: "question", url: `${BASE}/search?q=${ZERO}`, keepCta: "去提问" },
       { key: "answer", url: `${BASE}/search?q=${ZERO}&type=answer`, keepCta: "去提问" },
       { key: "user", url: `${BASE}/search?q=${ZERO}&type=user`, keepCta: "去首页" },
     ];
@@ -158,10 +158,15 @@ async function main() {
         st.url === urlBefore,
         `${sc.key} 点「换个关键词」后 URL 跳走：${urlBefore} -> ${st.url}`
       );
-    }
 
-    const errs = await pageErrs(page);
-    expect(errs.length === 0, `页面错误：${errs.join(" | ")}`);
+      // addInitScript 每次导航重建 window.__errs——必须在本 scope 导航后、
+      // 下次 goto 前读取，否则前几个 scope 的页面错误被清空、门禁不咬人。
+      const scopeErrs = await pageErrs(page);
+      expect(
+        scopeErrs.length === 0,
+        `${sc.key} 页面错误：${scopeErrs.join(" | ")}`
+      );
+    }
 
     await browser.close();
     console.log(
