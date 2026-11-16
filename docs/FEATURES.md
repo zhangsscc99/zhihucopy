@@ -380,7 +380,7 @@
 - [ ] Z1033 内容主权：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1，Z1020 收口）：补编辑/删除（含确认与计数回写）
   verify: node scripts/assert/content-ownership.mjs
   risk: med
-- [ ] Z1034 404 归因与出口（P1，Z1004/Z1024 收口）：`/question/99999999`、`/u/99999999` 文案写「请检查网络」且 main 内 0 个可点元素；`/no-such-xyz` 的「回到首页」不是链接；需真 404 状态码 + ≥2 出口
+- [x] Z1034 404 归因与出口（P1，Z1004/Z1024 收口）：`/question/99999999`、`/u/99999999` 文案写「请检查网络」且 main 内 0 个可点元素；`/no-such-xyz` 的「回到首页」不是链接；需真 404 状态码 + ≥2 出口 ✅ (2026-11-16 devin：SPA fallback 按路由表/查库分 200/404，统一 NotFound 页 + 回到首页/去搜索双出口)
   verify: node scripts/assert/notfound-cta.mjs
   risk: low
 - [ ] Z1035 未登录「写回答」只弹 toast 不跳转（P1，Z1023 残留）：同页匿名赞同/收藏/关注问题都会跳 `/login?next=`，只有写回答不跳；统一带 next 覆盖所有写操作入口

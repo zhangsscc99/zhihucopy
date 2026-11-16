@@ -1807,6 +1807,43 @@ mark.hl {
   margin-top: 14px;
 }
 
+/* ---------- 统一 404 / 服务异常页 ---------- */
+.notfound {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 64px 24px 56px;
+  text-align: center;
+}
+.notfound__code {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.notfound__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.notfound__hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.notfound__detail {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.notfound__actions {
+  margin-top: 28px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* ---------- 通知页 ---------- */
 
 .ntf-head {

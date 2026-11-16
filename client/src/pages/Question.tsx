@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
-import { Empty, ErrorBox, Spinner } from "../components/Layout";
+import { Empty, Spinner } from "../components/Layout";
+import { isContentMissing, NotFound } from "./NotFound";
 import Markdown from "../components/Markdown";
 import MarkdownEditor from "../components/MarkdownEditor";
 import { Button, Textarea } from "../components/ui";
@@ -62,6 +63,7 @@ export function Question() {
   const [question, setQuestion] = useState<QuestionType | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [draft, setDraft] = useState("");
@@ -143,6 +145,7 @@ export function Question() {
     const seq = ++answersReq.current;
     const wanted = readSort(window.location.search);
     setLoading(true);
+    setNotFound(false);
     syncSort(wanted);
     setPage(0);
     setHasMore(false);
@@ -178,7 +181,8 @@ export function Question() {
       })
       .catch((e) => {
         if (seq !== answersReq.current) return;
-        setError(e.message);
+        if (isContentMissing(e)) setNotFound(true);
+        else setError(e.message);
       })
       .finally(() => {
         if (seq !== answersReq.current) return;
@@ -606,8 +610,9 @@ export function Question() {
   };
 
   if (loading) return <Spinner />;
-  if (error) return <ErrorBox message={error} />;
-  if (!question) return <Empty title="问题不存在" />;
+  if (notFound) return <NotFound />;
+  if (error) return <NotFound kind="error" detail={error} onRetry={load} />;
+  if (!question) return <NotFound />;
 
   return (
     <article className="question">

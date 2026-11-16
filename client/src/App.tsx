@@ -2,7 +2,6 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { HotRail } from "./components/HotRail";
-import { Empty } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { Question } from "./pages/Question";
 import { Ask } from "./pages/Ask";
@@ -15,6 +14,7 @@ import { Unanswered } from "./pages/Unanswered";
 import { Notifications } from "./pages/Notifications";
 import { Collections, CollectionDetail } from "./pages/Collections";
 import { Admin } from "./pages/Admin";
+import { NotFound } from "./pages/NotFound";
 
 function Me() {
   const { user, loading } = useAuth();
@@ -48,7 +48,7 @@ export function App() {
         <Route path="/collections" element={<Collections />} />
         <Route path="/collections/:id" element={<CollectionDetail />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="*" element={<Empty title="页面不存在" hint="回到首页继续浏览" />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
   );

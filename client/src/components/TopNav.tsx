@@ -210,11 +210,20 @@ export function TopNav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [params] = useSearchParams();
   const qParam = params.get("q") || "";
+  const focusParam = params.get("focus");
   const [query, setQuery] = useState(qParam);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchBtnRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const wasSearchOpen = useRef(false);
   const navigate = useNavigate();
+
+  // 404 页「去搜索」出口落点：?focus=search 时聚焦桌面搜索框；移动端改开全屏搜索层。
+  useEffect(() => {
+    if (focusParam !== "search") return;
+    if (window.matchMedia("(max-width: 767px)").matches) setSearchOpen(true);
+    else searchInputRef.current?.focus();
+  }, [focusParam]);
 
   // 移动搜索层关闭后，焦点归还到放大镜按钮（Escape/取消/提交跳转各路径统一在此处理）。
   useEffect(() => {
@@ -277,6 +286,7 @@ export function TopNav() {
             <SearchIcon className="topnav__search-icon" />
           </button>
           <input
+            ref={searchInputRef}
             className="field field--search"
             placeholder="搜索问题、回答、用户"
             value={query}

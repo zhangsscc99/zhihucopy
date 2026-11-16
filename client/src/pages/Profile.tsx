@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
+import { isContentMissing, NotFound } from "./NotFound";
 import type { Answer, Page, ProfileData, Question } from "../types";
 import { formatTime } from "../lib/time";
 
@@ -202,7 +203,9 @@ export function Profile() {
   const navigate = useNavigate();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [tab, setTab] = useState<TabKey>("answers");
   const [colCount, setColCount] = useState<number | null>(null);
   const [following, setFollowing] = useState(false);
@@ -216,6 +219,7 @@ export function Profile() {
     setTab("answers");
     setLoading(true);
     setError("");
+    setNotFound(false);
     setFollowing(false);
     get<ProfileData>(`/users/${id}`)
       .then((res) => {
@@ -224,12 +228,15 @@ export function Profile() {
         setFollowing(Boolean(res.is_following));
       })
       .catch((e) => {
-        if (seq === profileSeq.current) setError(e.message);
+        if (seq === profileSeq.current) {
+          if (isContentMissing(e)) setNotFound(true);
+          else setError(e.message);
+        }
       })
       .finally(() => {
         if (seq === profileSeq.current) setLoading(false);
       });
-  }, [id]);
+  }, [id, reloadToken]);
 
   const isMe = Boolean(me && data && me.id === data.user.id);
 
@@ -295,8 +302,16 @@ export function Profile() {
   }, [isMe]);
 
   if (loading) return <Spinner />;
-  if (error) return <ErrorBox message={error} />;
-  if (!data) return <Empty title="用户不存在" />;
+  if (notFound) return <NotFound />;
+  if (error)
+    return (
+      <NotFound
+        kind="error"
+        detail={error}
+        onRetry={() => setReloadToken((n) => n + 1)}
+      />
+    );
+  if (!data) return <NotFound />;
 
   const { user, stats, badges = [] } = data;
   const counts: Record<TabKey, number> = {
