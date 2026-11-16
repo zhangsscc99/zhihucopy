@@ -215,7 +215,7 @@ async function main() {
     );
     expect(resTitle, "搜索结果页无可见结果标题");
 
-    const resultInput = page.locator('input[type="search"]:visible').first();
+    const resultInput = page.locator('.msearchbar input[type="search"]:visible').first();
     await resultInput.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
     expect(await isVis(resultInput), "搜索结果页（移动端）无可见输入框");
     expect(

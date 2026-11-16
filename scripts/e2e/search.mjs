@@ -10,7 +10,7 @@ run("search", async ({ page }) => {
   const keyword = title.replace(/[？?。！!，,\s]/g, " ").split(" ").filter((w) => w.length >= 4)[0] || title.slice(0, 6);
 
   await page.goto(`${BASE}/`);
-  const box = page.getByRole("searchbox").or(page.locator(".topnav__search input, input[aria-label='搜索']")).first();
+  const box = page.getByRole("searchbox").or(page.locator(".topnav__search input, header input[aria-label='搜索']")).first();
   await box.fill(keyword);
   await box.press("Enter");
   await page.waitForLoadState("networkidle");

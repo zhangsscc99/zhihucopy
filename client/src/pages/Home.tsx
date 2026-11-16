@@ -300,8 +300,8 @@ function SearchResults({ q }: { q: string }) {
           className="field msearchbar__input"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
-          aria-label="搜索"
-          placeholder="搜索问题、回答、用户"
+          aria-label="在结果中搜索"
+          placeholder="在结果中搜索"
         />
         <button type="submit" className="btn msearchbar__go" disabled={!qInput.trim()}>
           搜索
