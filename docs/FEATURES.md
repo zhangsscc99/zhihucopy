@@ -404,7 +404,7 @@
 - [ ] Z1040 评论发布零反馈（P2）：无 toast，且按钮文本变「收起评论」顶掉计数
   verify: node scripts/assert/comment-feedback.mjs
   risk: low
-- [ ] Z1041 结果页内嵌搜索框（P2）：「换个关键词」「取消搜索」都清空关键词退回首页、焦点落 BODY；移动端叠加 Z1031 等于退出即无法再搜
+- [x] Z1041 结果页内嵌搜索框（P2）：「换个关键词」「取消搜索」都清空关键词退回首页、焦点落 BODY；移动端叠加 Z1031 等于退出即无法再搜 ✅ (2026-11-16 devin：桌面也渲染 `.msearchbar` 白卡（预填 q、换词保留 ?type=），「换个关键词」改 focus()+select() 原地续搜、「取消搜索」回首页后焦点交顶栏搜索框（移动端开全屏层）；焦点态由 `.msearchbar:focus-within` 主色边框承担；新增 search-inline-input 断言（含 type 保留/焦点可见/errs 守卫，基线 FAIL 与反向 RC=1 已验证）
   verify: node scripts/assert/search-inline-input.mjs
   risk: low
 - [ ] Z1042 「查看全部 N 个回答」展开后不能收起（P2）：5→10 条后按钮消失，页面长度翻倍
