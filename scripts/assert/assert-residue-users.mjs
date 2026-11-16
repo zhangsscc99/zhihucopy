@@ -56,6 +56,25 @@ main("assert-residue-users", async () => {
   const adminToken = lr.data.token;
   const users0 = await usersTotal(adminToken);
 
+  // a0) 全局清零基线：先按白名单全量 purge 再断言 residue===0，
+  // 历史/并行 lane 残留不计入本 run 的「应清到 0」验收口径。
+  const pre = await req("POST", "/test-support/purge-residue", {
+    token: adminToken,
+    body: {},
+  });
+  expect(
+    pre.status === 200 && pre.data.ok,
+    `基线 purge-residue -> ${pre.status} ${JSON.stringify(pre.data).slice(0, 200)}`
+  );
+  const residueBase = await residueUserCount();
+  expect(
+    residueBase === 0,
+    `基线 purge 后残留计数应为 0，实际 ${residueBase}`
+  );
+  console.log(
+    `  baseline: purged=${(pre.data.purged_nicknames || []).length} residue=0`
+  );
+
   // a) 复刻 search-scope 注册形态两次（真实可见账号），量残留基线。
   const u1 = await registerResidue();
   const u2 = await registerResidue();

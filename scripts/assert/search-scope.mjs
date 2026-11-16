@@ -57,13 +57,20 @@ function dbPurgeUserById(userId) {
   try {
     db = new Database(dbPath);
     db.pragma("foreign_keys = ON");
+    let detail;
     db.transaction(() => {
       initDelTables(db);
       db.prepare("INSERT OR IGNORE INTO _del_u (id) VALUES (?)").run(userId);
       cascadeFromDelUsers(db);
-      deleteMarked(db);
+      detail = deleteMarked(db);
       recomputeDerived(db);
     })();
+    if (!detail || (detail.u || 0) < 1) {
+      console.error(
+        `[self-clean] DB 级自清 u:${userId} 删除 0 行（detail=${JSON.stringify(detail)}），视为失败`
+      );
+      return false;
+    }
     return true;
   } catch (e) {
     console.error(`[self-clean] DB 级自清失败 u:${userId}: ${e.message || e}`);
@@ -79,15 +86,25 @@ async function purgeResidueSelf(userId, nickname) {
   try {
     const lr = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
     if (lr.status === 200 && lr.data.token) {
+      // only_nicknames 只清本 run 账号：并行 lane 的同名前缀账号不被误删，
+      // 也不会在别人的断言途中制造假红（端点仍按白名单正则逐个复核）。
       const pr = await req("POST", "/test-support/purge-residue", {
         token: lr.data.token,
-        body: {},
+        body: { only_nicknames: [nickname] },
       });
       if (pr.status === 200 && pr.data.ok) {
+        const purged = pr.data.purged_nicknames || [];
+        const du = pr.data.deleted?.u ?? 0;
         console.log(
-          `[self-clean] purge-residue OK: deleted.u=${pr.data.deleted?.u ?? "?"} ` +
-            `purged=${JSON.stringify(pr.data.purged_nicknames || [])}`
+          `[self-clean] purge-residue OK: deleted.u=${du} ` +
+            `purged=${JSON.stringify(purged)}`
         );
+        // 不能只信 ok：白名单漂移时 200+ok 但本 run 账号没进删除集 = 静默残留。
+        expect(
+          Array.isArray(pr.data.purged_nicknames) && purged.includes(nickname),
+          `purge-residue 未清掉本 run 账号 ${nickname}：purged_nicknames=${JSON.stringify(pr.data.purged_nicknames)}`
+        );
+        expect(du >= 1, `purge-residue deleted.u 应 >= 1，实际 ${du}`);
         return true;
       }
       console.warn(
@@ -110,9 +127,16 @@ async function purgeResidueSelf(userId, nickname) {
 }
 
 main("search-scope", async () => {
-  const { token, user, nickname } = await registerReal();
   let cleaned = false;
+  let user = null;
+  let nickname = null;
   try {
+  // 注册放进 try：若服务端已落库但客户端中途抛错，finally 仍能拿到
+  // user/nickname 走自清，不会在库外留下无主的残留账号。
+  const reg = await registerReal();
+  const token = reg.token;
+  user = reg.user;
+  nickname = reg.nickname;
 
   // 1) 问题 + 含唯一随机串的回答（标题不带 kw，保证问题 scope 不命中）。
   const title = "代码质量保障有哪些值得借鉴的实践？";
@@ -184,11 +208,15 @@ main("search-scope", async () => {
       `counts(q/a/u)=${aRes.counts.question}/${aRes.counts.answer}/${aRes.counts.user}`
   );
   } finally {
-    cleaned = await purgeResidueSelf(user.id, nickname).catch((e) => {
-      console.error(`[self-clean] 异常: ${e.message || e}`);
-      return false;
-    });
+    if (user) {
+      cleaned = await purgeResidueSelf(user.id, nickname).catch((e) => {
+        console.error(`[self-clean] 异常: ${e.message || e}`);
+        return false;
+      });
+    }
   }
   // 断言本身失败后也要先自清再向上抛；只有断言全过时才走到这里复核自清结果。
-  expect(cleaned, "Z1050 自清失败：admin purge 与 DB 降级均不可用，残留账号未清");
+  if (user) {
+    expect(cleaned, "Z1050 自清失败：admin purge 与 DB 降级均不可用，残留账号未清");
+  }
 });

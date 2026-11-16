@@ -65,60 +65,81 @@ const RESIDUE_WHITELIST = {
 };
 
 router.post("/purge-residue", requireAuth, (req, res) => {
-  if (!req.user.is_admin) {
-    return res.status(403).json({ error: "需要管理员权限" });
-  }
-  const pattern = (req.body && req.body.pattern) || "z1044user";
-  const rule = RESIDUE_WHITELIST[pattern];
-  if (!rule) {
-    return res.status(400).json({
-      error: "pattern 不在白名单",
-      allowed: Object.keys(RESIDUE_WHITELIST),
-    });
-  }
-
-  const db = getDb();
-  const candidates = db
-    .prepare(
-      `SELECT id, nickname, email, is_admin FROM users
-       WHERE nickname LIKE ? OR email LIKE ?`
-    )
-    .all(rule.nickLike, rule.emailLike);
-
-  const ids = [];
-  const skipped = [];
-  for (const u of candidates) {
-    const reasons = [];
-    if (!rule.nickRe.test(u.nickname)) reasons.push("nickname");
-    if (!rule.emailRe.test(u.email)) reasons.push("email");
-    if (u.is_admin) reasons.push("is_admin");
-    if (reasons.length) {
-      skipped.push({ id: u.id, nickname: u.nickname, email: u.email, reasons });
-    } else {
-      ids.push(u.id);
+  try {
+    if (!req.user.is_admin) {
+      return res.status(403).json({ error: "需要管理员权限" });
     }
-  }
+    const pattern = (req.body && req.body.pattern) || "z1044user";
+    const rule = RESIDUE_WHITELIST[pattern];
+    if (!rule) {
+      return res.status(400).json({
+        error: "pattern 不在白名单",
+        allowed: Object.keys(RESIDUE_WHITELIST),
+      });
+    }
 
-  let payload;
-  db.transaction(() => {
-    initDelTables(db);
-    const ins = db.prepare("INSERT OR IGNORE INTO _del_u (id) VALUES (?)");
-    for (const id of ids) ins.run(id);
-    cascadeFromDelUsers(db);
-    const detail = deleteMarked(db);
-    recomputeDerived(db);
-    payload = {
-      ok: true,
-      pattern,
-      deleted: delCounts(db),
-      detail,
-      purged_nicknames: candidates
-        .filter((u) => ids.includes(u.id))
-        .map((u) => u.nickname),
-      skipped,
-    };
-  })();
-  res.json(payload);
+    // only_nicknames（可选）：只删这些昵称，仍逐个命中白名单正则才受理，
+    // 供并行断言只清本 run 账号，避免全量 purge 误删别的 lane 的在途账号。
+    const only = req.body && req.body.only_nicknames;
+    if (
+      only !== undefined &&
+      (!Array.isArray(only) ||
+        !only.every((n) => typeof n === "string" && rule.nickRe.test(n)))
+    ) {
+      return res.status(400).json({
+        error: "only_nicknames 须为命中白名单正则的昵称数组",
+      });
+    }
+
+    const db = getDb();
+    let payload;
+    // 候选 SELECT + JS 复核放进同一事务，避免 SELECT 与 DELETE 间的 TOCTOU。
+    db.transaction(() => {
+      const candidates = db
+        .prepare(
+          `SELECT id, nickname, email, is_admin FROM users
+           WHERE nickname LIKE ? OR email LIKE ?`
+        )
+        .all(rule.nickLike, rule.emailLike);
+
+      const ids = [];
+      const skipped = [];
+      for (const u of candidates) {
+        if (only && !only.includes(u.nickname)) continue;
+        const reasons = [];
+        if (!rule.nickRe.test(u.nickname)) reasons.push("nickname");
+        if (!rule.emailRe.test(u.email)) reasons.push("email");
+        if (u.is_admin) reasons.push("is_admin");
+        if (reasons.length) {
+          skipped.push({ id: u.id, nickname: u.nickname, email: u.email, reasons });
+        } else {
+          ids.push(u.id);
+        }
+      }
+
+      initDelTables(db);
+      const ins = db.prepare("INSERT OR IGNORE INTO _del_u (id) VALUES (?)");
+      for (const id of ids) ins.run(id);
+      cascadeFromDelUsers(db);
+      const detail = deleteMarked(db);
+      recomputeDerived(db);
+      payload = {
+        ok: true,
+        pattern,
+        deleted: delCounts(db),
+        detail,
+        purged_nicknames: candidates
+          .filter((u) => ids.includes(u.id))
+          .map((u) => u.nickname),
+        skipped,
+      };
+    })();
+    res.json(payload);
+  } catch (e) {
+    res
+      .status(500)
+      .json({ error: `purge-residue 失败: ${e.message || e}` });
+  }
 });
 
 module.exports = router;
