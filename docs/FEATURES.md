@@ -377,7 +377,7 @@
 - [x] Z1032 回答发布后在默认排序里沉底且无提示（P1）：发布 8→9 条、当屏可见，刷新后默认排序 5 条里找不到自己的回答，只有切「最新」才有；发布成功后应乐观置顶或自动切「最新」并提示排序 ✅ (2026-11-16 devin：改为「你的回答」固定条 + `?sort=` 深链，default 仍纯赞数序)
   verify: node scripts/assert/answer-publish-visibility.mjs
   risk: med
-- [ ] Z1033 内容主权：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1，Z1020 收口）：补编辑/删除（含确认与计数回写）
+- [x] Z1033 内容主权：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1，Z1020 收口）：补编辑/删除（含确认与计数回写） ✅ (2026-11-16 devin：PATCH /answers/:id + 回答卡「更多操作」内联编辑/二次确认删除 + 评论行删除，计数回写)
   verify: node scripts/assert/content-ownership.mjs
   risk: med
 - [x] Z1034 404 归因与出口（P1，Z1004/Z1024 收口）：`/question/99999999`、`/u/99999999` 文案写「请检查网络」且 main 内 0 个可点元素；`/no-such-xyz` 的「回到首页」不是链接；需真 404 状态码 + ≥2 出口 ✅ (2026-11-16 devin：SPA fallback 按路由表/查库分 200/404，统一 NotFound 页 + 回到首页/去搜索双出口)
@@ -392,10 +392,10 @@
 
 ## 第十一轮待办（2026-11-15 23:5x，来源 docs/PRODUCT-REVIEW.md 第十一轮 Playwright 实测）
 
-- [ ] Z1037 个人主页空态补下一步入口（P1）：0 回答时正文只有「这个人还没有写过回答。」一句纯文本，main 内除三个 tab 外 0 按钮 0 链接
+- [x] Z1037 个人主页空态补下一步入口（P1）：0 回答时正文只有「这个人还没有写过回答。」一句纯文本，main 内除三个 tab 外 0 按钮 0 链接 ✅ (2026-11-16 devin：空态双出口 + tab 以 URL 为唯一真源)
   verify: node scripts/assert/profile-empty-cta.mjs
   risk: low
-- [ ] Z1038 通知补 comment/agree 事件并带 `#answer-` 锚点（P1）：评论他人回答后对方无新通知；通知行 href 无锚点，点进去落在问题页顶部
+- [x] Z1038 通知补 comment/agree 事件并带 `#answer-` 锚点（P1）：评论他人回答后对方无新通知；通知行 href 无锚点，点进去落在问题页顶部 ✅ (2026-11-16 devin：comment/agree 事件 + 幂等 + 锚点落点（含补拉分页）+ 软删过滤)
   verify: node scripts/assert/notify-comment-anchor.mjs
   risk: med
 - [ ] Z1039 浏览量一次访问 +2 且页面与接口不同步（P2）：接口 6→8，同屏文案显示 7
@@ -413,4 +413,25 @@
 - [ ] Z1043 「邀请回答」仍是复制链接（P2）：无弹窗无选择器，toast 只是问题 URL
   verify: node scripts/assert/invite-dialog.mjs
   risk: med
+
+## 第十二轮巡检待办（2026-11-16 01:47，来源 docs/PRODUCT-REVIEW.md 第十二轮 Playwright 实测）
+
+- [ ] Z1044 搜索范围与 placeholder 承诺不一致（P1）：顶栏 placeholder 写「搜索问题、回答、用户」，实际只匹配问题标题/摘要/话题名——取回答正文片段「的观点：代码质量的核」搜索返回 0 条
+  verify: node scripts/assert/search-scope.mjs
+  risk: med
+- [ ] Z1045 公开内容残留测试评论与空详情问题（P1）：`/question/1` 首答评论区可见「评论回写验证 rv6-…」「评论功能验证 comment-ui-2007」「巡检甲2：…」；推荐流首条问题 `detail_md` 为空仍占首屏
+  verify: node scripts/assert/content-residue.mjs
+  risk: med
+- [ ] Z1046 首页「加载更多」无加载反馈（P2）：点击后 1.7s 内 `[class*=skeleton]` 为 0、按钮无 loading 态，用户无法判断是否点中
+  verify: node scripts/assert/loadmore-feedback.mjs
+  risk: low
+- [ ] Z1047 通知锚点在回答数 >50 的问题上落空且文案误报（P2，Z1038 遗留）：补页上限 5 页(50 条) 后仍找不到就显示「该回答可能已被删除」，但回答实际存在（默认序新回答恒在末尾）
+  verify: node scripts/assert/anchor-deep-page.mjs
+  risk: med
+- [ ] Z1048 NotFound 详情透出原始错误串（P2）：服务异常页正文显示英文 `internal` / `Failed to fetch`，需映射为中文友好文案（Z1034 遗留）
+  verify: node scripts/assert/notfound-copy.mjs
+  risk: low
+- [ ] Z1049 ci-deploy 的 E2E 紧跟 pm2 restart，偶发拿到空白页（P2）：2026-11-16 部署时 `notifications.mjs` 截图整页空白、耗时 19.4s 判 PENDING，随后单独复跑 4/4 PASS——旧 hash 资源被替换的竞态，需在 e2e 前加首屏 warmup 或对首屏失败重试一次（不得放宽断言）
+  verify: node scripts/assert/deploy-e2e-warmup.mjs
+  risk: low
 
