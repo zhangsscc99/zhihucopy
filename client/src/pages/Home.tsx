@@ -492,18 +492,28 @@ function SearchResults({ q }: { q: string }) {
           <Empty
             title="没有找到包含该关键词的回答"
             action={
-              <Link to="/ask" className="btn btn--outline">
-                去提问
-              </Link>
+              <div className="empty__actions">
+                <button type="button" className="btn btn--ghost" onClick={refocusInline}>
+                  换个关键词
+                </button>
+                <Link to="/ask" className="btn btn--outline">
+                  去提问
+                </Link>
+              </div>
             }
           />
         ) : scope === "user" ? (
           <Empty
             title="没有找到匹配的用户"
             action={
-              <Link to="/" className="btn btn--outline">
-                去首页
-              </Link>
+              <div className="empty__actions">
+                <button type="button" className="btn btn--ghost" onClick={refocusInline}>
+                  换个关键词
+                </button>
+                <Link to="/" className="btn btn--outline">
+                  去首页
+                </Link>
+              </div>
             }
           />
         ) : (
