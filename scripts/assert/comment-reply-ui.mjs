@@ -143,14 +143,21 @@ run("comment-reply-ui", async ({ browser }) => {
   );
   expect(focused, "展开回复表单后焦点未落在 textarea");
 
-  // a11y：「回复」按钮的 aria-controls 要指向真实存在的表单容器。
+  // a11y：「回复」按钮的 aria-controls 指向常驻 slot；slot 存在只算一半，
+  // 展开态下其内部必须真的装着恰 1 个 .answer__reply-form（否则恒真）。
   const ctl = await c1Li
     .getByRole("button", { name: replyOpRe })
     .first()
     .getAttribute("aria-controls");
+  const slot = page.locator(`#${ctl}`);
   expect(
-    ctl && (await page.locator(`#${ctl}`).count()) === 1,
-    `aria-controls=${ctl} 未指向已展开的回复表单容器`
+    ctl && (await slot.count()) === 1,
+    `aria-controls=${ctl} 未指向真实存在的 slot 节点`
+  );
+  const slotFormsOpen = await slot.locator(".answer__reply-form").count();
+  expect(
+    slotFormsOpen === 1,
+    `展开态下 slot 内回复表单数=${slotFormsOpen}，期望恰 1`
   );
 
   // 切换父评论：表单数仍恰为 1（全局单例）。
@@ -177,6 +184,13 @@ run("comment-reply-ui", async ({ browser }) => {
   expect(onFormBtn, "Tab 两次后焦点未落在回复表单的按钮区");
   await page.keyboard.press("Escape");
   expect((await replyForms.count()) === 0, "焦点在表单按钮上时 Esc 未关闭回复表单");
+
+  // 收起态：slot 仍在但内部不得残留 .answer__reply-form。
+  const slotFormsClosed = await slot.locator(".answer__reply-form").count();
+  expect(
+    slotFormsClosed === 0,
+    `收起态下 slot 内回复表单数=${slotFormsClosed}，期望 0`
+  );
 
   // ---- 提交一次：乐观挂上 + 计数 +1 + toast + 表单收起 ----
   const replyText = mark("回复断言正文");
@@ -256,6 +270,12 @@ run("comment-reply-ui", async ({ browser }) => {
   const deletedRows = page.locator("li.answer__comment", {
     has: page.locator(".answer__comment-body--deleted"),
   });
+  // [Z1069] 正向守卫：先确认场景里确实存在删除占位行，再断「无回复按钮」——
+  // 否则选择器一漂移整组断言恒真。
+  expect(
+    (await deletedRows.count()) > 0,
+    "正向守卫失败：页面应至少有一条「该评论已删除」占位行"
+  );
   expect(
     (await deletedRows.getByRole("button", { name: replyOpRe }).count()) === 0,
     "「该评论已删除」占位行不应出现「回复」按钮"
@@ -266,6 +286,41 @@ run("comment-reply-ui", async ({ browser }) => {
   );
   errs = await pageErrs(page);
   expect(errs.length === 0, `删父流程出现页面错误：${errs.join(" | ")}`);
+
+  // ---- [Z1069] 回复失败路径：表单仍开、[role=alert] 非空、草稿原样保留 ----
+  // 稳定复现：u2 发父评论 → 页面渲染出「回复」入口 → u1 展开表单并填草稿 →
+  // 服务端删掉父评论（页面行是陈旧的）→ 提交被 400「父评论不存在」拒。
+  const f1Text = mark("失败路径父评论");
+  const { comment: f1 } = await postComment(u2.token, aid, f1Text);
+  await page.reload();
+  await page.locator(".question__title").first().waitFor();
+  await ans.getByRole("button", { name: /条评论|收起评论/ }).click();
+  const f1Li = page.locator("li.answer__comment", { hasText: f1Text });
+  await f1Li.waitFor();
+  await f1Li.getByRole("button", { name: replyOpRe }).click();
+  expect((await replyForms.count()) === 1, "失败路径：回复表单未展开");
+  const failDraft = `失败草稿 ${Date.now()}`;
+  await replyForms.first().locator("textarea").fill(failDraft);
+  await apiOk("DELETE", `/comments/${f1.id}`, { token: u2.token });
+  await replyForms.first().getByRole("button", { name: "回复", exact: true }).click();
+  const failAlert = replyForms.first().locator("[role=alert]");
+  await failAlert.waitFor();
+  expect(
+    ((await failAlert.innerText()) || "").trim().length > 0,
+    "回复失败后 [role=alert] 未出现或文案为空"
+  );
+  expect(
+    (await replyForms.count()) === 1,
+    "回复失败后表单被关闭（应保持打开供用户重试/复制草稿）"
+  );
+  // 草稿用 inputValue() 读真实 value——getByText 会把 textarea 文本当节点文本误配。
+  const keptDraft = await replyForms.first().locator("textarea").inputValue();
+  expect(
+    keptDraft === failDraft,
+    `回复失败后草稿丢失：textarea=「${keptDraft}」期望「${failDraft}」`
+  );
+  errs = await pageErrs(page);
+  expect(errs.length === 0, `回复失败路径出现页面错误：${errs.join(" | ")}`);
 
   // ---- 匿名：点「回复」→ /login?next= ----
   const anon = await newPage(browser);

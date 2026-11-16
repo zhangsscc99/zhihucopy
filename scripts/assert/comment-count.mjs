@@ -90,6 +90,9 @@ run("comment-count", async ({ browser }) => {
 
   // 收起态：「N 条评论」（N=非删除可见行数 2，占位不计）。
   const closedText = (await toggle.innerText()).trim();
+  // [Z1069] 锚定全等：includes("2 条评论")/未锚定匹配会被「12 条评论」误配 →
+  // trimmed 全等 + 锚定正则双断言。
+  expect(closedText === "2 条评论", `收起态文案异常：「${closedText}」期望恰为「2 条评论」`);
   const mClosed = RE_CLOSED.exec(closedText);
   expect(mClosed && Number(mClosed[1]) === 2, `收起态文案异常：「${closedText}」期望 2 条评论`);
 
@@ -136,6 +139,7 @@ run("comment-count", async ({ browser }) => {
   const openN = st.n;
   await toggle.click();
   const closedAgain = (await toggle.innerText()).trim();
+  expect(closedAgain === "2 条评论", `收起后文案异常：「${closedAgain}」期望恰为「2 条评论」`);
   const mAgain = RE_CLOSED.exec(closedAgain);
   expect(mAgain !== null, `收起后文案异常：「${closedAgain}」不匹配 N 条评论`);
   expect(Number(mAgain[1]) === openN && openN === 2, `收起后 N=${mAgain[1]}，期望与展开态一致 =2`);
@@ -146,11 +150,13 @@ run("comment-count", async ({ browser }) => {
   const ans2 = page.locator(`#answer-${aid}`);
   const toggle2 = ans2.getByRole("button", { name: /条评论|收起评论/ });
   const closedReload = (await toggle2.innerText()).trim();
+  expect(closedReload === "2 条评论", `重载后收起态文案异常：「${closedReload}」期望恰为「2 条评论」`);
   const mReload = RE_CLOSED.exec(closedReload);
   expect(mReload && Number(mReload[1]) === 2, `重载后收起态文案异常：「${closedReload}」期望 2 条评论`);
   await toggle2.click();
   await ans2.locator("li.answer__comment").first().waitFor();
   const openText2 = (await toggle2.innerText()).trim();
+  expect(openText2 === "收起评论（2）", `重载后展开态文案异常：「${openText2}」期望恰为「收起评论（2）」`);
   const mOpen2 = RE_OPEN.exec(openText2);
   expect(mOpen2 && Number(mOpen2[1]) === 2, `重载后展开态文案异常：「${openText2}」期望 收起评论（2）`);
 
