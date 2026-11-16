@@ -1,0 +1,178 @@
+{
+  "base": "https://openfolio.uk/zhihucopy",
+  "at": "2026-11-16T12:20:06.424Z",
+  "results": [
+    {
+      "name": "desktop.home",
+      "status": "PASS",
+      "detail": "cards=20 bodyLen=3421"
+    },
+    {
+      "name": "desktop.home.tab.推荐",
+      "status": "PASS",
+      "detail": "cards=20"
+    },
+    {
+      "name": "desktop.home.tab.热榜",
+      "status": "PASS",
+      "detail": "cards=20"
+    },
+    {
+      "name": "desktop.a11y.searchlandmark",
+      "status": "PASS",
+      "detail": "[{\"ariaLabel\":\"全站搜索\",\"cls\":\"topnav__search\"}]"
+    },
+    {
+      "name": "desktop.a11y.usermenu",
+      "status": "PASS",
+      "detail": "name=\"巡检19\" avatar aria-hidden=true"
+    },
+    {
+      "name": "desktop.question.open",
+      "status": "PASS",
+      "detail": "title=\"写代码六年，我越来越觉得「能跑」和「好维护」是两回事，该怎么系统性地提升代码质量\" answers=5"
+    },
+    {
+      "name": "desktop.vote",
+      "status": "PASS",
+      "detail": "赞同 233 -> 赞同 234 -> 赞同 233"
+    },
+    {
+      "name": "desktop.vote.down",
+      "status": "PASS",
+      "detail": "反对切换 class=answer__vote answer__vote--down is-active"
+    },
+    {
+      "name": "desktop.comments.expand",
+      "status": "PASS",
+      "detail": "\"14 条评论\" -> 14 行, 夹具 c1=1 c2=2"
+    },
+    {
+      "name": "desktop.reply.esc+aria",
+      "status": "PASS",
+      "detail": "expanded false->true->false, slot常驻=1, Esc 关闭 OK"
+    },
+    {
+      "name": "http.comments",
+      "status": "FAIL",
+      "detail": "500 https://openfolio.uk/zhihucopy/api/comments",
+      "shot": ""
+    },
+    {
+      "name": "desktop.reply.fail-keeps-draft",
+      "status": "PASS",
+      "detail": "alert=\"e2e-forced\" 草稿保留"
+    },
+    {
+      "name": "desktop.reply.switch-info-toast",
+      "status": "PASS",
+      "detail": "toast=\"已放弃上一条未发送的回复\" class=\"toast toast--info\" bg=rgb(18, 18, 18) color=rgb(255, 255, 255) shot=/root/logs/e2e-review19-01-info-toast.png"
+    },
+    {
+      "name": "desktop.reply.collapse-discard",
+      "status": "PASS",
+      "detail": "表单关闭=true toast=\"已放弃上一条未发送的回复\" class=\"toast toast--info\""
+    },
+    {
+      "name": "desktop.reply.delete-race",
+      "status": "WARN",
+      "detail": "未验证：线上无法造出「可见且可删」的自有评论（测试账号评论被 testCommentSql 隐藏）；仅代码层确认 replyForRef 比对存在"
+    },
+    {
+      "name": "desktop.collect+share",
+      "status": "PASS",
+      "detail": "收藏=\"收藏\" 分享toast=\"https://openfolio.uk/zhihucopy/question/1#answer-2\""
+    },
+    {
+      "name": "desktop.search.flow",
+      "status": "PASS",
+      "detail": "tabs=[\"问题 4\",\"回答 0\",\"用户 0\"] items=4 searchNames=[\"全站搜索\",\"在结果中搜索\"]"
+    },
+    {
+      "name": "desktop.search.tab.回答",
+      "status": "PASS",
+      "detail": "url=?q=%E8%81%8C%E5%9C%BA&type=answer items=0"
+    },
+    {
+      "name": "desktop.search.tab.用户",
+      "status": "PASS",
+      "detail": "url=?q=%E8%81%8C%E5%9C%BA&type=user items=0"
+    },
+    {
+      "name": "desktop.search.tab.全部",
+      "status": "PASS",
+      "detail": "不存在「全部」tab（仅 问题/回答/用户），「问题」tab 即全部口径"
+    },
+    {
+      "name": "desktop.search.zero-refocus",
+      "status": "PASS",
+      "detail": "焦点回框+全选=true val 保留 URL 保留 shot=/root/logs/e2e-review19-02-search-empty.png"
+    },
+    {
+      "name": "desktop.search.zero-refocus.answer",
+      "status": "PASS",
+      "detail": "focus OK, url=?q=zz123456&type=answer"
+    },
+    {
+      "name": "desktop.search.zero-refocus.user",
+      "status": "PASS",
+      "detail": "focus OK, url=?q=zz123456&type=user"
+    },
+    {
+      "name": "desktop.notifications",
+      "status": "PASS",
+      "detail": "badge=1 items=1 点击跳转 href=/zhihucopy/question/1#answer-1137 -> /question/1#answer-1137 hash=#answer-1137 badgeAfter=0"
+    },
+    {
+      "name": "desktop.profile",
+      "status": "PASS",
+      "detail": "tabs=[\"回答 0\",\"提问 0\"] items=0 len=594"
+    },
+    {
+      "name": "desktop.ask",
+      "status": "PASS",
+      "detail": "topic菜单=1 选项=8 shot=/root/logs/e2e-review19-03-ask-topics.png"
+    },
+    {
+      "name": "desktop.404/question/999999",
+      "status": "PASS",
+      "detail": "len=538 errs=[] text=\"知乎（仿） 首页 发现 等你来答 提问 巡 巡检19 404 你访问的内容不存在或已被删除 链接可能有误，或者内容已被作者删除。 回到首页 去搜索 热榜 1 写\""
+    },
+    {
+      "name": "desktop.404/u/999999",
+      "status": "PASS",
+      "detail": "len=538 errs=[] text=\"知乎（仿） 首页 发现 等你来答 提问 巡 巡检19 404 你访问的内容不存在或已被删除 链接可能有误，或者内容已被作者删除。 回到首页 去搜索 热榜 1 写\""
+    },
+    {
+      "name": "desktop.404/nonexistent",
+      "status": "PASS",
+      "detail": "len=538 errs=[] text=\"知乎（仿） 首页 发现 等你来答 提问 巡 巡检19 404 你访问的内容不存在或已被删除 链接可能有误，或者内容已被作者删除。 回到首页 去搜索 热榜 1 写\""
+    },
+    {
+      "name": "mobile.home",
+      "status": "PASS",
+      "detail": "cards=20 scrollWidth=390"
+    },
+    {
+      "name": "mobile.msearch.focusring",
+      "status": "FAIL",
+      "detail": "focus-visible 成立但 outline=none（unfocused={\"border\":\"rgb(0,0,0)/transparent\",\"bg\":\"var(--paper)\",\"note\":\"弹层 autoFocus，无未聚焦基线\"} focused={\"border\":\"rgb(0, 102, 255)\",\"bg\":\"rgb(255, 255, 255)\",\"ow\":\"0px\",\"os\":\"none\"}）—— 焦点仅 1px 边色变化",
+      "shot": ""
+    },
+    {
+      "name": "mobile.search.open+focusring",
+      "status": "PASS",
+      "detail": "dialog=1 focus-visible=true focused={\"border\":\"rgb(0, 102, 255)\",\"bg\":\"rgb(255, 255, 255)\",\"ow\":\"0px\",\"os\":\"none\"} names=[{\"label\":\"全站搜索\",\"cls\":\"topnav__search\"},{\"label\":null,\"cls\":\"msearch__form\"}] shot=/root/logs/e2e-review19-05-msearch-focus.png"
+    },
+    {
+      "name": "mobile.search.submit+cancel",
+      "status": "PASS",
+      "detail": "msearchbar=1 sw=390"
+    },
+    {
+      "name": "mobile.question+comments",
+      "status": "PASS",
+      "detail": "sw=390 comments=14"
+    }
+  ]
+}
