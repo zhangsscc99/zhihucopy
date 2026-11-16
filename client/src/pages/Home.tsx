@@ -311,8 +311,9 @@ function SearchResults({ q }: { q: string }) {
     ? (typeParam as SearchScope)
     : "question";
 
-  // 移动端顶部可编辑搜索框：预填当前 q，改词提交即重新搜索（桌面端隐藏，用顶栏输入框）。
+  // Z1041 — 结果页内嵌可编辑搜索框（桌面+移动同一份 DOM）：预填当前 q，改词原地续搜。
   const [qInput, setQInput] = useState(q);
+  const inlineSearchRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<(Question | AnswerResult | UserResult)[]>([]);
   // items 属于哪个 scope：切 tab 后 URL/scope 先变，items 还是旧 scope 的对象，
@@ -397,23 +398,33 @@ function SearchResults({ q }: { q: string }) {
       });
   }, [initialLoading, moreLoading, page, q, scope]);
 
-  const exitSearch = () => navigate("/");
+  // Z1041 — 退出搜索仍回首页，但落地焦点交给顶栏搜索框（TopNav 读 state.focusSearch）。
+  const exitSearch = () => navigate("/", { state: { focusSearch: true } });
+  // Z1041 — 「换个关键词」不再跳首页：原地聚焦并全选内嵌输入框，URL 与关键词都保留。
+  const refocusInline = () => {
+    const el = inlineSearchRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  };
   const retry = () => setReloadToken((n) => n + 1);
   // 切 tab：写 URL ?type=（问题 tab 不带参数），分页自然回到第 1 页。
   const setScope = (t: SearchScope) =>
     navigate(`${searchHref(q)}${t === "question" ? "" : `&type=${t}`}`);
-  const submitMobile = (e: React.FormEvent) => {
+  const submitInline = (e: React.FormEvent) => {
     e.preventDefault();
     const t = qInput.trim();
     if (!t) return;
     saveRecentSearch(t);
-    navigate(searchHref(t));
+    // 换词保留当前分类 tab（question 不带 type 参数）。
+    navigate(`${searchHref(t)}${scope === "question" ? "" : `&type=${scope}`}`);
   };
 
   return (
     <>
-      <form className="msearchbar" role="search" onSubmit={submitMobile}>
+      <form className="msearchbar" role="search" aria-label="在结果中搜索" onSubmit={submitInline}>
         <input
+          ref={inlineSearchRef}
           type="search"
           className="field msearchbar__input"
           value={qInput}
@@ -471,7 +482,7 @@ function SearchResults({ q }: { q: string }) {
               <button
                 type="button"
                 className="btn btn--ghost"
-                onClick={exitSearch}
+                onClick={refocusInline}
               >
                 换个关键词
               </button>
@@ -501,7 +512,7 @@ function SearchResults({ q }: { q: string }) {
           hint="换个关键词试试，或直接向大家提问"
           action={
             <div className="empty__actions">
-              <button type="button" className="btn btn--ghost" onClick={exitSearch}>
+              <button type="button" className="btn btn--ghost" onClick={refocusInline}>
                 换个关键词
               </button>
               <Link to="/ask" className="btn btn--outline">

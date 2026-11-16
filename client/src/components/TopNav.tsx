@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
 import { useNotifications } from "../notifications";
@@ -217,6 +217,16 @@ export function TopNav() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wasSearchOpen = useRef(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Z1041 — 结果页「取消搜索」回首页后焦点落到顶栏搜索框（移动端改开全屏搜索层），
+  // 通过 navigate("/", { state: { focusSearch: true } }) 传递；消费后清掉 state 防重复触发。
+  useEffect(() => {
+    if (!(location.state as { focusSearch?: boolean } | null)?.focusSearch) return;
+    if (window.matchMedia("(max-width: 767px)").matches) setSearchOpen(true);
+    else searchInputRef.current?.focus();
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+  }, [location.state, location.pathname, location.search, navigate]);
 
   // 404 页「去搜索」出口落点：?focus=search 时聚焦桌面搜索框；移动端改开全屏搜索层。
   useEffect(() => {
