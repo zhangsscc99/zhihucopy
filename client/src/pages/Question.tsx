@@ -311,12 +311,13 @@ export function Question() {
     setHasMore(false);
     setMoreLoading(false);
     setMoreError("");
-    resetReplyState();
     syncSortLoading(true);
     get<Page<Answer>>(answersUrl(next, 1))
       .then((res) => {
         if (seq !== answersReq.current) return;
         sortFailedKeyRef.current = null;
+        // 排序成功落地后再丢草稿/表单：失败回滚时列表没变，不该清空用户输入。
+        resetReplyState();
         setAnswers(res.items);
         setPage(1);
         setHasMore(res.has_more);
