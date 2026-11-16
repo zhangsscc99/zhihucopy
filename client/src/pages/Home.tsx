@@ -5,6 +5,8 @@ import { get } from "../api";
 import { useAuth } from "../auth";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
+import { saveRecentSearch } from "../lib/searchHistory";
+import { searchHref } from "../lib/searchHref";
 import type { Page, Question } from "../types";
 
 type Tab = "following" | "recommended" | "hot";
@@ -207,6 +209,8 @@ function FeedFoot({
 
 function SearchResults({ q }: { q: string }) {
   const navigate = useNavigate();
+  // 移动端顶部可编辑搜索框：预填当前 q，改词提交即重新搜索（桌面端隐藏，用顶栏输入框）。
+  const [qInput, setQInput] = useState(q);
 
   const [items, setItems] = useState<Question[]>([]);
   const [total, setTotal] = useState(0);
@@ -232,6 +236,7 @@ function SearchResults({ q }: { q: string }) {
     setHasMore(false);
     setReason("");
     setPage(1);
+    setQInput(q);
     get<Page<Question> & { reason?: string }>(searchQuery(q, 1))
       .then((res) => {
         if (seq !== requestSeq.current) return;
@@ -279,9 +284,29 @@ function SearchResults({ q }: { q: string }) {
 
   const exitSearch = () => navigate("/");
   const retry = () => setReloadToken((n) => n + 1);
+  const submitMobile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = qInput.trim();
+    if (!t) return;
+    saveRecentSearch(t);
+    navigate(searchHref(t));
+  };
 
   return (
     <>
+      <form className="msearchbar" role="search" onSubmit={submitMobile}>
+        <input
+          type="search"
+          className="field msearchbar__input"
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
+          aria-label="搜索"
+          placeholder="搜索问题、回答、用户"
+        />
+        <button type="submit" className="btn msearchbar__go" disabled={!qInput.trim()}>
+          搜索
+        </button>
+      </form>
       <section className="search-head" aria-label="搜索结果">
         <h1 className="search-head__title">
           <span className="search-head__q">“{q}”</span>
