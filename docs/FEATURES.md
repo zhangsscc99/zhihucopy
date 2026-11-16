@@ -439,7 +439,7 @@
   verify: node scripts/assert/search-tab-crash.mjs
   risk: high
 
-- [ ] Z1050 断言残留可见测试账号（P1）：`search-scope.mjs` 每跑一次注册一个 `@example.com` 的 `z1044user*`（刻意不被 testUserSql 过滤才能被搜到），但 `cleanup-artifacts` 无删账号接口 → `skipped=1`，线上「用户」tab 搜 `z1044user` 已能搜到多个残留号；需给 admin 增加硬删测试账号（或断言侧 DB 级自清），并把已残留的账号清掉
+- [x] Z1050 断言残留可见测试账号（P1）：`search-scope.mjs` 每跑一次注册一个 `@example.com` 的 `z1044user*`（刻意不被 testUserSql 过滤才能被搜到），但 `cleanup-artifacts` 无删账号接口 → `skipped=1`，线上「用户」tab 搜 `z1044user` 已能搜到多个残留号；需给 admin 增加硬删测试账号（或断言侧 DB 级自清），并把已残留的账号清掉 ✅ (2026-11-16 devin：`POST /test-support/purge-residue`（admin 鉴权；nickname `^z1044user[a-z0-9]+$` + email `^z1044\.[a-z0-9]+@example\.com$` + is_admin=0，SQL LIKE 仅粗筛 + 事务内 JS 二次校验；支持 `only_nicknames` 定向清）；`search-scope.mjs` 结束自清并复核 `purged_nicknames` 含本 run 号（失败即 FAIL，不静默）；新增 `assert-residue-users.mjs`（401/403/非法 pattern 400 且零删除 + 清零断言）；本机副本实测 residue 14→0、users 542→531；基线 404 反向 RC=1）
   verify: node scripts/assert/assert-residue-users.mjs
   risk: med
 - [ ] Z1051 用户搜索结果同昵称重号无区分（P2）：`?q=代码&type=user` 里「山月 / 山月227 / 山月47」bio 完全相同（种子数据），行内无盐值/等级/注册时间差异，用户无法判断该点谁
@@ -471,13 +471,13 @@
 - [x] Z1060 /ask 话题下拉遮挡「发布问题」（P1）：选完话题 `addTopic` 保持 `setTopicOpen(true)`，absolute 240px 菜单盖住提交钮——hit-test 按钮中心命中 `.topic-select__option`，两轮 Playwright 各 32 次重试超时；真实点击会误加话题（截图 e2e-review15-25/e2e-probe15-02）；选中即收起（续选靠聚焦 input 重开）或菜单限高下移 ✅ (2026-11-16 devin：菜单退出 absolute 改正常文档流（与 `.form-actions` 矩形永不相交）+ 选中即收起、重开走 input onClick/onChange（多选不退化）+ `.form-actions` 捕获 mousedown preventDefault，修掉「菜单展开时首次点发布静默失效」；新增 ask-topic-overlay 断言（几何 hit-test + 单选重开 + 单次发布，反向 RC=1 已验证；线上即验 PASS)
   verify: node scripts/assert/ask-topic-overlay.mjs
   risk: med
-- [ ] Z1061 结果页双 `role=search` 界标命名歧义（P2，a11y）：`.topnav__search` 的 form 无 `aria-label`，读屏无法区分「全站搜索」与「在结果中搜索」两个并存界标
+- [x] Z1061 结果页双 `role=search` 界标命名歧义（P2，a11y）：`.topnav__search` 的 form 无 `aria-label`，读屏无法区分「全站搜索」与「在结果中搜索」两个并存界标 ✅ (2026-11-16 devin：顶栏 `<form role="search">` 补 `aria-label="全站搜索"`，与结果页「在结果中搜索」唯一化；新增 `search-landmark-names.mjs`（界标数 ≥2、名字非空且互不相同 + innerText/errs 守卫）；基线无名字反向 RC=1)
   verify: node scripts/assert/search-landmark-names.mjs
   risk: low
-- [ ] Z1062 顶栏用户菜单可访问名读两遍（P2，a11y）：`.usermenu__trigger` 朗读为「巡巡检壬…」（avatar 首字+昵称）；avatar span 加 `aria-hidden` 或按钮 `aria-label={user.nickname}`
+- [x] Z1062 顶栏用户菜单可访问名读两遍（P2，a11y）：`.usermenu__trigger` 朗读为「巡巡检壬…」（avatar 首字+昵称）；avatar span 加 `aria-hidden` 或按钮 `aria-label={user.nickname}` ✅ (2026-11-16 devin：`.usermenu__trigger` 补 `aria-label={nickname}`，内部 avatar/昵称 `aria-hidden`，可访问名 == 昵称原文不再重复；新增 `usermenu-a11y-name.mjs`（就绪等待消除冷启动假红，连跑 3/3 PASS）；基线 avatarHidden=false 反向 RC=1)
   verify: node scripts/assert/usermenu-a11y-name.mjs
   risk: low
-- [ ] Z1063 「回答/用户」tab 零结果页缺「换个关键词」出口（P2）：question scope 空态有 refocus 按钮，answer scope 只有「去提问」、user scope 只有「去首页」，快捷续搜入口不对称（`Home.tsx:491-508`）
+- [x] Z1063 「回答/用户」tab 零结果页缺「换个关键词」出口（P2）：question scope 空态有 refocus 按钮，answer scope 只有「去提问」、user scope 只有「去首页」，快捷续搜入口不对称（`Home.tsx:491-508`） ✅ (2026-11-16 devin：question/answer/user 三 scope 空态统一「换个关键词」（refocus `.msearchbar__input`、关键词不丢、URL 不跳），并保留去提问/去首页出口；新增 `search-empty-cta.mjs`（三 scope 命中 1/1/1 + 逐 scope errs 读数）；基线 answer scope 命中 0 反向 RC=1)
   verify: node scripts/assert/search-empty-cta.mjs
   risk: low
 
@@ -486,7 +486,7 @@
 - [ ] Z1064 全量 e2e 偶发 `notifications.mjs` PENDING（P2，门禁稳定性）：本轮 3164 临时实例两次全量连跑中 1 次该脚本 PENDING（其余 15/16 全绿，同时刻日志仅见 `cleanup session#2 HTTP 401`），单独连跑 3/3 PASS、部署内也 PASS——疑似与 Z1054 的自清理 401 或前序脚本残留数据竞争；需在全量连跑下复现并定位（不得放宽断言）
   verify: node scripts/assert/notify-e2e-stability.mjs
   risk: med
-- [ ] Z1065 Z1041 断言焦点可见性析取漏洞 + 输入框缺 focus-visible（P2，测试基建+a11y）：`search-inline-input.mjs` 的 `!(容器变色) || !(输入框非透明)` 在「输入框被给一条恒定非透明边框」时会假通过，应收紧为「容器色较聚焦前变化且非 transparent」；同时 `.msearchbar__input:focus-visible` 无 outline（焦点全靠容器边框承担，WCAG 2.4.11 面积不足）
+- [x] Z1065 Z1041 断言焦点可见性析取漏洞 + 输入框缺 focus-visible（P2，测试基建+a11y）：`search-inline-input.mjs` 的 `!(容器变色) || !(输入框非透明)` 在「输入框被给一条恒定非透明边框」时会假通过，应收紧为「容器色较聚焦前变化且非 transparent」；同时 `.msearchbar__input:focus-visible` 无 outline（焦点全靠容器边框承担，WCAG 2.4.11 面积不足） ✅ (2026-11-16 devin：`search-inline-input.mjs` 析取漏洞收紧为「相对聚焦前基线变化且非 transparent + 输入框自身 outline 可见」；`.msearchbar__input:focus-visible` 补 `outline: 2px solid var(--accent)`（实测 rgb(0,102,255)），blur 后回 none；新增 `search-focus-visible.mjs` 锁 style/width/color + 内容守卫；基线 outline none 反向 RC=1)
   verify: node scripts/assert/search-focus-visible.mjs
   risk: low
 
@@ -495,12 +495,30 @@
 - [x] Z1066 评论计数两态口径不一致（P2）：同一回答的「N 条评论」（收起态用服务端 `comment_count`，不含软删）与「收起评论（N）」（展开态=渲染行数，含「该评论已删除」占位）在存在删除占位时差 1，用户切换时数字跳变；需定一个口径（建议两态都用渲染口径或两态都用服务端口径）并同步改断言 ✅ (2026-11-16 devin：两态共用 `displayCommentCount()` = 非删除可见数（未加载回落 `a.comment_count`），占位行仍渲染但不计数；新增 comment-count-parity（含服务端 comment_count 交叉校验 + reload 一致性 + 两态锚定奇偶）；probe-round15 计数契约同步新口径；基线 3167 反向 RC=1)
   verify: node scripts/assert/comment-count-parity.mjs
   risk: low
-- [ ] Z1067 回复表单细节（P2）：Esc 同时绑在 `.answer__reply-form` 容器与 textarea 上（幂等但冗余）；收起态的「回复」按钮仍输出 `aria-controls="reply-form-N"` 指向不存在节点；放弃草稿提示 `toast(..., "error")` 用红色报错语义（应为 info）
+- [x] Z1067 回复表单细节（P2）：Esc 同时绑在 `.answer__reply-form` 容器与 textarea 上（幂等但冗余）；收起态的「回复」按钮仍输出 `aria-controls="reply-form-N"` 指向不存在节点；放弃草稿提示 `toast(..., "error")` 用红色报错语义（应为 info） ✅ (2026-11-16 devin：Esc 只走 `.answer__reply-form` 容器一处（textarea 冒泡同路径）；「回复」按钮 `aria-controls` 改指常驻 `#reply-slot-N` 且 `aria-expanded` 随态翻转（槽内表单数 展开=1/收起=0）；放弃草稿 toast 由 error 改 info（实测 `toast toast--info`）；新增 `reply-form-polish.mjs`；基线 aria-controls 指向不存在节点反向 RC=1)
   verify: node scripts/assert/reply-form-polish.mjs
   risk: low
-- [ ] Z1068 回复/评论边缘路径草稿丢失（P2）：`removeComment` 在 `await` 之后读闭包里的 `replyFor`，DELETE 往返期间切到另一条评论会误关新表单并静默丢草稿；`loadAnswers` 重置 `replyFor`/`replyError` 但不清 `replyDraft`，切排序后再开表单会丢草稿且无「已放弃」提示
+- [x] Z1068 回复/评论边缘路径草稿丢失（P2）：`removeComment` 在 `await` 之后读闭包里的 `replyFor`，DELETE 往返期间切到另一条评论会误关新表单并静默丢草稿；`loadAnswers` 重置 `replyFor`/`replyError` 但不清 `replyDraft`，切排序后再开表单会丢草稿且无「已放弃」提示 ✅ (2026-11-16 devin：`removeComment` 用 `replyForRef` 比对发起删除时的归属，DELETE 往返期间切表单不再被误关（实测 c3 表单 + 21 字符草稿零丢失）；`resetReplyState()` 统一清 `replyFor/replyDraft/replyError` 并在**排序切换成功后**复位 + info 提示；新增 `reply-draft-race.mjs`；基线误关表单反向 RC=1)
   verify: node scripts/assert/reply-draft-race.mjs
   risk: med
-- [ ] Z1069 断言补强（P2，测试基建）：`comment-reply-ui.mjs` 未覆盖「回复失败」路径（`role=alert` + 草稿保留，仅人工探针验过）；其 `deletedRows` 组断言缺「占位行 count > 0」正向守卫，选择器一改即恒真；`comment-count.mjs` 用 `includes("2 条评论")` 会被「12 条评论」误配，应锚定 `^2 条评论$`
+- [x] Z1069 断言补强（P2，测试基建）：`comment-reply-ui.mjs` 未覆盖「回复失败」路径（`role=alert` + 草稿保留，仅人工探针验过）；其 `deletedRows` 组断言缺「占位行 count > 0」正向守卫，选择器一改即恒真；`comment-count.mjs` 用 `includes("2 条评论")` 会被「12 条评论」误配，应锚定 `^2 条评论$` ✅ (2026-11-16 devin：`comment-reply-ui.mjs` 补「回复失败」路径（`role=alert` 非空 + 表单仍开 + `inputValue` 读回草稿）与 `deletedRows` 占位行 >0 正向守卫、aria-controls 槽内含表单 展开=1/收起=0；`comment-count.mjs` 改 `=== "2 条评论"` 全等杜绝 12 误配；新增 `comment-assert-hardening.mjs` 总闸门（4 子断言，基线全 rc=1）)
   verify: node scripts/assert/comment-assert-hardening.mjs
+  risk: low
+
+## 第十九轮待办（2026-11-16 12:2x，来源 docs/PRODUCT-REVIEW.md 第十七轮线上 Playwright 实测）
+
+- [ ] Z1070 移动端搜索弹层输入框无焦点环（P1，Z1065 漏网）：`.msearch__input:focus { outline: none }`（0-2-0）压过全局 `input:focus-visible`（0-1-1），弹层 autoFocus 时实测 `matches(':focus-visible')===true` 但 `outline-width:0px/none`，唯一反馈是 1px 边框变色，不达 WCAG 2.4.11；需给 `.msearch__input:focus-visible` 补 2px `#0066FF` outline
+  verify: node scripts/assert/msearch-sheet-focus.mjs
+  risk: low
+- [ ] Z1071 评论计数与可见列表不同口径（P2，Z1066 盲区）：`GET /comments` 用 `testCommentSql` 过滤测试产物，但 `answers.comment_count` 子查询（`artifact-cleanup.js` 附近）不过滤 → 清理窗口期内按钮显示「16 条评论」而列表只渲染 14 行，普通用户视角数字对不上；需两侧同口径（计数也过滤，或前端计数改单一数据源）
+  verify: node scripts/assert/comment-count-scope.mjs
+  risk: med
+- [ ] Z1072 移动搜索弹层 `role=search` 界标匿名（P2）：`.msearch__form` 带 `role="search"` 但无 `aria-label`，同页顶栏界标有名「全站搜索」，读屏遍历时会遇到匿名 search 界标（外层 dialog 的 aria-label 不传给内部 landmark）
+  verify: node scripts/assert/msearch-landmark-name.mjs
+  risk: low
+- [ ] Z1073 测试会话看不到自己的评论，删除/竞态路径线上不可测（P2，覆盖盲区）：`testCommentSql` 把测试账号评论从公共列表过滤，导致「删除自己的评论」「删除与切表单竞态」在线上无法构造夹具；需给 test-support 加一个「对本会话可见的自有评论」钩子或断言侧改用种子号构造
+  verify: node scripts/assert/reply-delete-race-live.mjs
+  risk: med
+- [ ] Z1074 全仓 `:focus{outline:none}` 写法审计（P2，a11y 债务）：`.field:focus`、`.msearch__input:focus` 等以 `:focus` 直接抹掉 outline 的规则会系统性压掉 `:focus-visible`；统一为「`:focus` 改色/改边、`:focus-visible` 动 outline」，并加静态守卫防再犯
+  verify: node scripts/assert/focus-outline-audit.mjs
   risk: low
