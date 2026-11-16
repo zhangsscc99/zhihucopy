@@ -286,7 +286,12 @@ export function TopNav() {
           </NavLink>
         </nav>
 
-        <form className="topnav__search" onSubmit={submitSearch} role="search">
+        <form
+          className="topnav__search"
+          onSubmit={submitSearch}
+          role="search"
+          aria-label="全站搜索"
+        >
           <button
             type="submit"
             className="topnav__search-submit"
@@ -367,15 +372,18 @@ export function TopNav() {
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
+                aria-label={user.nickname}
               >
-                <span className="avatar">
+                <span className="avatar" aria-hidden="true">
                   {user.avatar_url ? (
                     <img src={user.avatar_url} alt="" />
                   ) : (
                     user.nickname.slice(0, 1)
                   )}
                 </span>
-                <span className="usermenu__name">{user.nickname}</span>
+                <span className="usermenu__name" aria-hidden="true">
+                  {user.nickname}
+                </span>
               </button>
               {menuOpen && (
                 <div className="usermenu__drop" role="menu">
