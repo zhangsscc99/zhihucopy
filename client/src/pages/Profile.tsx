@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
+import { isContentMissing, NotFound } from "./NotFound";
 import type { Answer, Page, ProfileData, Question } from "../types";
 import { formatTime } from "../lib/time";
 
@@ -258,10 +259,12 @@ export function Profile() {
   const navigate = useNavigate();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: TabKey =
     searchParams.get("tab") === "questions" ? "questions" : "answers";
+  const [reloadToken, setReloadToken] = useState(0);
   const [colCount, setColCount] = useState<number | null>(null);
   const [following, setFollowing] = useState(false);
   const [followPending, setFollowPending] = useState(false);
@@ -273,6 +276,7 @@ export function Profile() {
     const seq = ++profileSeq.current;
     setLoading(true);
     setError("");
+    setNotFound(false);
     setFollowing(false);
     get<ProfileData>(`/users/${id}`)
       .then((res) => {
@@ -281,12 +285,15 @@ export function Profile() {
         setFollowing(Boolean(res.is_following));
       })
       .catch((e) => {
-        if (seq === profileSeq.current) setError(e.message);
+        if (seq === profileSeq.current) {
+          if (isContentMissing(e)) setNotFound(true);
+          else setError(e.message);
+        }
       })
       .finally(() => {
         if (seq === profileSeq.current) setLoading(false);
       });
-  }, [id]);
+  }, [id, reloadToken]);
 
   // tab 以 URL 为唯一真源：tab 按钮与空态 CTA 都只写 ?tab=，展示由此派生，
   // 避免「URL 已是目标值 → 点击无效」的同 URL 死链。
@@ -354,8 +361,16 @@ export function Profile() {
   }, [isMe]);
 
   if (loading) return <Spinner />;
-  if (error) return <ErrorBox message={error} />;
-  if (!data) return <Empty title="用户不存在" />;
+  if (notFound) return <NotFound />;
+  if (error)
+    return (
+      <NotFound
+        kind="error"
+        detail={error}
+        onRetry={() => setReloadToken((n) => n + 1)}
+      />
+    );
+  if (!data) return <NotFound />;
 
   const { user, stats, badges = [] } = data;
   const counts: Record<TabKey, number> = {

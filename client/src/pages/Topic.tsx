@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ApiError, del, get, post } from "../api";
+import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
-import { Empty, ErrorBox } from "../components/Layout";
+import { Empty } from "../components/Layout";
+import { isContentMissing, NotFound } from "./NotFound";
 import { FeedSkeleton } from "../components/Skeleton";
 import type { Author, Topic as TopicType } from "../types";
 
@@ -78,7 +79,7 @@ export function Topic() {
       })
       .catch((e: Error) => {
         if (seq !== requestSeq.current) return;
-        if (e instanceof ApiError && e.status === 404) setNotFound(true);
+        if (isContentMissing(e)) setNotFound(true);
         else setError(e.message || "话题加载失败");
       })
       .finally(() => {
@@ -160,19 +161,7 @@ export function Topic() {
 
   const retry = () => setReloadToken((n) => n + 1);
 
-  if (notFound) {
-    return (
-      <Empty
-        title="话题不存在"
-        hint="它可能被移除，或者链接有误"
-        action={
-          <Link to="/" className="btn btn--outline">
-            返回首页
-          </Link>
-        }
-      />
-    );
-  }
+  if (notFound) return <NotFound />;
 
   return (
     <>
@@ -211,7 +200,7 @@ export function Topic() {
       {initialLoading ? (
         <FeedSkeleton count={5} />
       ) : error ? (
-        <ErrorBox message={error} onRetry={retry} />
+        <NotFound kind="error" detail={error} onRetry={retry} />
       ) : items.length === 0 ? (
         <Empty
           title="还没有问题"
