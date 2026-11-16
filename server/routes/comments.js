@@ -16,6 +16,9 @@ const COMMENT_SELECT = `
 
 const TARGET_TABLES = { question: "questions", answer: "answers" };
 const TARGET_LABELS = { question: "问题", answer: "回答" };
+// 软删口径：answers 有 is_deleted 列，软删回答视同「不存在」——不能再评论，
+// 也不因评论它发通知。questions 无该列（硬删），保持原样。
+const TARGET_ALIVE_SQL = { question: "", answer: " AND is_deleted = 0" };
 
 function textLength(s) {
   return [...s].length;
@@ -23,7 +26,9 @@ function textLength(s) {
 
 function targetExists(db, targetType, targetId) {
   const table = TARGET_TABLES[targetType];
-  const row = db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(targetId);
+  const row = db
+    .prepare(`SELECT id FROM ${table} WHERE id = ?${TARGET_ALIVE_SQL[targetType]}`)
+    .get(targetId);
   return Boolean(row);
 }
 
@@ -154,14 +159,15 @@ router.post("/", requireAuth, (req, res) => {
     return res.status(404).json({ error: `${TARGET_LABELS[targetType]}不存在` });
   }
 
+  let parentRow = null;
   if (parentId !== null) {
-    const parent = db
-      .prepare("SELECT id, parent_id, target_type, target_id FROM comments WHERE id = ?")
+    parentRow = db
+      .prepare("SELECT id, parent_id, target_type, target_id, author_id FROM comments WHERE id = ? AND is_deleted = 0")
       .get(parentId);
-    if (!parent || parent.target_type !== targetType || parent.target_id !== targetId) {
+    if (!parentRow || parentRow.target_type !== targetType || parentRow.target_id !== targetId) {
       return badRequest(res, "父评论不存在或不属于该目标");
     }
-    if (parent.parent_id != null) return badRequest(res, "只支持两级评论，不能回复二级回复");
+    if (parentRow.parent_id != null) return badRequest(res, "只支持两级评论，不能回复二级回复");
   }
 
   const id = db.transaction(() => {
@@ -172,6 +178,27 @@ router.post("/", requireAuth, (req, res) => {
       )
       .run(targetType, targetId, req.user.id, parentId, content);
     syncCommentCount(db, targetType, targetId);
+    // Z1038: 评论/回复他人回答 → 通知回答作者；二级回复且被回复的评论作者
+    // 不是回答作者时也通知对方（同一事务内落库）。评论自己的内容不通知。
+    if (targetType === "answer") {
+      const answer = db.prepare("SELECT author_id FROM answers WHERE id = ?").get(targetId);
+      const recipients = new Set();
+      if (answer && answer.author_id !== req.user.id) recipients.add(answer.author_id);
+      if (
+        parentRow &&
+        parentRow.author_id !== req.user.id &&
+        (!answer || parentRow.author_id !== answer.author_id)
+      ) {
+        recipients.add(parentRow.author_id);
+      }
+      if (recipients.size) {
+        const ins = db.prepare(
+          `INSERT INTO notifications (user_id, type, actor_id, target_type, target_id)
+           VALUES (?, 'comment', ?, 'answer', ?)`
+        );
+        for (const uid of recipients) ins.run(uid, req.user.id, targetId);
+      }
+    }
     return Number(info.lastInsertRowid);
   })();
 

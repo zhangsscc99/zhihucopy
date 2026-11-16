@@ -34,6 +34,8 @@ const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
 type AnswerSort = "default" | "newest";
 
 const ANSWER_PAGE_SIZE = 10;
+// #answer-N 深链补页上限：目标不在已加载列表时最多再自动拉 5 页（5×10 条）。
+const ANCHOR_MAX_FETCH = 5;
 const ANSWER_SORTS: { key: AnswerSort; label: string }[] = [
   { key: "default", label: "默认" },
   { key: "newest", label: "最新" },
@@ -135,6 +137,17 @@ export function Question() {
   const [moreError, setMoreError] = useState("");
   const [sortLoading, setSortLoading] = useState(false);
   const [newId, setNewId] = useState<number | null>(null);
+  // URL #answer-N 深链命中的回答：滚动定位后短暂高亮（anchorDoneRef 按 hash 去重）。
+  const [anchorId, setAnchorId] = useState<number | null>(null);
+  // 补页拉尽仍未找到目标：底部轻量提示条（「该回答可能已被删除 · 回到顶部」）。
+  const [anchorMiss, setAnchorMiss] = useState(false);
+  const anchorDoneRef = useRef<string | null>(null);
+  // anchorSeenRef 记当前在处理哪个 hash（换 hash 时复位补页计数/提示）；
+  // anchorFetchRef 记本 hash 已自动补页次数；anchorTimerRef 存高亮淡出定时器
+  // （挂 ref 而非 effect cleanup：answers 重建触发的重跑不会误清淡出定时器）。
+  const anchorSeenRef = useRef<string | null>(null);
+  const anchorFetchRef = useRef(0);
+  const anchorTimerRef = useRef(0);
   // 本人在本问题下的回答（detail 的 my_answers）：固定条独立成栏，不进排序列表。
   const [myAnswers, setMyAnswers] = useState<Answer[]>([]);
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
@@ -363,6 +376,64 @@ export function Question() {
   }, [newId]);
 
   const answerIdsKey = answers.map((a) => a.id).join(",");
+  // hash 指向的目标 answer id：渲染期同步解析——「你的回答」固定条在目标
+  // 不在列表时兜底渲染 id="answer-N"，锚点 effect 用 getElementById 找它。
+  const anchorAid = (() => {
+    const m = /^#answer-(\d+)$/.exec(location.hash);
+    return m ? Number(m[1]) : null;
+  })();
+
+  // 深链 #answer-N：目标已在 DOM（列表项或「你的回答」固定条兜底项）→
+  // 滚动定位 + 2s 高亮；不在 → 按当前排序自动补页（上限 ANCHOR_MAX_FETCH 页），
+  // 每页落地后本 effect 重跑再判；拉尽/到上限仍找不到 → anchorMiss 轻量提示。
+  // 只依赖 hash、id 集合与加载态——投票/评论重建 answers 不重复滚动。
+  useEffect(() => {
+    const hash = location.hash;
+    const m = /^#answer-(\d+)$/.exec(hash);
+    if (!m) {
+      anchorDoneRef.current = null;
+      anchorSeenRef.current = null;
+      anchorFetchRef.current = 0;
+      setAnchorMiss(false);
+      return;
+    }
+    if (anchorSeenRef.current !== hash) {
+      anchorSeenRef.current = hash;
+      anchorFetchRef.current = 0;
+      setAnchorMiss(false);
+    }
+    if (anchorDoneRef.current === hash) return;
+    // detail/排序/补页在途时 DOM 还会变，等落地后本 effect 随依赖变更再跑。
+    if (loading || sortLoading || moreLoading) return;
+    const aid = Number(m[1]);
+    const el = document.getElementById(`answer-${aid}`);
+    if (el) {
+      anchorDoneRef.current = hash;
+      setAnchorMiss(false);
+      el.scrollIntoView({ block: "start" });
+      setAnchorId(aid);
+      window.clearTimeout(anchorTimerRef.current);
+      anchorTimerRef.current = window.setTimeout(() => setAnchorId(null), 2000);
+      return;
+    }
+    if (hasMore && anchorFetchRef.current < ANCHOR_MAX_FETCH) {
+      anchorFetchRef.current += 1;
+      loadMoreAnswers();
+      return;
+    }
+    // 找不到不记 done：此后手动「加载更多」若把目标拉进 DOM，仍能补定位。
+    setAnchorMiss(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMoreAnswers 每次渲染重建，进 deps 会让补页自激
+  }, [location.hash, answerIdsKey, loading, sortLoading, moreLoading, hasMore]);
+
+  // 高亮淡出定时器与提示条自动收起：组件卸载时清掉，避免 stray setState。
+  useEffect(() => () => window.clearTimeout(anchorTimerRef.current), []);
+  useEffect(() => {
+    if (!anchorMiss) return;
+    const t = window.setTimeout(() => setAnchorMiss(false), 8000);
+    return () => window.clearTimeout(t);
+  }, [anchorMiss]);
+
   useEffect(() => {
     if (!user || !answerIdsKey) return;
     let alive = true;
@@ -806,7 +877,15 @@ export function Question() {
               {myAnswers.map((a) => {
                 const inList = answers.some((x) => x.id === a.id);
                 return (
-                  <li key={a.id} className="myanswers__item">
+                  <li
+                    key={a.id}
+                    className={`myanswers__item${
+                      a.id === anchorId ? " answer--anchor" : ""
+                    }`}
+                    // 深链兜底：目标是本人回答且尚未加载进列表时，固定条顶替
+                    // 渲染 id="answer-N"（在列表里则不重复 id，避免 DOM id 冲突）。
+                    id={!inList && anchorAid === a.id ? `answer-${a.id}` : undefined}
+                  >
                     <div className="myanswers__body">
                       <p className="myanswers__excerpt">
                         {answerExcerpt(a.content_md)}
@@ -878,7 +957,9 @@ export function Question() {
               return (
                 <li
                   key={a.id}
-                  className={`answer${a.id === newId ? " answer--new" : ""}`}
+                  className={`answer${a.id === newId ? " answer--new" : ""}${
+                    a.id === anchorId ? " answer--anchor" : ""
+                  }`}
                   id={`answer-${a.id}`}
                 >
                   <div className="answer__author">
@@ -1248,6 +1329,22 @@ export function Question() {
             </p>
           ) : null)}
       </section>
+
+      {anchorMiss && (
+        <div className="anchor-miss" role="status">
+          <span>该回答可能已被删除</span>
+          <button
+            type="button"
+            className="anchor-miss__top"
+            onClick={() => {
+              setAnchorMiss(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            回到顶部
+          </button>
+        </div>
+      )}
 
       <section className="answer-editor" ref={editorBoxRef}>
         <h2 className="answers__count" id="answer-editor-label">写下你的回答</h2>

@@ -65,6 +65,30 @@ router.post("/", requireAuth, (req, res) => {
         `UPDATE ${t.table} SET vote_up = vote_up + ?, vote_down = vote_down + ? WHERE id = ?`
       ).run(du, dd, id);
     }
+    // Z1038: 他人赞同回答 → 通知回答作者（type='agree'）。取消/反对/自赞
+    // 不发；同一 actor 对同一回答的 agree 通知全局唯一（取消再赞不重复发）。
+    // 去重口径含历史 type='vote' 行（库里已有 vote 型赞同通知），否则旧行
+    // 挡不住、取消再赞会重复发。
+    if (
+      target_type === "answer" &&
+      newVal === 1 &&
+      oldVal !== 1 &&
+      target.author_id !== req.user.id
+    ) {
+      const dup = db
+        .prepare(
+          `SELECT id FROM notifications
+           WHERE user_id = ? AND type IN ('agree','vote') AND actor_id = ?
+             AND target_type = 'answer' AND target_id = ?`
+        )
+        .get(target.author_id, req.user.id, id);
+      if (!dup) {
+        db.prepare(
+          `INSERT INTO notifications (user_id, type, actor_id, target_type, target_id)
+           VALUES (?, 'agree', ?, 'answer', ?)`
+        ).run(target.author_id, req.user.id, id);
+      }
+    }
     return { du, dd };
   });
   const delta = tx();

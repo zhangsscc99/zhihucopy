@@ -27,6 +27,7 @@ interface NotificationItem {
     question_title?: string;
     answer_id?: number;
     answer_excerpt?: string;
+    anchor?: string;
     excerpt?: string;
   } | null;
   is_read: boolean;
@@ -50,20 +51,30 @@ const ACTION_TEXT: Record<string, string> = {
 };
 
 
-// 通知的落点：问题/回答类跳问题页，关注类跳用户主页，其余不可点。
-function linkFor(n: NotificationItem): string | null {
-  if (n.type === "follow") return n.actor ? `/u/${n.actor.id}` : null;
-  const qid =
-    n.payload?.question_id ??
-    (n.target?.type === "question" ? n.target.id : null);
-  return qid ? `/question/${qid}` : null;
+// #answer-N 锚点：优先取服务端 payload.anchor，缺失时按 answer_id/target 兜底拼，
+// 保证 answer 类事件的行 href 始终落到具体回答上。
+function answerAnchor(n: NotificationItem): string | null {
+  const p = n.payload?.anchor;
+  if (typeof p === "string" && /^#answer-\d+$/.test(p)) return p;
+  const aid =
+    n.payload?.answer_id ??
+    (n.target?.type === "answer" ? n.target.id : null);
+  return aid ? `#answer-${aid}` : null;
 }
 
 function questionLinkFor(n: NotificationItem): string | null {
   const qid =
     n.payload?.question_id ??
     (n.target?.type === "question" ? n.target.id : null);
-  return qid ? `/question/${qid}` : null;
+  if (!qid) return null;
+  return `/question/${qid}${answerAnchor(n) ?? ""}`;
+}
+
+// 通知的落点：问题/回答类跳问题页（回答类带 #answer- 锚点），
+// 关注类跳用户主页，其余不可点。
+function linkFor(n: NotificationItem): string | null {
+  if (n.type === "follow") return n.actor ? `/u/${n.actor.id}` : null;
+  return questionLinkFor(n);
 }
 
 // 事件类型图标：内联 SVG、stroke=currentColor，颜色由 .ntf__icon 控制。
