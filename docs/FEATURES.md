@@ -362,7 +362,7 @@
 - [x] Z1028 搜索纯标点/短词守卫（Z1006 收口）：实测 `?q=？` 返回 61 条、`?q=a` 19 条，应按「无有效词条」走空态并提示最少字数 ✅ (2026-11-15 devin)
   verify: node scripts/assert/search-guard.mjs
   risk: low
-- [ ] Z1029 评论展开后「N 条评论」计数消失（Z975 收口）
+- [x] Z1029 评论展开后「N 条评论」计数消失（Z975 收口）✅ (2026-11-16 devin：展开态「收起评论（N）」N=渲染行数（一级+二级含删除占位），发布/回复/删除即时回写)
   verify: node scripts/assert/comment-count.mjs
   risk: low
 - [ ] Z1030 断言质量返修：`scripts/assert/answer-login-cta.mjs` 中 `!/登录 后/` 对基线源码恒真（空断言）；`collection-page.mjs` 注释声称断言 `last_collected_at` 但无对应 expect
@@ -401,7 +401,7 @@
 - [ ] Z1039 浏览量一次访问 +2 且页面与接口不同步（P2）：接口 6→8，同屏文案显示 7
   verify: node scripts/assert/view-count-once.mjs
   risk: low
-- [ ] Z1040 评论发布零反馈（P2）：无 toast，且按钮文本变「收起评论」顶掉计数
+- [x] Z1040 评论发布零反馈（P2）：无 toast，且按钮文本变「收起评论」顶掉计数 ✅ (2026-11-16 devin：提交按钮改名「发布评论」消除与「发布回答」歧义 + 成功 toast「评论已发布」单弹)
   verify: node scripts/assert/comment-feedback.mjs
   risk: low
 - [x] Z1041 结果页内嵌搜索框（P2）：「换个关键词」「取消搜索」都清空关键词退回首页、焦点落 BODY；移动端叠加 Z1031 等于退出即无法再搜 ✅ (2026-11-16 devin：桌面也渲染 `.msearchbar` 白卡（预填 q、换词保留 ?type=），「换个关键词」改 focus()+select() 原地续搜、「取消搜索」回首页后焦点交顶栏搜索框（移动端开全屏层）；焦点态由 `.msearchbar:focus-within` 主色边框承担；新增 search-inline-input 断言（含 type 保留/焦点可见/errs 守卫，基线 FAIL 与反向 RC=1 已验证）
@@ -448,7 +448,7 @@
 
 ## 第十四轮巡检待办（2026-11-16 05:4x，来源 docs/PRODUCT-REVIEW.md 第十四轮 Playwright 实测）
 
-- [ ] Z1052 评论无「回复」入口（P2）：后端 `POST /comments` 已支持 `parent_id` 且给被回复者写 `comment` 通知，但前端评论行只有「删除」（仅自己），实测接口建二级评论成功（id 425/426）而 UI 无法触达
+- [x] Z1052 评论无「回复」入口（P2）：后端 `POST /comments` 已支持 `parent_id` 且给被回复者写 `comment` 通知，但前端评论行只有「删除」（仅自己），实测接口建二级评论成功（id 425/426）而 UI 无法触达 ✅ (2026-11-16 devin：一级未删评论行头补「回复」+ `.answer__reply-form` 内联表单（单例/自动聚焦/Esc/表单内错误），提交按钮仅「回复」字样不抢 e2e 定位；乐观挂 children 末尾 + 计数 +1 + toast；未登录跳 /login?next=)
   verify: node scripts/assert/comment-reply-ui.mjs
   risk: low
 - [ ] Z1053 通知行 `.ntf__hit` 与 `.ntf__title` 双链接命中歧义（P2）：点击覆盖层 `<a>` 被同 href 的标题 `<a>` intercept（Playwright 32 次重试失败）；整行应改单链接 `::after` 撑满
