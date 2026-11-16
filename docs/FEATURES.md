@@ -489,3 +489,18 @@
 - [ ] Z1065 Z1041 断言焦点可见性析取漏洞 + 输入框缺 focus-visible（P2，测试基建+a11y）：`search-inline-input.mjs` 的 `!(容器变色) || !(输入框非透明)` 在「输入框被给一条恒定非透明边框」时会假通过，应收紧为「容器色较聚焦前变化且非 transparent」；同时 `.msearchbar__input:focus-visible` 无 outline（焦点全靠容器边框承担，WCAG 2.4.11 面积不足）
   verify: node scripts/assert/search-focus-visible.mjs
   risk: low
+
+## 第十八轮待办（2026-11-16 09:5x，Z1052 两轮审查 + 部署后真实浏览器复验产出）
+
+- [ ] Z1066 评论计数两态口径不一致（P2）：同一回答的「N 条评论」（收起态用服务端 `comment_count`，不含软删）与「收起评论（N）」（展开态=渲染行数，含「该评论已删除」占位）在存在删除占位时差 1，用户切换时数字跳变；需定一个口径（建议两态都用渲染口径或两态都用服务端口径）并同步改断言
+  verify: node scripts/assert/comment-count-parity.mjs
+  risk: low
+- [ ] Z1067 回复表单细节（P2）：Esc 同时绑在 `.answer__reply-form` 容器与 textarea 上（幂等但冗余）；收起态的「回复」按钮仍输出 `aria-controls="reply-form-N"` 指向不存在节点；放弃草稿提示 `toast(..., "error")` 用红色报错语义（应为 info）
+  verify: node scripts/assert/reply-form-polish.mjs
+  risk: low
+- [ ] Z1068 回复/评论边缘路径草稿丢失（P2）：`removeComment` 在 `await` 之后读闭包里的 `replyFor`，DELETE 往返期间切到另一条评论会误关新表单并静默丢草稿；`loadAnswers` 重置 `replyFor`/`replyError` 但不清 `replyDraft`，切排序后再开表单会丢草稿且无「已放弃」提示
+  verify: node scripts/assert/reply-draft-race.mjs
+  risk: med
+- [ ] Z1069 断言补强（P2，测试基建）：`comment-reply-ui.mjs` 未覆盖「回复失败」路径（`role=alert` + 草稿保留，仅人工探针验过）；其 `deletedRows` 组断言缺「占位行 count > 0」正向守卫，选择器一改即恒真；`comment-count.mjs` 用 `includes("2 条评论")` 会被「12 条评论」误配，应锚定 `^2 条评论$`
+  verify: node scripts/assert/comment-assert-hardening.mjs
+  risk: low
