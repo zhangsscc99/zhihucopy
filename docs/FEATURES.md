@@ -468,7 +468,7 @@
 
 ## 第十六轮待办（2026-11-16 07:1x，来源 docs/PRODUCT-REVIEW.md 第十五轮 Playwright 实测）
 
-- [ ] Z1060 /ask 话题下拉遮挡「发布问题」（P1）：选完话题 `addTopic` 保持 `setTopicOpen(true)`，absolute 240px 菜单盖住提交钮——hit-test 按钮中心命中 `.topic-select__option`，两轮 Playwright 各 32 次重试超时；真实点击会误加话题（截图 e2e-review15-25/e2e-probe15-02）；选中即收起（续选靠聚焦 input 重开）或菜单限高下移
+- [x] Z1060 /ask 话题下拉遮挡「发布问题」（P1）：选完话题 `addTopic` 保持 `setTopicOpen(true)`，absolute 240px 菜单盖住提交钮——hit-test 按钮中心命中 `.topic-select__option`，两轮 Playwright 各 32 次重试超时；真实点击会误加话题（截图 e2e-review15-25/e2e-probe15-02）；选中即收起（续选靠聚焦 input 重开）或菜单限高下移 ✅ (2026-11-16 devin：菜单退出 absolute 改正常文档流（与 `.form-actions` 矩形永不相交）+ 选中即收起、重开走 input onClick/onChange（多选不退化）+ `.form-actions` 捕获 mousedown preventDefault，修掉「菜单展开时首次点发布静默失效」；新增 ask-topic-overlay 断言（几何 hit-test + 单选重开 + 单次发布，反向 RC=1 已验证；线上即验 PASS)
   verify: node scripts/assert/ask-topic-overlay.mjs
   risk: med
 - [ ] Z1061 结果页双 `role=search` 界标命名歧义（P2，a11y）：`.topnav__search` 的 form 无 `aria-label`，读屏无法区分「全站搜索」与「在结果中搜索」两个并存界标
@@ -479,4 +479,13 @@
   risk: low
 - [ ] Z1063 「回答/用户」tab 零结果页缺「换个关键词」出口（P2）：question scope 空态有 refocus 按钮，answer scope 只有「去提问」、user scope 只有「去首页」，快捷续搜入口不对称（`Home.tsx:491-508`）
   verify: node scripts/assert/search-empty-cta.mjs
+  risk: low
+
+## 第十七轮待办（2026-11-16 08:1x，本轮调度器实测/复审产出）
+
+- [ ] Z1064 全量 e2e 偶发 `notifications.mjs` PENDING（P2，门禁稳定性）：本轮 3164 临时实例两次全量连跑中 1 次该脚本 PENDING（其余 15/16 全绿，同时刻日志仅见 `cleanup session#2 HTTP 401`），单独连跑 3/3 PASS、部署内也 PASS——疑似与 Z1054 的自清理 401 或前序脚本残留数据竞争；需在全量连跑下复现并定位（不得放宽断言）
+  verify: node scripts/assert/notify-e2e-stability.mjs
+  risk: med
+- [ ] Z1065 Z1041 断言焦点可见性析取漏洞 + 输入框缺 focus-visible（P2，测试基建+a11y）：`search-inline-input.mjs` 的 `!(容器变色) || !(输入框非透明)` 在「输入框被给一条恒定非透明边框」时会假通过，应收紧为「容器色较聚焦前变化且非 transparent」；同时 `.msearchbar__input:focus-visible` 无 outline（焦点全靠容器边框承担，WCAG 2.4.11 面积不足）
+  verify: node scripts/assert/search-focus-visible.mjs
   risk: low
