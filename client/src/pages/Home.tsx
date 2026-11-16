@@ -7,7 +7,14 @@ import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
 import { saveRecentSearch } from "../lib/searchHistory";
 import { searchHref } from "../lib/searchHref";
-import type { Page, Question } from "../types";
+import { formatTime } from "../lib/time";
+import type {
+  AnswerResult,
+  Page,
+  Question,
+  SearchCounts,
+  UserResult,
+} from "../types";
 
 type Tab = "following" | "recommended" | "hot";
 
@@ -38,8 +45,18 @@ const feedQuery = (tab: Tab, page: number) =>
     ? `/feed/following?page=${page}&limit=${PAGE_SIZE}`
     : `/questions?tab=${tab === "hot" ? "hot" : "new"}&page=${page}&limit=${PAGE_SIZE}`;
 
-const searchQuery = (q: string, page: number) =>
-  `/search?q=${encodeURIComponent(q)}&page=${page}&limit=${PAGE_SIZE}`;
+// 搜索结果分类 scope：URL ?type= 决定，未知/缺失一律落回「问题」。
+type SearchScope = "question" | "answer" | "user";
+
+const SEARCH_TABS: { key: SearchScope; label: string }[] = [
+  { key: "question", label: "问题" },
+  { key: "answer", label: "回答" },
+  { key: "user", label: "用户" },
+];
+
+const searchQuery = (q: string, scope: SearchScope, page: number) =>
+  `/search?q=${encodeURIComponent(q)}&page=${page}&limit=${PAGE_SIZE}` +
+  (scope === "question" ? "" : `&type=${scope}`);
 
 const EMPTY_COPY: Record<Exclude<Tab, "following">, { title: string; hint: string }> = {
   recommended: {
@@ -104,6 +121,67 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         <span>{q.answer_count} 个回答</span>
         <span>{q.view_count} 次浏览</span>
       </div>
+    </li>
+  );
+}
+
+// 回答结果卡（type=answer）：所属问题标题链到 #answer-:id 锚点，两行命中摘要高亮。
+function AnswerResultCard({ a, kw }: { a: AnswerResult; kw: string }) {
+  return (
+    <li className="feed__item">
+      <Link
+        to={`/question/${a.question_id}#answer-${a.id}`}
+        className="feed__title"
+      >
+        {a.question_title}
+      </Link>
+      {a.snippet && (
+        <p className="feed__excerpt">
+          <Highlight text={a.snippet} kw={kw} />
+        </p>
+      )}
+      <div className="feed__meta">
+        <Link to={`/u/${a.author.id}`} className="feed__author">
+          {a.author.nickname}
+        </Link>
+        <span>赞同 {a.vote_up}</span>
+        <span>{formatTime(a.created_at)}</span>
+      </div>
+      {a.topics?.length ? (
+        <div className="feed__topics feed__topics--tail">
+          {a.topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+              {t.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+// 用户结果行（type=user）：头像 + 昵称 + 一行 bio + 回答/关注者元信息，整行可点。
+function UserResultRow({ u, kw }: { u: UserResult; kw: string }) {
+  return (
+    <li className="feed__item urow">
+      <Link to={`/u/${u.id}`} className="urow__link">
+        <span className="avatar urow__avatar">
+          {u.avatar_url ? <img src={u.avatar_url} alt="" /> : u.nickname.slice(0, 1)}
+        </span>
+        <span className="urow__main">
+          <span className="urow__name">
+            <Highlight text={u.nickname} kw={kw} />
+          </span>
+          {u.bio && (
+            <span className="urow__bio">
+              <Highlight text={u.bio} kw={kw} />
+            </span>
+          )}
+          <span className="urow__meta">
+            回答 {u.answer_count} · 关注者 {u.follower_count}
+          </span>
+        </span>
+      </Link>
     </li>
   );
 }
@@ -207,13 +285,22 @@ function FeedFoot({
   );
 }
 
+// Z1044 — 搜索分类 tab：scope 由 URL ?type= 决定（question/answer/user），
+// 三个 tab 共用同一份 counts；切 tab 走 navigate 写 URL，刷新/分享/后退都有效。
 function SearchResults({ q }: { q: string }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const typeParam = params.get("type");
+  const scope: SearchScope = SEARCH_TABS.some((t) => t.key === typeParam)
+    ? (typeParam as SearchScope)
+    : "question";
+
   // 移动端顶部可编辑搜索框：预填当前 q，改词提交即重新搜索（桌面端隐藏，用顶栏输入框）。
   const [qInput, setQInput] = useState(q);
 
-  const [items, setItems] = useState<Question[]>([]);
+  const [items, setItems] = useState<(Question | AnswerResult | UserResult)[]>([]);
   const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<SearchCounts | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -237,11 +324,17 @@ function SearchResults({ q }: { q: string }) {
     setReason("");
     setPage(1);
     setQInput(q);
-    get<Page<Question> & { reason?: string }>(searchQuery(q, 1))
+    get<
+      Page<Question | AnswerResult | UserResult> & {
+        reason?: string;
+        counts?: SearchCounts;
+      }
+    >(searchQuery(q, scope, 1))
       .then((res) => {
         if (seq !== requestSeq.current) return;
         setItems(res.items);
         setTotal(res.total);
+        setCounts(res.counts || null);
         setReason(res.reason || "");
         setHasMore(res.has_more && res.items.length > 0);
       })
@@ -253,7 +346,7 @@ function SearchResults({ q }: { q: string }) {
         if (seq !== requestSeq.current) return;
         setInitialLoading(false);
       });
-  }, [q, reloadToken]);
+  }, [q, scope, reloadToken]);
 
   const loadMore = useCallback(() => {
     if (moreLoading || initialLoading) return;
@@ -261,7 +354,7 @@ function SearchResults({ q }: { q: string }) {
     const next = page + 1;
     setMoreLoading(true);
     setMoreError("");
-    get<Page<Question>>(searchQuery(q, next))
+    get<Page<Question | AnswerResult | UserResult>>(searchQuery(q, scope, next))
       .then((res) => {
         if (seq !== requestSeq.current) return;
         setItems((prev) => {
@@ -280,10 +373,13 @@ function SearchResults({ q }: { q: string }) {
         if (seq !== requestSeq.current) return;
         setMoreLoading(false);
       });
-  }, [initialLoading, moreLoading, page, q]);
+  }, [initialLoading, moreLoading, page, q, scope]);
 
   const exitSearch = () => navigate("/");
   const retry = () => setReloadToken((n) => n + 1);
+  // 切 tab：写 URL ?type=（问题 tab 不带参数），分页自然回到第 1 页。
+  const setScope = (t: SearchScope) =>
+    navigate(`${searchHref(q)}${t === "question" ? "" : `&type=${t}`}`);
   const submitMobile = (e: React.FormEvent) => {
     e.preventDefault();
     const t = qInput.trim();
@@ -324,7 +420,20 @@ function SearchResults({ q }: { q: string }) {
         </button>
       </section>
 
-      {/* TODO: type=answer|user|topic 分类 tab；本期只渲染「问题」结果 */}
+      <div className="stabs" role="tablist" aria-label="搜索结果分类">
+        {SEARCH_TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={scope === t.key}
+            className={`stabs__tab ${scope === t.key ? "stabs__tab--active" : ""}`}
+            onClick={() => setScope(t.key)}
+          >
+            {t.label} {counts ? counts[t.key] : total}
+          </button>
+        ))}
+      </div>
+
       {initialLoading ? (
         <FeedSkeleton count={5} />
       ) : error ? (
@@ -341,6 +450,24 @@ function SearchResults({ q }: { q: string }) {
               >
                 换个关键词
               </button>
+            }
+          />
+        ) : scope === "answer" ? (
+          <Empty
+            title="没有找到包含该关键词的回答"
+            action={
+              <Link to="/ask" className="btn btn--outline">
+                去提问
+              </Link>
+            }
+          />
+        ) : scope === "user" ? (
+          <Empty
+            title="没有找到匹配的用户"
+            action={
+              <Link to="/" className="btn btn--outline">
+                去首页
+              </Link>
             }
           />
         ) : (
@@ -362,9 +489,17 @@ function SearchResults({ q }: { q: string }) {
       ) : (
         <>
           <ul className="feed">
-            {items.map((item) => (
-              <FeedCard key={item.id} q={item} kw={q} />
-            ))}
+            {scope === "answer"
+              ? (items as AnswerResult[]).map((a) => (
+                  <AnswerResultCard key={a.id} a={a} kw={q} />
+                ))
+              : scope === "user"
+                ? (items as UserResult[]).map((u) => (
+                    <UserResultRow key={u.id} u={u} kw={q} />
+                  ))
+                : (items as Question[]).map((item) => (
+                    <FeedCard key={item.id} q={item} kw={q} />
+                  ))}
           </ul>
           <FeedFoot
             hasMore={hasMore}

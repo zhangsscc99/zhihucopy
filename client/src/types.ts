@@ -74,6 +74,35 @@ export interface Page<T> {
   has_more: boolean;
 }
 
+// /search 的各 scope 命中数（tab 计数用）。
+export interface SearchCounts {
+  question: number;
+  answer: number;
+  user: number;
+}
+
+// /search?type=answer 的条目：所属问题 + 命中片段 + 作者/赞同。
+export interface AnswerResult {
+  id: number;
+  question_id: number;
+  question_title: string;
+  snippet: string;
+  vote_up: number;
+  created_at: string;
+  author: Author;
+  topics: Topic[];
+}
+
+// /search?type=user 的条目。
+export interface UserResult {
+  id: number;
+  nickname: string;
+  avatar_url: string;
+  bio: string;
+  answer_count: number;
+  follower_count: number;
+}
+
 export interface ProfileData {
   user: User;
   badges?: Badge[];
