@@ -465,3 +465,18 @@
 - [x] Z1056 部署/报告脚本钉死 E2E 地址 + preflight（P1）：继承的 `E2E_BASE=…:3033` 让 ci-deploy e2e gate 全 PENDING→连续 3 次回滚，report.sh 仍写 PENDING 报告 ✅ (2026-11-16 devin：两脚本 export 钉死 `${PROD_URL%/api}`/`${LOCAL_HEALTH%/api/health}` 派生的本地地址 + `$E2E_API/health` preflight，环境不可达 exit 2 + `stage=e2e-preflight` + NO_ROLLBACK 保留现场；断言含毒环境实测覆盖证据)
   verify: node scripts/assert/deploy-e2e-env.mjs
   risk: low
+
+## 第十六轮待办（2026-11-16 07:1x，来源 docs/PRODUCT-REVIEW.md 第十五轮 Playwright 实测）
+
+- [ ] Z1060 /ask 话题下拉遮挡「发布问题」（P1）：选完话题 `addTopic` 保持 `setTopicOpen(true)`，absolute 240px 菜单盖住提交钮——hit-test 按钮中心命中 `.topic-select__option`，两轮 Playwright 各 32 次重试超时；真实点击会误加话题（截图 e2e-review15-25/e2e-probe15-02）；选中即收起（续选靠聚焦 input 重开）或菜单限高下移
+  verify: node scripts/assert/ask-topic-overlay.mjs
+  risk: med
+- [ ] Z1061 结果页双 `role=search` 界标命名歧义（P2，a11y）：`.topnav__search` 的 form 无 `aria-label`，读屏无法区分「全站搜索」与「在结果中搜索」两个并存界标
+  verify: node scripts/assert/search-landmark-names.mjs
+  risk: low
+- [ ] Z1062 顶栏用户菜单可访问名读两遍（P2，a11y）：`.usermenu__trigger` 朗读为「巡巡检壬…」（avatar 首字+昵称）；avatar span 加 `aria-hidden` 或按钮 `aria-label={user.nickname}`
+  verify: node scripts/assert/usermenu-a11y-name.mjs
+  risk: low
+- [ ] Z1063 「回答/用户」tab 零结果页缺「换个关键词」出口（P2）：question scope 空态有 refocus 按钮，answer scope 只有「去提问」、user scope 只有「去首页」，快捷续搜入口不对称（`Home.tsx:491-508`）
+  verify: node scripts/assert/search-empty-cta.mjs
+  risk: low

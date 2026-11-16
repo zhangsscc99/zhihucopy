@@ -1201,3 +1201,65 @@
 - 通知类型 `comment`/`agree` 的 UI 文案与图标：本轮仅在 API 层确认事件产生，UI 实测只覆盖了 `answer` 类型的落点。
 - 「关注」tab 登录态内容、举报流程、`/admin`、编辑资料、热榜「查看全部」、邀请回答弹窗（Z1043 未复测）、移动端互动按钮热区。
 - 脚本自身两次失败截图（选择器误用，非产品 bug）：`/root/logs/e2e-review14-core-2026-11-16T05-41-50-523Z.png`（在桌面端 fill 移动端专属 `.msearchbar`）；`e2e-review14-auth-…334Z.png`（即 P2-2 证据）。
+
+## 第十五轮（2026-11-16 07:1x，Z1041 上线后即验；线上真实浏览器）
+
+范围：Z1041 三项行为即验（结果页内嵌搜索框桌面可见+预填、「换个关键词」原地聚焦全选、「取消搜索」回首页焦点落顶栏搜索框）+ 桌面 1366×900 / 移动 390×844 双端主链路复扫（首页→详情→赞同→评论→收藏→写回答→通知→搜索→话题→主页→热榜→等你来答→提问）。巡检账号 `巡检壬/辛/癸/亥/甲/探针*`（u1932–1938）及产出的问题/回答/评论/收藏夹已随 lib 自清理删除（复核：u1932–1938、q1044/1045 均 404，q6 评论区无残留、首答赞同回到 163）。固化探针 `scripts/e2e/probe-round15.mjs` 实测 **RC=0（18 步 PASS + 2 条 WARN）**。
+
+### 一、上线即验
+
+| 步骤 | 期望 | 实测 |
+|---|---|---|
+| 桌面结果页 `.msearchbar` | 可见、预填 q、可编辑 | 1366×900 可见，`inputValue="代码"`，可编辑 |
+| 内嵌框改词回车 | URL 与结果同步 | `?q=代码`→`?q=职场`，标题「“职场” 的相关结果 · 4 条」、4 卡，输入框回填「职场」，`__errs=0` |
+| `?type=answer` 下换词 | 仍停「回答」tab | URL 保留 `&type=answer`，`aria-selected=true`，`__errs=0` |
+| 「换个关键词」（零结果） | URL/关键词不变，输入框聚焦+全选 | URL 逐字符不变，`activeElement=内嵌input`，`selectionStart=0,End=9`（桌面+移动一致） |
+| 「取消搜索」 | 回首页且焦点落顶栏搜索框（非 BODY） | `activeElement=.topnav__search input`，URL 回到 `/zhihucopy`；移动端改为打开 `.msearch` 弹层且焦点在弹层输入框（`inDialog+isInput`），随后可原地再搜——上轮「移动端退出即无法再搜」复合断点消除 |
+| 纯键盘完成三步 | Tab/Enter 可达且有可见焦点 | Tab×17 到「换个关键词」（`outline 2px solid rgb(0,102,255)` 可见，截图 `/root/logs/e2e-review15-21-kbd-retry-focus.png`）→Enter→内嵌框聚焦全选（截图 22）→键入「职场」Enter→结果刷新；Tab×13 到「取消搜索」（截图 23）→Enter→顶栏焦点（截图 24） |
+| 双 search 界标并存 | 可区分、Tab 序合理 | Tab 序：顶栏提交钮→顶栏输入→清除×→通知→提问→用户菜单→内嵌框→搜索钮→取消搜索→tabs→换个关键词，顺序合理；**但 2 个可见 `role=search` 中顶栏 form 无 `aria-label`，读屏无法区分**（→P2-1） |
+| 回退/前进 | 内嵌框随 URL 重同步 | 代码→职场→后退回「代码」→前进回「职场」，`useEffect setQInput(q)` 生效 |
+| 首页三 tab+加载更多 | 渲染正常、无重复 | 关注/推荐/热榜均渲染；热榜 20 卡+20 个名次角标；加载更多 20→40 |
+| 详情与浏览量 | 一次访问 +1、页面与接口一致 | 列表口径（不增值端点）6642→6643，页面显示访问前值（详情 GET 返回 pre-increment，语义一致） |
+| 赞同/取消赞同 | ±1 且刷新保持 | 163→164（`is-active`）→刷新仍 164+`is-active`→取消回 163 |
+| 评论 展开/发布/删除 | 计数=行数、发布+1、删除回写 | 9→10→9，按钮「收起评论（N）」同步 |
+| 收藏 | 面板→建夹→已收藏→刷新保持→列表页可见→取消 | 全链路过，`/collections` 出现「巡检夹」，取消 toast「已取消收藏」 |
+| 写回答（UI） | 发布即见、`answer_count`+1 | 3→4，新回答（a902）在详情返回 |
+| 通知 | B 评论 A→铃铛「1 条未读」→行→`#answer-` 锚点视口内→已读清零 | `land=/question/6#answer-902`，锚点 `top=261` 在视口，二次进入 `unread=0` |
+| 话题页 | 列表→详情可达 | `/topics`→`/topic/home-organization`，7 题 |
+| 个人主页 | 自己/他人可达 | `/u/1936`、`/u/2`，tab 计数与列表正常；自己页「收藏 1」随收藏夹出现 |
+| 热榜 tab | 名次角标+卡渲染 | 20 卡、`aria-label=热榜第 N 名` 20 处 |
+| 等你来答 | 空态有出口 | 现网无未答问题→空态「现在没有等待回答的问题」+「去提问」CTA（巡检新提问被 `testQuestionSql` 过滤属预期，无法借此验证非空路径） |
+| 提问页 | 发布落地详情页 | **点「发布问题」被仍然展开的话题菜单遮挡（P1-1）**；Escape 收菜单后发布成功→`/question/1045` |
+| 移动端 390×844 | 无横向溢出、搜索出入口闭环 | `scrollWidth=390`（首页/结果页/详情/通知/提问/主页全测）；放大镜→弹层→内嵌框→取消回弹层 |
+| `__errs`/控制台 | 全程为空 | 三趟走查 `console.error`/`pageerror`/HTTP≥400 均 0 |
+
+### 二、新发现
+
+**P0：0 条。** Z1041 无副作用回归；注册→提问→回答→评论→收藏→通知→删除主干全程可用，键盘三步全部可达。
+
+**P1：1 条（新）。**
+
+- **P1-1 提问页选完话题后下拉菜单不收起、盖住「发布问题」**：在 `/ask` 选第一个话题后 `.topic-select__menu` 保持展开（8 个选项、高 240px），`elementFromPoint` 命中发布按钮中心的是 `.topic-select__option`——两轮独立实测 Playwright 各 32 次重试均被拦截超时；真实用户点发布会落在菜单项上**误加话题**，须先 Escape/点空白收起（截图 `/root/logs/e2e-review15-25-ask-overlay.png`、`/root/logs/e2e-probe15-02-ask-overlay.png`；几何：`menuOpen=true h=240 opts=8 coveredByMenu=true`）→ 根因 `client/src/pages/Ask.tsx:46-52` `addTopic` 为多选续选调 `setTopicOpen(true)`，`styles.css:1743` 菜单 `position:absolute;max-height:240px` 正好压在 `.form-actions` 上 → 修法：选中即 `setTopicOpen(false)`（续选靠再聚焦 input 重开即可），或菜单限高下移让出提交区 → **Z1060**。
+
+**P2：3 条新增 + 1 条遗留复测仍中。**
+
+1. **P2-1 双 `role=search` 界标命名歧义**（新，a11y）：结果页同时存在 2 个可见 search 界标，`.msearchbar` 有 `aria-label="在结果中搜索"` 而顶栏 `.topnav__search` 的 form 无 `aria-label`——读屏用户听到两个同名「搜索」界标无法区分 → 根因 `TopNav.tsx:289` `<form role="search">` 缺 `aria-label` → 修法：加 `aria-label="全站搜索"` → **Z1061**。
+2. **P2-2 顶栏用户菜单可访问名读两遍**（新，a11y）：`.usermenu__trigger` 可访问名=头像首字+昵称，实测朗读为「巡巡检壬96yv」（Tab 序列可见 `BUTTON:巡巡检壬y00l`）；触发器无 `aria-label`、`.avatar` 占位字无 `aria-hidden` → 根因 `TopNav.tsx:363-370` → 修法：avatar span 加 `aria-hidden="true"` 或按钮 `aria-label={user.nickname}` → **Z1062**。
+3. **P2-3 「回答/用户」tab 零结果页缺「换个关键词」出口**（新）：question scope 空态有「换个关键词」+「去提问」，answer scope 只有「去提问」、user scope 只有「去首页」——内嵌框虽在上方可用，但 refocus 快捷入口不对称（`Home.tsx:491-508`）→ 修法：三个空态统一给 `refocusInline` 按钮 → **Z1063**。
+4. **遗留 P2（Z1054，未修，复测仍中）**：cleanup-artifacts 多会话 API 模式第二会话恒 401，本轮又复现 2 次，产物仍靠 session#1 兜底删净。
+
+观察（非缺陷，记录）：`?tab=unanswered` 应用 `testQuestionSql`，巡检问题不在「等你来答」出现属预期；通知页打开即 `markReadMany` 批量已读（`Notifications.tsx:222` 注释为有意设计，`.ntf__item--unread` 高亮实际不可达）；详情 GET 返回访问前浏览量（+1 语义一致）。
+
+### 三、方向建议
+
+1. **先修 Z1060（话题菜单遮挡发布按钮）**：本轮唯一 P1，命中提问主漏斗的最后一步——凡是选了话题的用户提交时都要先撞一次菜单。改动是一行 `setTopicOpen(false)` 量级，收益/成本比最高。
+2. **顺手做 Z1061+Z1062（TopNav a11y 命名）**：同一文件两个 `aria-label`/`aria-hidden` 级别改动，十分钟成本，消掉 Z1041 引入的双界标歧义和菜单名重复，与本轮搜索 a11y 收尾同域。
+3. **仍按十四轮排序推进 Z1050→Z1052**：线上用户搜索已能搜到 `z1044user*` 残留号（本轮又确认 401 路径仍在），残留比 UI 细节更伤「真实感」；评论回复入口接通已就绪的后端+通知回路，是下一个最大功能增量。
+
+### 四、未验证项
+
+- 「等你来答」非空路径：测试账号/标题被 `testQuestionSql` 过滤，巡检无法在该 tab 造出可见问题；列表渲染、分页、「写回答」入口未在真实数据下覆盖（与 Z1055 同类覆盖盲区）。
+- 提问页多选话题路径：只验证选 1 个话题 + Escape + 提交；`MAX_TOPICS=5` 上限态、chip 删除、Backspace 删 chip 未测。
+- 通知 `.ntf__hit`/`.ntf__title` 双链接命中歧义（Z1053 遗留）未复测——本轮直接点 `.ntf__title` 成功；`comment/agree` 类型通知的 UI 文案/图标仍未覆盖（本轮走了 `comment` 类型行，未核对图标）。
+- 回答排序切换、「查看全部 N 个回答」展开（Z1042）、邀请回答弹窗（Z1043）、举报、`/admin`、编辑资料、登录/注册 UI（token 注入绕过）、移动端互动按钮热区、邀请回答。
+- 走查脚本自身第一次运行两处超时截图（均为选择器/时序误用，非产品 bug）：`/root/logs/e2e-review15-*.png` 中 ask 相关失败现场；另 `walk1` 的 `kbdRefocus` 误报为脚本 Tab 越过目标后才按 Enter 所致，复测键盘路径正常。
