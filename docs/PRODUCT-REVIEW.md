@@ -1286,3 +1286,56 @@ Z1066 把评论计数统一为「非删除可见评论数」（= 服务端 `answ
 1. **Z1068（replyFor 闭包 + 草稿丢失）优先于 Z1067/Z1069**：这是本轮审查里唯一会「静默丢用户输入」的路径（DELETE 往返期间切评论会误关新表单），体感伤害大于计数/文案类细节。
 2. **Z1046 与 Z1055 一起做**：两者都是「覆盖盲区」——一个是加载反馈没人测，一个是分页路径线上数据永远走不到；补种子数据（>pageSize 回答的演示问题）后，加载更多/分页/骨架屏三条断言才有意义。
 3. 评论域收敛：Z1066 已把口径统一，Z1067/Z1069 是同一块代码的收尾（aria-controls、toast 语义、断言硬化），建议合成一条 lane 一次做完，避免三条 lane 反复改 `Question.tsx` 同一段。
+## 第十七轮（2026-11-16 12:2x UTC，第十九轮调度器 4 组改动上线后即验；线上真实浏览器，桌面 1440 + 移动 390）
+
+### 一、本轮定位
+复验 Z1061/62（顶栏 a11y：search 界标命名、用户菜单名去重）、Z1063/65（结果页空态「换个关键词」原地聚焦 + 移动搜索框 focus-visible）、Z1067/68/69（回复表单收尾：Esc、aria-expanded、失败留草稿、info toast、删除竞态）。探针固化在 `docs/runs/probe-round19.mjs`，运行日志 `docs/runs/2026-11-16_review19-probe.log`（34 步，桌面+移动各一遍）。
+
+### 二、实测结果
+| 场景 | 结果 | 证据 |
+|---|---|---|
+| 首页 关注/推荐/热榜 三 tab | PASS，各 20 卡片，bodyLen=3421，无 __errs | probe log |
+| 顶栏 `role=search` 命名 | PASS，`aria-label="全站搜索"`；结果页内嵌框 `"在结果中搜索"`，两名不同 | probe log |
+| 用户菜单读屏名 | PASS，trigger `aria-label="巡检19"`，avatar `aria-hidden=true`，不重复读 | probe log |
+| 问题页 → 赞同/反对 | PASS，233→234→233 回写，反对 `is-active` 切换 | probe log |
+| 评论展开 | PASS，「14 条评论」→ 渲染 14 行（一致；见 P2 历史快照） | probe log |
+| 回复 Esc + aria-expanded | PASS，`expanded false→true→false`，`aria-controls` 常驻 slot，Esc 关闭 | probe log |
+| 回复提交失败 | PASS，强制 500 后 `role=alert="e2e-forced"`，表单不关、草稿原样保留 | probe log |
+| 切换回复目标 | PASS，info toast「已放弃上一条未发送的回复」`toast--info`，bg=rgb(18,18,18) 非红 | `/root/logs/e2e-review19-01-info-toast.png` |
+| 收起评论区丢草稿 | PASS，表单关闭 + info toast（3 次中 2 次捕获到 toast，1 次捕获为空——toast 存活期短于断言时点，功能本身 PASS） | probe log |
+| 收藏 + 分享 | PASS，toast 返回正确站内链接 | probe log |
+| 搜索全链路 | PASS，「职场」→ 4 结果；tab 实际只有 **问题/回答/用户三个**（无「全部」tab，问题 tab 即全部口径） | probe log |
+| 零结果 `zz123456` → 换个关键词 | PASS ×3（问题/回答/用户 tab）：焦点回内嵌框、文本全选、URL `q` 与 `type` 均保留 | `/root/logs/e2e-review19-02-search-empty.png` |
+| 通知 | PASS，角标 1 → 进页 → 点击跳 `/question/1#answer-1137` 锚点正确，角标清零 | probe log |
+| 个人页 /u/:id | PASS，回答/提问 tab 渲染（测试号产物被过滤，计数 0 属预期） | probe log |
+| /ask 话题下拉 | PASS，菜单展开、8 个候选项、Esc 可关 | `/root/logs/e2e-review19-03-ask-topics.png` |
+| 404 ×3 | PASS，`/question/999999`、`/u/999999`、`/nonexistent` 均渲染统一 404 页（len=538，无 errs） | probe log |
+| 移动端横向溢出 | PASS，首页/问题页/搜索页 scrollWidth=390 | probe log |
+| 移动弹层搜索 | 部分 PASS：弹层打开、autoFocus、提交、取消正常；**焦点环缺失见 P1** | `/root/logs/e2e-review19-05-msearch-focus.png` |
+
+### 三、发现的缺陷
+
+**P1 — 移动端搜索弹层输入框无焦点环（Z1065 漏网）**
+- 复现：390×844 → 点放大镜 → `.msearch__input` autoFocus。
+- 实测 `el.matches(":focus-visible") === true`，但计算样式 `outline-width:0px / outline-style:none`；唯一反馈是 1px border 由 `transparent`→`rgb(0,102,255)`。
+- 根因：`styles.css:2706 .msearch__input:focus { outline: none }`（特异性 0-2-0）压过 `styles.css:49 input:focus-visible`（0-1-1）；本轮只给 `.msearchbar__input`（结果页内嵌框）补了 `:focus-visible` 规则，弹层里的 `.msearch__input` 没补。
+- 证据：`/root/logs/e2e-review19-05-msearch-focus.png`、计算样式见 probe log `mobile.msearch.focusring`。
+
+**P2 — 评论计数与可见列表不同口径（Z1066 盲区复现成功）**
+- 复现：向回答 `q1/a2` 注入 2 条测试账号评论后展开评论区 → 按钮显示「16 条评论」，列表只渲染 14 行。
+- 根因：`GET /comments` 用 `testCommentSql` 过滤测试产物，而 `answers.comment_count`（`artifact-cleanup.js:218` 的子查询）不过滤。隐藏评论在清理窗口期内撑大计数；普通用户视角是「数字对不上」。
+- 证据：第一轮 probe log `desktop.comments.expand "16 条评论" -> 14 行`（清理回收后第三轮恢复 14/14，证明差值即隐藏评论）。
+
+**P2 — 移动搜索弹层 `role=search` 无可访问名**
+- `.msearch__form` 带 `role="search"` 但 `aria-label=null`；同页顶栏 `role=search` 有名（"全站搜索"）。读屏用户遍历界标时会遇到一个匿名 search 界标（外层 dialog 的 `aria-label="搜索"` 不会传给内部 landmark）。实测 `names=[{"label":"全站搜索"},{"label":null,"cls":"msearch__form"}]`。
+
+### 四、未验证项
+1. **删除评论 + 切换回复表单的竞态（Z1068 核心修复）**：线上无法构造「可见且可删」的自有评论——测试账号评论被 `testCommentSql` 从列表隐藏，删除按钮不渲染。只验证到代码层 `replyForRef.current === c.id` 比对存在（`Question.tsx:854`），同族的「收起评论区整体重置」路径已实测 PASS。建议用组件测试或服务端 test-support 钩子固化。
+2. 通知锚点滚动定位精度：URL hash 正确（`#answer-1137`），未逐像素验证滚动落点。
+3. `/ask` 真实发布：本轮只验了话题菜单开合，未在线上发新帖（避免产物残留）。
+
+### 五、方向建议
+1. **给 `:focus{outline:none}` 做一次全仓审计**：本轮 Z1065 只补了 `.msearchbar__input`，`.msearch__input` 立刻漏网——说明「哪里压掉了 focus-visible」没有清单。建议统一改成「`:focus` 只改颜色，`:focus-visible` 才动 outline」的写法，或在 lint 层禁掉不带 `:focus-visible` 兜底的 `outline:none`。
+2. **评论计数改成单一数据源**：`displayCommentCount` 已支持「已加载时按树计数」，建议把按钮初始值也从 `comment_count` 冗余列换成首屏不展示数字、展开后才带数字；或服务端 `comment_count` 子查询套用同一 `testCommentSql`。两改任选其一即可消灭这类「对不上」。
+3. **为隐藏产物提供测试逃生舱**：当前线上巡检无法复现「删自己评论」的整条 UI 路径（竞态、占位、计数 -1 都测不了）。建议 `test-support` 路由加一个「建一条对测试会话可见的评论」的口子（例如按 Authorization 绕过过滤），否则 Z1068 这类修复只能信单测，线上永远绿灯假象。
+4. **toast 语义分级沉淀成约定**：本轮 info toast 已正确非红，但「放弃草稿」这类提示目前复用 `role=status` 栈与 error 同列，建议给 toast 加 `data-kind`/独立断言钩子，避免后续改动把 info 又染回 error 色而无测试拦截。
