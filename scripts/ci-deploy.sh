@@ -28,6 +28,7 @@ DEPLOY_DIR=".deploy"
 STEP="init"
 STEP_START=$SECONDS
 RESTARTED=0
+NO_ROLLBACK=0
 SMOKE_PID=""
 SMOKE_DB=""
 SMOKE_LOG=""
@@ -66,7 +67,7 @@ on_exit() {
   rm -f "$RESP_FILE"
   if (( rc != 0 )); then
     log "FAIL ${STEP:-unknown} (exit $rc)"
-    if (( RESTARTED )); then
+    if (( RESTARTED && ! NO_ROLLBACK )); then
       if [[ -f scripts/rollback.sh ]]; then
         log "invoking scripts/rollback.sh"
         bash scripts/rollback.sh
@@ -250,6 +251,18 @@ step "e2e"
 if [[ "${SKIP_E2E:-0}" == "1" ]]; then
   log "SKIP_E2E=1 — skipping e2e suite"
 elif [[ -f scripts/e2e/run-all.mjs ]]; then
+  # Z1056: 钉死 e2e 目标到本机实例。继承的 E2E_BASE/E2E_API（调度器环境污染，
+  # 如 :3033 无服务）曾让门禁全 PENDING/FAIL → 连续误回滚。export 覆盖外部值。
+  export E2E_BASE="${PROD_URL%/api}"
+  export E2E_API="${E2E_BASE}/api"
+  E2E_HEALTH="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$E2E_API/health" 2>/dev/null || echo 000)"
+  if [[ "$E2E_HEALTH" != "200" ]]; then
+    # 环境不可用 ≠ 代码坏：exit 2 + NO_ROLLBACK 保留现场，勿回滚代码。
+    log "e2e base 不可达：$E2E_BASE（health 非 200, http=$E2E_HEALTH）——检查端口/pm2 状态，勿回滚代码"
+    history "deploy-fail" "stage=e2e-preflight http=$E2E_HEALTH"
+    NO_ROLLBACK=1
+    exit 2
+  fi
   # 机器验收门禁：REQUIRED 用例（基线 + 已勾选 FEATURES 覆盖项）失败 → 触发回滚。
   if ! node scripts/e2e/run-all.mjs; then
     log "e2e gate failed — rolling back"

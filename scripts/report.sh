@@ -64,6 +64,15 @@ while IFS=$'\t' read -r fid state verify risk; do
 done <"$TMP/entries.tsv"
 
 # ---- 4. e2e suite ----
+# Z1056: 与 ci-deploy.sh 同口径——钉死 e2e 目标到本机实例，export 覆盖继承的
+# E2E_BASE/E2E_API（调度器环境污染曾让报告 e2e 全 PENDING 仍写出）。
+export E2E_BASE="${LOCAL_HEALTH%/api/health}"
+export E2E_API="${E2E_BASE}/api"
+E2E_HEALTH="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$E2E_API/health" 2>/dev/null || echo 000)"
+if [[ "$E2E_HEALTH" != "200" ]]; then
+  echo "[report] e2e base 不可达：$E2E_BASE（health 非 200, http=$E2E_HEALTH）——检查端口/pm2 状态，勿回滚代码" >&2
+  exit 2
+fi
 echo "[report] running e2e suite..."
 node scripts/e2e/run-all.mjs --json "$TMP/e2e.json" >"$TMP/e2e.log" 2>&1
 E2E_RC=$?
