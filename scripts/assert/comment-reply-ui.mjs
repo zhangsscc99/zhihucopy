@@ -207,9 +207,10 @@ run("comment-reply-ui", async ({ browser }) => {
     `新回复归属错误：父评论正文=${owner.parentBody}，期望含 ${c1Text}`
   );
 
-  // 计数 +1：渲染行数 3 一级 + 2 二级 = 5，按钮文案与行数一致。
-  const toggleText = await ans.getByRole("button", { name: /收起评论/ }).innerText();
-  expect(toggleText.includes("收起评论（5）"), `计数未 +1：「${toggleText}」期望 收起评论（5）`);
+  // 计数 +1：非删除可见行数 2 一级 + 2 二级 = 4（删除占位不计入），
+  // 按钮文案与可见行数一致（Z1066 口径）。
+  const toggleText = (await ans.getByRole("button", { name: /收起评论/ }).innerText()).trim();
+  expect(/^收起评论（4）$/.test(toggleText), `计数未 +1：「${toggleText}」期望 收起评论（4）`);
 
   let errs = await pageErrs(page);
   expect(errs.length === 0, `回复流程出现页面错误：${errs.join(" | ")}`);
