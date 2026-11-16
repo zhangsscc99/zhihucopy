@@ -113,10 +113,12 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
       <Link to={`/question/${q.id}`} className="feed__title">
         <Highlight text={q.title} kw={kw} />
       </Link>
-      {q.detail_md && (
+      {excerpt(q.detail_md) ? (
         <p className="feed__excerpt">
           <Highlight text={excerpt(q.detail_md)} kw={kw} />
         </p>
+      ) : (
+        <p className="feed__excerpt feed__excerpt--empty">暂无补充说明</p>
       )}
       <div className="feed__meta">
         <Link to={`/u/${q.author?.id}`} className="feed__author">
@@ -227,9 +229,13 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
           >
             {q.title}
           </Link>
-          {q.detail_md && (
+          {excerpt(q.detail_md) ? (
             <p className="feed__excerpt feed__excerpt--hot">
               {excerpt(q.detail_md)}
+            </p>
+          ) : (
+            <p className="feed__excerpt feed__excerpt--hot feed__excerpt--empty">
+              暂无补充说明
             </p>
           )}
           <div className="feed__meta">

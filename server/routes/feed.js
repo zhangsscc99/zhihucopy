@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
-const { questionRow, HOT_SCORE_SQL } = require("./questions");
+const { questionRow, HOT_SCORE_SQL, HAS_DETAIL_SQL } = require("./questions");
 const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
@@ -87,6 +87,7 @@ router.get("/following", requireAuth, (req, res) => {
 });
 
 // GET /feed/recommended?page=&limit= — 推荐流（与首页「推荐」tab 同源的最新问题列表，无需登录）。
+// Z1045：空 detail_md 的问题不进推荐流（卡片无摘要可展示，像坏数据）。
 router.get("/recommended", (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
@@ -94,7 +95,7 @@ router.get("/recommended", (req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${testQuestionSql("q", "u")} AND ${HAS_DETAIL_SQL}
        ORDER BY q.created_at DESC, q.id DESC LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
@@ -102,7 +103,7 @@ router.get("/recommended", (req, res) => {
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}`
+       WHERE ${testQuestionSql("q", "u")} AND ${HAS_DETAIL_SQL}`
     )
     .get().c;
   res.json({ items, total, has_more: page * limit < total, page });
@@ -114,7 +115,7 @@ router.get("/hot", (_req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS}, ${HOT_SCORE_SQL} AS hot_score FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${testQuestionSql("q", "u")} AND ${HAS_DETAIL_SQL}
        ORDER BY ${HOT_SCORE_SQL} DESC, q.created_at DESC
        LIMIT 20`
     )
