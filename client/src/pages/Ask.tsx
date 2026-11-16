@@ -47,7 +47,9 @@ export function Ask() {
     if (topicFull || pickedTopics.some((p) => p.id === t.id)) return;
     setPickedTopics((xs) => [...xs, t]);
     setTopicQuery("");
-    setTopicOpen(true);
+    setTopicOpen(false);
+    // 隐式契约：输入框本已聚焦时再 focus() 不会触发 focus 事件，因此不会重开菜单；
+    // 菜单重开靠输入框的 onClick / onChange。
     topicInputRef.current?.focus();
   };
 
@@ -143,6 +145,10 @@ export function Ask() {
               disabled={topicFull}
               value={topicQuery}
               onFocus={() => setTopicOpen(true)}
+              // 已聚焦元素再点击不触发 focus：选中话题收起菜单后，点输入框也要重开。
+              onClick={() => {
+                if (!topicFull) setTopicOpen(true);
+              }}
               onChange={(e) => {
                 setTopicQuery(e.target.value);
                 setTopicOpen(true);
@@ -186,7 +192,9 @@ export function Ask() {
           )}
         </div>
       </div>
-      <div className="form-actions">
+      {/* preventDefault 保住焦点：否则 mousedown 先触发话题 input 的 blur 关掉菜单，
+          按钮上移后 mouseup 落在卡片上，第一次点击静默失效。 */}
+      <div className="form-actions" onMouseDown={(e) => e.preventDefault()}>
         <Button onClick={submit} disabled={submitting || !title.trim()}>
           {submitting ? "发布中…" : "发布问题"}
         </Button>
