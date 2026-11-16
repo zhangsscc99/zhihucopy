@@ -17,6 +17,12 @@ const AUTHOR_COLS =
 const HOT_SCORE_SQL =
   "(q.answer_count * 3 + q.follower_count * 2 + q.view_count)";
 
+// 注意（Z1045 返修）：公共流不按 detail_md 是否为空做门控。detail_md 是
+// POST /questions 的可选字段（见下方 detail_md || ""），真实用户只填标题
+// 的问题若被过滤，会同时从最新/推荐/热榜消失 —— 提完刷新看不到自己的问题。
+// 无摘要的展示问题由前端「暂无补充说明」灰字兜底；自动化残留走
+// content-filter 的标题形态规则（如「复盘 <token> ？」）。
+
 // 热榜排名快照（进程内存，无快照表/库列时的轻量口径）：上一次请求的整榜
 // id -> 名次，用于 rank_delta = 上次名次 - 本次名次（>0 即上升）。
 // 进程重启清零；首轮请求没有基线，不返回 rank_delta，前端不渲染上升标记。

@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { requireAuth } = require("../auth");
 const { badRequest } = require("../util");
+const { testCommentSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -92,10 +93,12 @@ router.get("/", (req, res) => {
     return res.status(404).json({ error: `${TARGET_LABELS[target.targetType]}不存在` });
   }
 
+  // 公共列表与计数同一份过滤片段：正文命中产物标记、或作者是测试账号的
+  // 评论不返回（Z1045 —— 「评论回写验证 rv6-*」等残留对公开访客不可见）。
   const rows = db
     .prepare(
       `${COMMENT_SELECT}
-       WHERE c.target_type = ? AND c.target_id = ?
+       WHERE c.target_type = ? AND c.target_id = ? AND ${testCommentSql("c", "u")}
        ORDER BY c.created_at ASC, c.id ASC`
     )
     .all(target.targetType, target.targetId);

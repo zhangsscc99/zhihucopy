@@ -98,6 +98,7 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
 }
 
 function FeedCard({ q, kw }: { q: Question; kw: string }) {
+  const ex = excerpt(q.detail_md);
   return (
     <li className="feed__item">
       {/* 搜索接口返回 topics；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
@@ -113,10 +114,12 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
       <Link to={`/question/${q.id}`} className="feed__title">
         <Highlight text={q.title} kw={kw} />
       </Link>
-      {q.detail_md && (
+      {ex ? (
         <p className="feed__excerpt">
-          <Highlight text={excerpt(q.detail_md)} kw={kw} />
+          <Highlight text={ex} kw={kw} />
         </p>
+      ) : (
+        <p className="feed__excerpt feed__excerpt--empty">暂无补充说明</p>
       )}
       <div className="feed__meta">
         <Link to={`/u/${q.author?.id}`} className="feed__author">
@@ -197,6 +200,7 @@ function UserResultRow({ u, kw }: { u: UserResult; kw: string }) {
 // 热榜卡：与推荐卡明确区分 —— 左侧排名色块、16px 单行标题、单行摘要、
 // 元信息行带热度分；rank_delta>0 时热度旁跟上升级标记。
 function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
+  const ex = excerpt(q.detail_md);
   const rankCls =
     rank === 1
       ? "feed__rank feed__rank--top1"
@@ -227,9 +231,13 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
           >
             {q.title}
           </Link>
-          {q.detail_md && (
+          {ex ? (
             <p className="feed__excerpt feed__excerpt--hot">
-              {excerpt(q.detail_md)}
+              {ex}
+            </p>
+          ) : (
+            <p className="feed__excerpt feed__excerpt--hot feed__excerpt--empty">
+              暂无补充说明
             </p>
           )}
           <div className="feed__meta">

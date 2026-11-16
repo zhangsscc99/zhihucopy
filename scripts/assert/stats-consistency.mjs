@@ -75,6 +75,7 @@ function cleanup() {
       for (const id of created.userIds) {
         db.prepare("DELETE FROM notifications WHERE user_id = ? OR actor_id = ?").run(id, id);
         db.prepare("DELETE FROM follows WHERE follower_id = ?").run(id);
+        db.prepare("DELETE FROM user_badges WHERE user_id = ?").run(id);
         db.prepare("DELETE FROM users WHERE id = ?").run(id);
       }
     })();

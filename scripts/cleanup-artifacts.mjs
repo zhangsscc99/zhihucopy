@@ -36,9 +36,9 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const cleanup = require("../server/artifact-cleanup.js");
-const { questionMatchSql, userMatchSql } = require("../server/content-filter.js");
+const { questionMatchSql, userMatchSql, commentMatchSql } = require("../server/content-filter.js");
 const {
-  SEL, count, initDelTables, cascadeFromDelUsers,
+  SEL, count, initDelTables, cascadeFromDelUsers, expandCommentReplies,
   addOwnedTargets, deleteMarked, recomputeDerived, delCounts,
 } = cleanup;
 
@@ -295,6 +295,22 @@ function runDb() {
          WHERE u.is_test = 1 AND u.is_admin = 0 AND ${age("u.created_at")}`
       ).run();
     }
+    cascadeFromDelUsers(db);
+    // Z1045：测试账号挂在「真实问题」下的回答/评论、以及正文命中产物标记的
+    // 评论（作者昵称不命中也算，如「质检小七」发的 comment-ui-*），都进删除集。
+    // 旧口径把这些留在库里当「残留提示」，实测它们对公开访客可见 —— 必须删。
+    db.prepare(
+      `INSERT OR IGNORE INTO _del_a SELECT a.id FROM answers a
+       JOIN users u ON u.id = a.author_id
+       WHERE ${userMatchSql("u", OPTS)} AND ${age("a.created_at")}`
+    ).run();
+    db.prepare(
+      `INSERT OR IGNORE INTO _del_c SELECT c.id FROM comments c
+       JOIN users u ON u.id = c.author_id
+       WHERE ${commentMatchSql("c", "u", OPTS)} AND ${age("c.created_at")}`
+    ).run();
+    // 被删父评论的回复链 + 新进删除集的回答下挂的评论，统一级联收编。
+    expandCommentReplies(db);
     cascadeFromDelUsers(db);
     // 形态命中但未标记的账号：沿用旧规则 —— 扣掉待删集后无任何剩余内容才删。
     db.prepare(

@@ -87,6 +87,8 @@ router.get("/following", requireAuth, (req, res) => {
 });
 
 // GET /feed/recommended?page=&limit= — 推荐流（与首页「推荐」tab 同源的最新问题列表，无需登录）。
+// Z1045 返修：不再按 detail_md 非空门控 —— detail_md 是可选字段，空详情是
+// 合法真实问题（由前端「暂无补充说明」兜底展示）；过滤会藏掉用户刚提的问题。
 router.get("/recommended", (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
