@@ -460,3 +460,8 @@
 - [ ] Z1055 回答分页路径生产数据下不可达（P2，覆盖盲区）：线上最大 `answer_count=4`（q=1），「加载更多回答」按钮未出现、分页代码零覆盖；种子库需补 >pageSize 回答的演示问题，否则回归无人能发现
   verify: node scripts/assert/answers-pagination.mjs
   risk: low
+## 第十五轮待办（2026-11-16，部署门禁被环境变量误杀）
+
+- [x] Z1056 部署/报告脚本钉死 E2E 地址 + preflight（P1）：继承的 `E2E_BASE=…:3033` 让 ci-deploy e2e gate 全 PENDING→连续 3 次回滚，report.sh 仍写 PENDING 报告 ✅ (2026-11-16 devin：两脚本 export 钉死 `${PROD_URL%/api}`/`${LOCAL_HEALTH%/api/health}` 派生的本地地址 + `$E2E_API/health` preflight，环境不可达 exit 2 + `stage=e2e-preflight` + NO_ROLLBACK 保留现场；断言含毒环境实测覆盖证据)
+  verify: node scripts/assert/deploy-e2e-env.mjs
+  risk: low
