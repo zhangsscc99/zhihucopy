@@ -371,10 +371,10 @@
 
 ## 第十轮待办（2026-11-15 22:5x，来源 docs/PRODUCT-REVIEW.md 第十轮 Playwright 实测）
 
-- [ ] Z1031 移动端（390×844）零搜索入口（P0）：顶栏搜索 form/input 宽 0、底栏 5 项无搜索，`?q=` 深链结果页也无可见输入框（只能看结果不能改词）；补放大镜图标 → 全屏搜索层，结果页顶部保留可编辑输入框
+- [x] Z1031 移动端（390×844）零搜索入口（P0）：顶栏搜索 form/input 宽 0、底栏 5 项无搜索，`?q=` 深链结果页也无可见输入框（只能看结果不能改词）；补放大镜图标 → 全屏搜索层，结果页顶部保留可编辑输入框 ✅ (2026-11-16 devin)
   verify: node scripts/assert/mobile-search-entry.mjs
   risk: med
-- [ ] Z1032 回答发布后在默认排序里沉底且无提示（P1）：发布 8→9 条、当屏可见，刷新后默认排序 5 条里找不到自己的回答，只有切「最新」才有；发布成功后应乐观置顶或自动切「最新」并提示排序
+- [x] Z1032 回答发布后在默认排序里沉底且无提示（P1）：发布 8→9 条、当屏可见，刷新后默认排序 5 条里找不到自己的回答，只有切「最新」才有；发布成功后应乐观置顶或自动切「最新」并提示排序 ✅ (2026-11-16 devin：改为「你的回答」固定条 + `?sort=` 深链，default 仍纯赞数序)
   verify: node scripts/assert/answer-publish-visibility.mjs
   risk: med
 - [ ] Z1033 内容主权：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1，Z1020 收口）：补编辑/删除（含确认与计数回写）
@@ -389,3 +389,28 @@
 - [ ] Z1036 同一动作弹两个同文案 toast + 「邀请回答」空按钮（P2）：toast 去重；邀请回答改为真实邀请或置灰并提示
   verify: node scripts/assert/toast-dedupe.mjs
   risk: low
+
+## 第十一轮待办（2026-11-15 23:5x，来源 docs/PRODUCT-REVIEW.md 第十一轮 Playwright 实测）
+
+- [ ] Z1037 个人主页空态补下一步入口（P1）：0 回答时正文只有「这个人还没有写过回答。」一句纯文本，main 内除三个 tab 外 0 按钮 0 链接
+  verify: node scripts/assert/profile-empty-cta.mjs
+  risk: low
+- [ ] Z1038 通知补 comment/agree 事件并带 `#answer-` 锚点（P1）：评论他人回答后对方无新通知；通知行 href 无锚点，点进去落在问题页顶部
+  verify: node scripts/assert/notify-comment-anchor.mjs
+  risk: med
+- [ ] Z1039 浏览量一次访问 +2 且页面与接口不同步（P2）：接口 6→8，同屏文案显示 7
+  verify: node scripts/assert/view-count-once.mjs
+  risk: low
+- [ ] Z1040 评论发布零反馈（P2）：无 toast，且按钮文本变「收起评论」顶掉计数
+  verify: node scripts/assert/comment-feedback.mjs
+  risk: low
+- [ ] Z1041 结果页内嵌搜索框（P2）：「换个关键词」「取消搜索」都清空关键词退回首页、焦点落 BODY；移动端叠加 Z1031 等于退出即无法再搜
+  verify: node scripts/assert/search-inline-input.mjs
+  risk: low
+- [ ] Z1042 「查看全部 N 个回答」展开后不能收起（P2）：5→10 条后按钮消失，页面长度翻倍
+  verify: node scripts/assert/answers-collapse.mjs
+  risk: low
+- [ ] Z1043 「邀请回答」仍是复制链接（P2）：无弹窗无选择器，toast 只是问题 URL
+  verify: node scripts/assert/invite-dialog.mjs
+  risk: med
+
