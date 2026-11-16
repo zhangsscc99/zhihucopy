@@ -419,9 +419,9 @@
 - [x] Z1044 搜索范围与 placeholder 承诺不一致（P1）：顶栏 placeholder 写「搜索问题、回答、用户」，实际只匹配问题标题/摘要/话题名——取回答正文片段「的观点：代码质量的核」搜索返回 0 条 ✅ (2026-11-16 devin：/search 新增 type=answer（正文子串+测试过滤+#answer- 锚点）与 type=user（昵称/bio+关注者/回答数），counts 三 scope 常返回；结果页知乎风文本 tab（问题/回答/用户）由 ?type= 驱动，回答卡/用户行复用 feed 视觉)
   verify: node scripts/assert/search-scope.mjs
   risk: med
-- [ ] Z1045 公开内容残留测试评论与空详情问题（P1）：`/question/1` 首答评论区可见「评论回写验证 rv6-…」「评论功能验证 comment-ui-2007」「巡检甲2：…」；推荐流首条问题 `detail_md` 为空仍占首屏
+- [x] Z1045 公开内容残留测试评论与空详情问题（P1）：`/question/1` 首答评论区可见「评论回写验证 rv6-…」「评论功能验证 comment-ui-2007」「巡检甲2：…」；推荐流首条问题 `detail_md` 为空仍占首屏
   verify: node scripts/assert/content-residue.mjs
-  risk: med
+  risk: med ✅ (2026-11-16 devin：评论正文/作者双侧过滤（`testCommentSql`，公共列表与 total 同源）+ 标题侧抓「复盘 <token> ？」残留 + 摘要空态「暂无补充说明」；(detail_md 为空的门控已被返修撤销——detail_md 是可选字段，门控会藏掉真实新问题)
 - [ ] Z1046 首页「加载更多」无加载反馈（P2）：点击后 1.7s 内 `[class*=skeleton]` 为 0、按钮无 loading 态，用户无法判断是否点中
   verify: node scripts/assert/loadmore-feedback.mjs
   risk: low
@@ -444,4 +444,19 @@
   risk: med
 - [ ] Z1051 用户搜索结果同昵称重号无区分（P2）：`?q=代码&type=user` 里「山月 / 山月227 / 山月47」bio 完全相同（种子数据），行内无盐值/等级/注册时间差异，用户无法判断该点谁
   verify: node scripts/assert/user-result-diff.mjs
+  risk: low
+
+## 第十四轮巡检待办（2026-11-16 05:4x，来源 docs/PRODUCT-REVIEW.md 第十四轮 Playwright 实测）
+
+- [ ] Z1052 评论无「回复」入口（P2）：后端 `POST /comments` 已支持 `parent_id` 且给被回复者写 `comment` 通知，但前端评论行只有「删除」（仅自己），实测接口建二级评论成功（id 425/426）而 UI 无法触达
+  verify: node scripts/assert/comment-reply-ui.mjs
+  risk: low
+- [ ] Z1053 通知行 `.ntf__hit` 与 `.ntf__title` 双链接命中歧义（P2）：点击覆盖层 `<a>` 被同 href 的标题 `<a>` intercept（Playwright 32 次重试失败）；整行应改单链接 `::after` 撑满
+  verify: node scripts/assert/ntf-hit-layer.mjs
+  risk: low
+- [ ] Z1054 cleanup-artifacts 多会话 API 模式第二会话恒 401（P2，测试基建）：本轮 3 次复现 `[api] session#2 HTTP 401 请先登录`，产物靠 session#1 兜底删净；应先删产物后删用户，或每会话独立鉴权
+  verify: node scripts/assert/cleanup-multi-session.mjs
+  risk: low
+- [ ] Z1055 回答分页路径生产数据下不可达（P2，覆盖盲区）：线上最大 `answer_count=4`（q=1），「加载更多回答」按钮未出现、分页代码零覆盖；种子库需补 >pageSize 回答的演示问题，否则回归无人能发现
+  verify: node scripts/assert/answers-pagination.mjs
   risk: low
