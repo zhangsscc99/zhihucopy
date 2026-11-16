@@ -439,3 +439,9 @@
   verify: node scripts/assert/search-tab-crash.mjs
   risk: high
 
+- [ ] Z1050 断言残留可见测试账号（P1）：`search-scope.mjs` 每跑一次注册一个 `@example.com` 的 `z1044user*`（刻意不被 testUserSql 过滤才能被搜到），但 `cleanup-artifacts` 无删账号接口 → `skipped=1`，线上「用户」tab 搜 `z1044user` 已能搜到多个残留号；需给 admin 增加硬删测试账号（或断言侧 DB 级自清），并把已残留的账号清掉
+  verify: node scripts/assert/assert-residue-users.mjs
+  risk: med
+- [ ] Z1051 用户搜索结果同昵称重号无区分（P2）：`?q=代码&type=user` 里「山月 / 山月227 / 山月47」bio 完全相同（种子数据），行内无盐值/等级/注册时间差异，用户无法判断该点谁
+  verify: node scripts/assert/user-result-diff.mjs
+  risk: low
