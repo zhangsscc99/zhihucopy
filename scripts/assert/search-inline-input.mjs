@@ -92,7 +92,7 @@ async function zeroKeyword() {
     const res = await apiGet(`/search?q=${encodeURIComponent(w)}`).catch(() => null);
     if (res && (res.counts?.question ?? res.total ?? 1) === 0) return w;
   }
-  return `zzq${stamp}`;
+  throw new Error(`无法构造零结果关键词：三个候选词均有命中（环境/数据问题，非产品失败）`);
 }
 
 function injectErrs(page) {
@@ -147,6 +147,29 @@ async function main() {
     );
     expect(await input.isEditable(), ".msearchbar input 不可编辑");
 
+    // (1b) 焦点可见性：聚焦内嵌输入框后，卡片边框色必须变化且非 transparent
+    const borderBefore = await page.evaluate(
+      () => getComputedStyle(document.querySelector(".msearchbar")).borderColor
+    );
+    await input.focus();
+    await page.waitForTimeout(150);
+    const focusVis = await page.evaluate(() => {
+      const barEl = document.querySelector(".msearchbar");
+      const inpEl = barEl.querySelector('input[type="search"]');
+      return {
+        barColor: getComputedStyle(barEl).borderColor,
+        inpColor: getComputedStyle(inpEl).borderColor,
+        focused: document.activeElement === inpEl,
+      };
+    });
+    expect(focusVis.focused, "input.focus() 后 activeElement 不是内嵌输入框");
+    const isTransparent = (c) => !c || c === "transparent" || c === "rgba(0, 0, 0, 0)";
+    expect(
+      !(isTransparent(focusVis.barColor) || focusVis.barColor === borderBefore) ||
+        !isTransparent(focusVis.inpColor),
+      `焦点态不可见：卡片 borderColor 聚焦前后同为 ${borderBefore}，输入框为 ${focusVis.inpColor}`
+    );
+
     // (2) 改词回车 → URL q=新词、标题跟变、页面非空、无页面错误
     await input.fill(W2);
     await input.press("Enter");
@@ -168,6 +191,36 @@ async function main() {
     expect(bodyLen > 200, `改词后页面内容过少：innerText=${bodyLen}`);
     const errs = await pageErrs(page);
     expect(errs.length === 0, `改词续搜出现页面错误：${errs.join(" | ")}`);
+
+    // (2b) type=answer 下换词：分类 tab 必须保留（URL 仍带 type=answer，「回答」仍选中）
+    await page.goto(`${BASE}/search?q=${encodeURIComponent(W1)}&type=answer`, {
+      waitUntil: "domcontentloaded",
+    });
+    const ansTab = page.locator('.stabs [role="tab"]:has-text("回答")').first();
+    await ansTab.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    expect(
+      (await ansTab.getAttribute("aria-selected")) === "true",
+      "打开 ?type=answer 后「回答」tab 未选中"
+    );
+    const ainput = page.locator('.msearchbar input[type="search"]').first();
+    await ainput.fill(W2);
+    await ainput.press("Enter");
+    await page.waitForFunction(
+      (w) =>
+        new URL(location.href).searchParams.get("q") === w &&
+        new URL(location.href).searchParams.get("type") === "answer",
+      W2,
+      { timeout: 8000 }
+    );
+    await page.waitForTimeout(300);
+    expect(
+      (await ansTab.getAttribute("aria-selected")) === "true",
+      "换词后「回答」tab 丢失选中态（type=answer 被丢掉？）"
+    );
+    const abodyLen = await page.evaluate(() => document.body.innerText.length);
+    expect(abodyLen > 200, `type=answer 换词后页面内容过少：innerText=${abodyLen}`);
+    const aerrs = await pageErrs(page);
+    expect(aerrs.length === 0, `type=answer 换词出现页面错误：${aerrs.join(" | ")}`);
 
     // (3) 零结果 → 「换个关键词」原地聚焦+全选，URL 不变
     await page.goto(`${BASE}/search?q=${encodeURIComponent(ZERO)}`, {
@@ -199,6 +252,8 @@ async function main() {
       focusState.selStart === 0 && focusState.selEnd === focusState.len && focusState.len > 0,
       `内嵌输入框未全选：sel=${focusState.selStart}..${focusState.selEnd} len=${focusState.len}`
     );
+    const errs3 = await pageErrs(page);
+    expect(errs3.length === 0, `「换个关键词」后出现页面错误：${errs3.join(" | ")}`);
 
     // (4) 「取消搜索」→ 回首页，焦点落在 header 内搜索输入框（不落到 BODY）
     const exitBtn = page.locator('.search-head__exit, button:has-text("取消搜索")').first();
@@ -228,6 +283,10 @@ async function main() {
       land.inHeader && land.isSearchInput,
       `落地焦点不在 header 搜索框：tag=${land.tag} inHeader=${land.inHeader}`
     );
+    const homeLen = await page.evaluate(() => document.body.innerText.length);
+    expect(homeLen > 200, `取消搜索回首页后内容过少：innerText=${homeLen}`);
+    const errs4 = await pageErrs(page);
+    expect(errs4.length === 0, `「取消搜索」后出现页面错误：${errs4.join(" | ")}`);
 
     // ---------- 移动端 390×844 ----------
     const mctx = await browser.newContext({

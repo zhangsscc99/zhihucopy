@@ -411,7 +411,7 @@ function SearchResults({ q }: { q: string }) {
   // 切 tab：写 URL ?type=（问题 tab 不带参数），分页自然回到第 1 页。
   const setScope = (t: SearchScope) =>
     navigate(`${searchHref(q)}${t === "question" ? "" : `&type=${t}`}`);
-  const submitMobile = (e: React.FormEvent) => {
+  const submitInline = (e: React.FormEvent) => {
     e.preventDefault();
     const t = qInput.trim();
     if (!t) return;
@@ -422,7 +422,7 @@ function SearchResults({ q }: { q: string }) {
 
   return (
     <>
-      <form className="msearchbar" role="search" onSubmit={submitMobile}>
+      <form className="msearchbar" role="search" aria-label="在结果中搜索" onSubmit={submitInline}>
         <input
           ref={inlineSearchRef}
           type="search"

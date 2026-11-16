@@ -2787,6 +2787,9 @@ a.ntf__title:hover {
 .msearchbar__input:focus {
   border-color: transparent;
 }
+.msearchbar:focus-within {
+  border-color: var(--accent);
+}
 .msearchbar__go {
   flex-shrink: 0;
   padding: 6px 14px;
