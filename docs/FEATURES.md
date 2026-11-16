@@ -416,7 +416,7 @@
 
 ## 第十二轮巡检待办（2026-11-16 01:47，来源 docs/PRODUCT-REVIEW.md 第十二轮 Playwright 实测）
 
-- [ ] Z1044 搜索范围与 placeholder 承诺不一致（P1）：顶栏 placeholder 写「搜索问题、回答、用户」，实际只匹配问题标题/摘要/话题名——取回答正文片段「的观点：代码质量的核」搜索返回 0 条
+- [x] Z1044 搜索范围与 placeholder 承诺不一致（P1）：顶栏 placeholder 写「搜索问题、回答、用户」，实际只匹配问题标题/摘要/话题名——取回答正文片段「的观点：代码质量的核」搜索返回 0 条 ✅ (2026-11-16 devin：/search 新增 type=answer（正文子串+测试过滤+#answer- 锚点）与 type=user（昵称/bio+关注者/回答数），counts 三 scope 常返回；结果页知乎风文本 tab（问题/回答/用户）由 ?type= 驱动，回答卡/用户行复用 feed 视觉)
   verify: node scripts/assert/search-scope.mjs
   risk: med
 - [ ] Z1045 公开内容残留测试评论与空详情问题（P1）：`/question/1` 首答评论区可见「评论回写验证 rv6-…」「评论功能验证 comment-ui-2007」「巡检甲2：…」；推荐流首条问题 `detail_md` 为空仍占首屏
