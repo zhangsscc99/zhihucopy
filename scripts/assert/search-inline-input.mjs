@@ -147,27 +147,52 @@ async function main() {
     );
     expect(await input.isEditable(), ".msearchbar input 不可编辑");
 
-    // (1b) 焦点可见性：聚焦内嵌输入框后，卡片边框色必须变化且非 transparent
-    const borderBefore = await page.evaluate(
-      () => getComputedStyle(document.querySelector(".msearchbar")).borderColor
-    );
+    // (1b) 焦点可见性（收紧，Z1065）：容器边框/阴影必须「相对聚焦前变化」且非 transparent；
+    //      输入框自身须满足 outline 可见 或 border-color 相对基线变化（至少一个真实变化）。
+    const before = await page.evaluate(() => {
+      const barEl = document.querySelector(".msearchbar");
+      const inpEl = barEl.querySelector('input[type="search"]');
+      const bs = getComputedStyle(barEl);
+      const is = getComputedStyle(inpEl);
+      return {
+        barColor: bs.borderColor,
+        barShadow: bs.boxShadow,
+        inpColor: is.borderColor,
+      };
+    });
     await input.focus();
     await page.waitForTimeout(150);
     const focusVis = await page.evaluate(() => {
       const barEl = document.querySelector(".msearchbar");
       const inpEl = barEl.querySelector('input[type="search"]');
+      const bs = getComputedStyle(barEl);
+      const is = getComputedStyle(inpEl);
       return {
-        barColor: getComputedStyle(barEl).borderColor,
-        inpColor: getComputedStyle(inpEl).borderColor,
+        barColor: bs.borderColor,
+        barShadow: bs.boxShadow,
+        inpColor: is.borderColor,
+        inpOutline: is.outlineStyle,
+        inpOutlineWidth: is.outlineWidth,
         focused: document.activeElement === inpEl,
       };
     });
+    console.log(
+      `[ASSERT] focus-vis before=${JSON.stringify(before)} after=${JSON.stringify(focusVis)}`
+    );
     expect(focusVis.focused, "input.focus() 后 activeElement 不是内嵌输入框");
     const isTransparent = (c) => !c || c === "transparent" || c === "rgba(0, 0, 0, 0)";
+    const barChanged =
+      focusVis.barColor !== before.barColor || focusVis.barShadow !== before.barShadow;
     expect(
-      !(isTransparent(focusVis.barColor) || focusVis.barColor === borderBefore) ||
-        !isTransparent(focusVis.inpColor),
-      `焦点态不可见：卡片 borderColor 聚焦前后同为 ${borderBefore}，输入框为 ${focusVis.inpColor}`
+      barChanged && !isTransparent(focusVis.barColor),
+      `焦点态不可见：容器 borderColor/boxShadow 未真实变化 before=${before.barColor}/${before.barShadow} after=${focusVis.barColor}/${focusVis.barShadow}`
+    );
+    const inpOutlineVis =
+      focusVis.inpOutline !== "none" && focusVis.inpOutlineWidth !== "0px";
+    const inpBorderChanged = focusVis.inpColor !== before.inpColor;
+    expect(
+      inpOutlineVis || inpBorderChanged,
+      `输入框自身无真实焦点态变化：outline=${focusVis.inpOutline} ${focusVis.inpOutlineWidth}，borderColor before=${before.inpColor} after=${focusVis.inpColor}`
     );
 
     // (2) 改词回车 → URL q=新词、标题跟变、页面非空、无页面错误

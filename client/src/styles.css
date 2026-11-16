@@ -2809,6 +2809,11 @@ a.ntf__title:hover {
 .msearchbar__input:focus {
   border-color: transparent;
 }
+.msearchbar__input:focus-visible {
+  outline: 2px solid #0066FF;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .msearchbar:focus-within {
   border-color: var(--accent);
 }
