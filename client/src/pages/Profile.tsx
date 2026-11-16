@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { followUser, get, unfollowUser } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -119,14 +119,42 @@ function QuestionItem({ q }: { q: Question }) {
   );
 }
 
-function ProfileAnswers({ userId }: { userId: number }) {
+function ProfileAnswers({ userId, isMe }: { userId: number; isMe: boolean }) {
   const list = useAuthorList<Answer>(`/answers?author=${userId}`);
   if (list.loading) return <Spinner />;
   if (list.error && list.items.length === 0)
     return <ErrorBox message={list.error} onRetry={list.retry} />;
   if (list.items.length === 0)
-    return (
-      <Empty title="还没有回答" hint="这个人还没有写过回答。" />
+    return isMe ? (
+      <Empty
+        title="还没有回答"
+        hint="挑一个你感兴趣的问题，写下第一条回答。"
+        action={
+          <div className="empty__actions">
+            <Link to="/unanswered" className="btn btn--primary">
+              写回答
+            </Link>
+            <Link to="/ask" className="btn btn--outline">
+              去提问
+            </Link>
+          </div>
+        }
+      />
+    ) : (
+      <Empty
+        title="还没有回答"
+        hint="TA 还没有写过回答，先去别处逛逛。"
+        action={
+          <div className="empty__actions">
+            <Link to="?tab=questions" className="btn btn--primary">
+              浏览 TA 的提问
+            </Link>
+            <Link to="/" className="btn btn--outline">
+              去逛逛推荐
+            </Link>
+          </div>
+        }
+      />
     );
   return (
     <>
@@ -140,14 +168,42 @@ function ProfileAnswers({ userId }: { userId: number }) {
   );
 }
 
-function ProfileQuestions({ userId }: { userId: number }) {
+function ProfileQuestions({ userId, isMe }: { userId: number; isMe: boolean }) {
   const list = useAuthorList<Question>(`/questions?author=${userId}`);
   if (list.loading) return <Spinner />;
   if (list.error && list.items.length === 0)
     return <ErrorBox message={list.error} onRetry={list.retry} />;
   if (list.items.length === 0)
-    return (
-      <Empty title="还没有提问" hint="这个人还没有提过问题。" />
+    return isMe ? (
+      <Empty
+        title="还没有提问"
+        hint="好奇什么就问出来，第一条提问只需要一句话。"
+        action={
+          <div className="empty__actions">
+            <Link to="/ask" className="btn btn--primary">
+              去提问
+            </Link>
+            <Link to="/unanswered" className="btn btn--outline">
+              写回答
+            </Link>
+          </div>
+        }
+      />
+    ) : (
+      <Empty
+        title="还没有提问"
+        hint="TA 还没有提过问题，先去别处逛逛。"
+        action={
+          <div className="empty__actions">
+            <Link to="?tab=answers" className="btn btn--primary">
+              看看 TA 的回答
+            </Link>
+            <Link to="/" className="btn btn--outline">
+              去逛逛推荐
+            </Link>
+          </div>
+        }
+      />
     );
   return (
     <>
@@ -203,7 +259,9 @@ export function Profile() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>("answers");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: TabKey =
+    searchParams.get("tab") === "questions" ? "questions" : "answers";
   const [colCount, setColCount] = useState<number | null>(null);
   const [following, setFollowing] = useState(false);
   const [followPending, setFollowPending] = useState(false);
@@ -213,7 +271,6 @@ export function Profile() {
   // seq 守卫：切用户时在途响应直接丢弃，不落到新主页。
   useEffect(() => {
     const seq = ++profileSeq.current;
-    setTab("answers");
     setLoading(true);
     setError("");
     setFollowing(false);
@@ -231,6 +288,8 @@ export function Profile() {
       });
   }, [id]);
 
+  // tab 以 URL 为唯一真源：tab 按钮与空态 CTA 都只写 ?tab=，展示由此派生，
+  // 避免「URL 已是目标值 → 点击无效」的同 URL 死链。
   const isMe = Boolean(me && data && me.id === data.user.id);
 
   const toggleFollow = async () => {
@@ -376,7 +435,7 @@ export function Profile() {
               role="tab"
               aria-selected={tab === t.key}
               className={`tabs__tab ${tab === t.key ? "tabs__tab--active" : ""}`}
-              onClick={() => setTab(t.key)}
+              onClick={() => setSearchParams({ tab: t.key })}
             >
               {t.label} {counts[t.key]}
             </button>
@@ -388,9 +447,9 @@ export function Profile() {
           )}
         </div>
         {tab === "answers" ? (
-          <ProfileAnswers userId={user.id} />
+          <ProfileAnswers userId={user.id} isMe={isMe} />
         ) : (
-          <ProfileQuestions userId={user.id} />
+          <ProfileQuestions userId={user.id} isMe={isMe} />
         )}
       </Card>
     </>
