@@ -1,6 +1,7 @@
 const express = require("express");
 const { getDb } = require("../db");
 const { parsePage, pageResult, badRequest } = require("../util");
+const { requireAuth } = require("../auth");
 const { testUserSql, testQuestionSql } = require("../content-filter");
 const { isCollected } = require("./collections");
 
@@ -110,6 +111,36 @@ router.get("/:id", (req, res) => {
       is_collected: isCollected(db, req.user && req.user.id, a.id),
     },
   });
+});
+
+// DELETE /answers/:id — 只能删除自己的回答（管理员可删任意），软删除且幂等。
+router.delete("/:id", requireAuth, (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return badRequest(res, "回答 id 无效");
+  const id = Number(req.params.id);
+
+  const db = getDb();
+  const a = db.prepare("SELECT * FROM answers WHERE id = ?").get(id);
+  if (!a) return res.status(404).json({ error: "回答不存在" });
+
+  const isOwner = a.author_id === req.user.id;
+  if (!isOwner && !req.user.is_admin) {
+    return res.status(403).json({ error: "只能删除自己的回答" });
+  }
+
+  if (a.is_deleted) {
+    return res.json({ ok: true, id, already_deleted: true });
+  }
+
+  db.transaction(() => {
+    db.prepare("UPDATE answers SET is_deleted = 1 WHERE id = ? AND is_deleted = 0").run(id);
+    db.prepare(
+      `UPDATE questions SET answer_count =
+         (SELECT COUNT(*) FROM answers WHERE question_id = ? AND is_deleted = 0)
+       WHERE id = ?`
+    ).run(a.question_id, a.question_id);
+  })();
+
+  res.json({ ok: true, id, deleted: true });
 });
 
 module.exports = router;

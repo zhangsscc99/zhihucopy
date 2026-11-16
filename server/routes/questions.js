@@ -211,19 +211,35 @@ router.get("/:id", (req, res) => {
        JOIN question_topics qt ON qt.topic_id = t.id WHERE qt.question_id = ?`
     )
     .all(q.id);
+  // 默认排序是公开口径：纯赞数序，作者与匿名访客看到同一顺序。
   const answerRows = db
     .prepare(
       `${ANSWER_SELECT}
        WHERE a.question_id = ? AND a.is_deleted = 0
-       ORDER BY a.vote_up DESC, a.created_at ASC LIMIT 5`
+       ORDER BY a.vote_up DESC, a.created_at ASC, a.id ASC LIMIT 5`
     )
     .all(q.id);
+  // 登录用户本人的回答单独成栏返回（前端「你的回答」固定条用）：
+  // 不改写公开排序，也能让作者刷新后在首屏找到自己的回答。
+  const myAnswerRows = req.user
+    ? db
+        .prepare(
+          `${ANSWER_SELECT}
+           WHERE a.question_id = ? AND a.is_deleted = 0 AND a.author_id = ?
+           ORDER BY a.created_at DESC, a.id DESC`
+        )
+        .all(q.id, req.user.id)
+    : [];
   const collected = collectedAnswerIds(
     db,
     req.user && req.user.id,
-    answerRows.map((a) => a.id)
+    [...answerRows, ...myAnswerRows].map((a) => a.id)
   );
   const answers = answerRows.map((a) => ({
+    ...answerRow(a),
+    is_collected: collected.has(a.id),
+  }));
+  const my_answers = myAnswerRows.map((a) => ({
     ...answerRow(a),
     is_collected: collected.has(a.id),
   }));
@@ -236,7 +252,11 @@ router.get("/:id", (req, res) => {
         .get(req.user.id, q.id).followed
     : false;
 
-  res.json({ question: { ...questionRow({ ...q, topics }), followed }, answers });
+  res.json({
+    question: { ...questionRow({ ...q, topics }), followed },
+    answers,
+    my_answers,
+  });
 });
 
 // GET /questions/:id/answers?sort=default|newest&page=&limit=
@@ -245,6 +265,8 @@ router.get("/:id/answers", (req, res) => {
   const qid = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
   if (!qid) return res.status(404).json({ error: "问题不存在" });
   const { page, limit, offset } = parsePage(req);
+  // 两种排序都是公开口径：default 纯赞数序，newest 纯时间序；
+  // 本人回答不进列表前位，由 detail 的 my_answers 单独成栏。
   const order =
     req.query.sort === "newest"
       ? "a.created_at DESC, a.id DESC"
