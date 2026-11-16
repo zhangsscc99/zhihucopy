@@ -38,6 +38,19 @@ const ANSWER_SORTS: { key: AnswerSort; label: string }[] = [
   { key: "newest", label: "最新" },
 ];
 
+// 排序态走 URL：?sort=new ⇄ 最新，缺省/其他 ⇄ 默认；刷新后保持。
+const readSort = (search: string): AnswerSort => {
+  const v = new URLSearchParams(search).get("sort");
+  return v === "new" || v === "newest" ? "newest" : "default";
+};
+const sortSearch = (s: AnswerSort) => (s === "newest" ? "?sort=new" : "");
+
+// 固定条/摘要共用：去 Markdown 记号、压平空白后截断（保留连字符等普通标点）。
+const answerExcerpt = (md: string, n = 80) => {
+  const text = md.replace(/[#>*`[\]()!]/g, "").replace(/\s+/g, " ").trim();
+  return text.length > n ? `${text.slice(0, n)}…` : text;
+};
+
 export function Question() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -91,36 +104,77 @@ export function Question() {
   const [uncollecting, setUncollecting] = useState<Record<number, boolean>>({});
 
   // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
-  const [sort, setSort] = useState<AnswerSort>("default");
+  const [sort, setSort] = useState<AnswerSort>(() => readSort(location.search));
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [moreLoading, setMoreLoading] = useState(false);
   const [moreError, setMoreError] = useState("");
   const [sortLoading, setSortLoading] = useState(false);
   const [newId, setNewId] = useState<number | null>(null);
+  // 本人在本问题下的回答（detail 的 my_answers）：固定条独立成栏，不进排序列表。
+  const [myAnswers, setMyAnswers] = useState<Answer[]>([]);
+  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
+  const [delPending, setDelPending] = useState<Record<number, boolean>>({});
   const answersReq = useRef(0);
+
+  // sort / sortLoading 都留一份 ref 影子值：effect 和 promise 回调里要读
+  // 「已生效」的最新值，闭包里的 state 是发请求那一帧的。写它们一律走 sync*。
+  const sortRef = useRef(sort);
+  const sortLoadingRef = useRef(false);
+  const syncSort = (s: AnswerSort) => {
+    sortRef.current = s;
+    setSort(s);
+  };
+  const syncSortLoading = (v: boolean) => {
+    sortLoadingRef.current = v;
+    setSortLoading(v);
+  };
+  // 「这个问题 + 这个排序」在 URL 驱动路径上失败过的指纹：effect 对账命中即
+  // 跳过并纠回地址栏，不在同一次失败上自激重试；按钮（syncUrl）路径不受拦。
+  const sortFailedKeyRef = useRef<string | null>(null);
 
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const editorBoxRef = useRef<HTMLElement>(null);
 
+  const answersUrl = (s: AnswerSort, p: number) =>
+    `/questions/${id}/answers?sort=${s}&page=${p}&limit=${ANSWER_PAGE_SIZE}`;
+
   const load = useCallback(() => {
     const seq = ++answersReq.current;
+    const wanted = readSort(window.location.search);
     setLoading(true);
-    setSort("default");
+    syncSort(wanted);
     setPage(0);
     setHasMore(false);
     setMoreLoading(false);
-    setSortLoading(false);
+    syncSortLoading(false);
     setMoreError("");
     setNewId(null);
-    get<{ question: QuestionType; answers: Answer[] }>(`/questions/${id}`)
+    setMyAnswers([]);
+    setConfirmDelId(null);
+    get<{ question: QuestionType; answers: Answer[]; my_answers?: Answer[] }>(
+      `/questions/${id}`
+    )
       .then((d) => {
         if (seq !== answersReq.current) return;
         setQuestion(d.question);
         setFollowing(Boolean(d.question.followed));
-        setAnswers(d.answers);
-        setHasMore(d.question.answer_count > d.answers.length);
+        setMyAnswers(d.my_answers ?? []);
         setError("");
+        if (wanted === "default") {
+          setAnswers(d.answers);
+          setHasMore(d.question.answer_count > d.answers.length);
+          return;
+        }
+        // ?sort=new 深链/刷新：detail 只给默认序首屏，最新序另取分页第 1 页
+        return get<Page<Answer>>(
+          `/questions/${id}/answers?sort=newest&page=1&limit=${ANSWER_PAGE_SIZE}`
+        ).then((res) => {
+          if (seq !== answersReq.current) return;
+          setAnswers(res.items);
+          setPage(1);
+          setHasMore(res.has_more);
+        });
       })
       .catch((e) => {
         if (seq !== answersReq.current) return;
@@ -133,9 +187,6 @@ export function Question() {
   }, [id]);
 
   useEffect(load, [load]);
-
-  const answersUrl = (s: AnswerSort, p: number) =>
-    `/questions/${id}/answers?sort=${s}&page=${p}&limit=${ANSWER_PAGE_SIZE}`;
 
   const loadMoreAnswers = () => {
     if (moreLoading || sortLoading || !hasMore) return;
@@ -163,35 +214,87 @@ export function Question() {
       });
   };
 
-  const switchSort = (next: AnswerSort) => {
-    if (next === sort || sortLoading) return;
+  // 切排序：syncUrl 时把状态写进 ?sort=（replace，不污染历史）；失败回滚
+  // {sort,page,hasMore} 三态（answers 未动过，旧列表与旧分页态一致）。
+  const applySort = (next: AnswerSort, syncUrl: boolean) => {
+    if (next === sortRef.current) return;
+    // URL 同步调用不抢在途排序请求：等它落地后由落地对账收敛（见 finally）。
+    if (sortLoadingRef.current && !syncUrl) return;
     const seq = ++answersReq.current;
-    const prev = { sort, page, hasMore };
-    setSort(next);
+    const prev = { sort: sortRef.current, page, hasMore };
+    syncSort(next);
+    if (syncUrl) {
+      navigate(
+        { pathname: location.pathname, search: sortSearch(next) },
+        { replace: true }
+      );
+    }
     setPage(0);
     setHasMore(false);
     setMoreLoading(false);
     setMoreError("");
-    setSortLoading(true);
+    syncSortLoading(true);
     get<Page<Answer>>(answersUrl(next, 1))
       .then((res) => {
         if (seq !== answersReq.current) return;
+        sortFailedKeyRef.current = null;
         setAnswers(res.items);
         setPage(1);
         setHasMore(res.has_more);
       })
       .catch((e: Error) => {
         if (seq !== answersReq.current) return;
-        setSort(prev.sort);
+        sortFailedKeyRef.current = `${id}|${next}`;
+        syncSort(prev.sort);
         setPage(prev.page);
         setHasMore(prev.hasMore);
+        // 失败回滚必须连地址栏一起纠正（URL 驱动路径也要）：地址栏停在
+        // 拉不动的 ?sort= 上会让 effect 对账永远 readSort!=sort，自激成
+        // 无限重试 + 重复弹错。
+        navigate(
+          { pathname: location.pathname, search: sortSearch(prev.sort) },
+          { replace: true }
+        );
         toast(`切换排序失败：${e.message || "网络错误"}`, "error");
       })
       .finally(() => {
         if (seq !== answersReq.current) return;
-        setSortLoading(false);
+        syncSortLoading(false);
+        // 落地时补一次对账：在途期间 URL 可能被后退/前进又改过，而 loading
+        // 守卫把当时的 effect 跳过了——这里收敛到当前地址栏想要的排序。
+        const wanted = readSort(window.location.search);
+        if (wanted !== sortRef.current) applySort(wanted, false);
       });
   };
+
+  const switchSort = (next: AnswerSort) => {
+    if (next === sort || sortLoading) return;
+    applySort(next, true);
+  };
+
+  // 前进/后退或直接改 ?sort= 时跟随 URL（与 seg 点击共用同一条加载路径）。
+  // 只对「已加载的就是当前路由问题」做排序对账：跨问题导航（含 search 变化）
+  // 由 load 全权负责——load 自己按 window.location.search 取数并复位 loading。
+  // 否则这里会用旧闭包（loading===false、question 还是旧问题）调用 applySort，
+  // 抢走 answersReq 序号：detail 响应被丢弃、loading 永不复位、页面卡 Spinner。
+  const searchKey = location.search;
+  useEffect(() => {
+    if (loading || !question || String(question.id) !== id) return;
+    const wanted = readSort(searchKey);
+    // 同一「问题|排序」刚失败过：不再自激重试；但把地址栏纠回当前生效的
+    // 排序，保证 URL 与按钮选中态一致（按钮手动重试走 syncUrl，不受此拦）。
+    if (sortFailedKeyRef.current === `${id}|${wanted}`) {
+      if (sortRef.current !== wanted) {
+        navigate(
+          { pathname: location.pathname, search: sortSearch(sortRef.current) },
+          { replace: true }
+        );
+      }
+      return;
+    }
+    applySort(wanted, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey, loading, question, id]);
 
   // 刚发布的回答：本地置顶后滚动定位 + 短暂高亮
   useEffect(() => {
@@ -447,6 +550,26 @@ export function Question() {
     }
   };
 
+  // 「你的回答」固定条删除入口：软删除后两侧列表同步摘除、页头计数 -1。
+  const removeAnswer = async (a: Answer) => {
+    if (delPending[a.id]) return;
+    setDelPending((d) => ({ ...d, [a.id]: true }));
+    try {
+      await del(`/answers/${a.id}`);
+      setAnswers((xs) => xs.filter((x) => x.id !== a.id));
+      setMyAnswers((xs) => xs.filter((x) => x.id !== a.id));
+      setQuestion((q) =>
+        q ? { ...q, answer_count: Math.max(0, q.answer_count - 1) } : q
+      );
+      setConfirmDelId(null);
+      toast("回答已删除");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setDelPending((d) => ({ ...d, [a.id]: false }));
+    }
+  };
+
   const share = async (a: Answer) => {
     const url = `${window.location.origin}/zhihucopy/question/${id}#answer-${a.id}`;
     try {
@@ -465,6 +588,7 @@ export function Question() {
         content_md: draft,
       });
       setAnswers((xs) => [answer, ...xs.filter((x) => x.id !== answer.id)]);
+      setMyAnswers((xs) => [answer, ...xs.filter((x) => x.id !== answer.id)]);
       setQuestion((q) => (q ? { ...q, answer_count: q.answer_count + 1 } : q));
       setNewId(answer.id);
       setDraft("");
@@ -556,6 +680,75 @@ export function Question() {
               去登录
             </Link>
           </p>
+        )}
+        {myAnswers.length > 0 && (
+          <section className="myanswers" aria-label="你的回答">
+            <h3 className="myanswers__title">你的回答</h3>
+            <ul className="myanswers__list">
+              {myAnswers.map((a) => {
+                const inList = answers.some((x) => x.id === a.id);
+                return (
+                  <li key={a.id} className="myanswers__item">
+                    <div className="myanswers__body">
+                      <p className="myanswers__excerpt">
+                        {answerExcerpt(a.content_md)}
+                      </p>
+                      <p className="myanswers__meta">
+                        {a.vote_up} 赞同 · {a.comment_count} 评论 · 发布于{" "}
+                        {formatTime(a.created_at)}
+                      </p>
+                    </div>
+                    <div className="myanswers__ops">
+                      {inList && (
+                        <button
+                          type="button"
+                          className="myanswers__op"
+                          onClick={() =>
+                            document
+                              .getElementById(`answer-${a.id}`)
+                              ?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              })
+                          }
+                        >
+                          定位
+                        </button>
+                      )}
+                      {confirmDelId === a.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="myanswers__op myanswers__op--danger"
+                            disabled={delPending[a.id]}
+                            onClick={() => void removeAnswer(a)}
+                          >
+                            {delPending[a.id] ? "删除中…" : "确认删除"}
+                          </button>
+                          <button
+                            type="button"
+                            className="myanswers__op"
+                            disabled={delPending[a.id]}
+                            onClick={() => setConfirmDelId(null)}
+                          >
+                            取消
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="myanswers__op"
+                          onClick={() => setConfirmDelId(a.id)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
         {answers.length === 0 ? (
           <Empty title="还没有回答" hint="写下第一个回答，帮提问的人一把" />

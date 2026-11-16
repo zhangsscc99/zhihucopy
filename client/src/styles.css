@@ -722,26 +722,33 @@ mark.hl {
   gap: 12px;
 }
 .answers__sort {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 .answers__sort-btn {
   font: inherit;
   font-size: 13px;
+  line-height: 1.6;
   color: var(--ink-3);
   background: none;
   border: none;
-  padding: 0;
+  border-radius: 2px;
+  padding: 2px 12px;
   cursor: pointer;
 }
 .answers__sort-btn:hover {
-  color: var(--accent);
+  color: var(--ink-2);
 }
 .answers__sort-btn--active,
 .answers__sort-btn--active:hover {
   color: var(--ink);
   font-weight: 600;
+  background: var(--surface);
 }
 .answers__sort-btn:disabled {
   opacity: 0.55;
@@ -767,6 +774,81 @@ mark.hl {
 }
 .answers__login-cta:hover {
   text-decoration: underline;
+}
+
+/* 「你的回答」固定条：本人回答独立成栏，不改写公开排序列表 */
+.myanswers {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.myanswers__title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.myanswers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.myanswers__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.myanswers__item + .myanswers__item {
+  border-top: 1px solid var(--line);
+}
+.myanswers__body {
+  min-width: 0;
+}
+.myanswers__excerpt {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.myanswers__meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.myanswers__ops {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+}
+.myanswers__op {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.myanswers__op:hover {
+  color: var(--accent);
+}
+.myanswers__op--danger,
+.myanswers__op--danger:hover {
+  color: var(--seal);
+}
+.myanswers__op:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .answer--new {
   animation: answer-new-fade 2.4s ease-out;
