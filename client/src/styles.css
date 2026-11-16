@@ -1691,7 +1691,6 @@ mark.hl {
 /* ---------- 话题选择（/ask） ---------- */
 
 .topic-select {
-  position: relative;
   margin-top: 6px;
 }
 .topic-select__box {
@@ -1740,14 +1739,13 @@ mark.hl {
 .topic-select__input:focus-visible {
   outline: none;
 }
+/* 菜单走正常文档流（非 absolute）：展开时把下方 .form-actions 一起往下推，
+ * 实测菜单与「发布问题」按钮的 getBoundingClientRect 永不相交（重叠面积 0），
+ * elementFromPoint(按钮中心) 始终命中按钮本身——absolute+max-height 方案
+ * 无法保证这一点（输入框离按钮仅约 20px，任何可见高度都会盖住按钮）。 */
 .topic-select__menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
   max-height: 240px;
-  margin: 0;
+  margin: 4px 0 0;
   padding: 4px;
   overflow-y: auto;
   list-style: none;
