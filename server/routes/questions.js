@@ -17,10 +17,11 @@ const AUTHOR_COLS =
 const HOT_SCORE_SQL =
   "(q.answer_count * 3 + q.follower_count * 2 + q.view_count)";
 
-// 公共流（推荐/热榜/最新）只收有补充说明的问题：detail_md 去空白后为空的
-// 卡片没有摘要可展示，落在首屏像坏数据（Z1045）。个人页 author= 口径不受限
-// —— 用户主页要如实列出其全部提问。/feed/recommended、/feed/hot 复用同一常量。
-const HAS_DETAIL_SQL = "TRIM(COALESCE(q.detail_md, '')) <> ''";
+// 注意（Z1045 返修）：公共流不按 detail_md 是否为空做门控。detail_md 是
+// POST /questions 的可选字段（见下方 detail_md || ""），真实用户只填标题
+// 的问题若被过滤，会同时从最新/推荐/热榜消失 —— 提完刷新看不到自己的问题。
+// 无摘要的展示问题由前端「暂无补充说明」灰字兜底；自动化残留走
+// content-filter 的标题形态规则（如「复盘 <token> ？」）。
 
 // 热榜排名快照（进程内存，无快照表/库列时的轻量口径）：上一次请求的整榜
 // id -> 名次，用于 rank_delta = 上次名次 - 本次名次（>0 即上升）。
@@ -152,9 +153,6 @@ router.get("/", (req, res) => {
     }
     conds.push(AUTHOR_QUESTIONS_WHERE);
     params.push(authorId);
-  } else if (tab !== "unanswered") {
-    // 公共流（非个人页、非「等回答」）排除空详情问题；等回答页保留全量口径。
-    conds.push(HAS_DETAIL_SQL);
   }
   if (tab === "unanswered") {
     conds.push("q.answer_count = 0");
@@ -394,4 +392,3 @@ module.exports = router;
 module.exports.questionRow = questionRow;
 module.exports.AUTHOR_QUESTIONS_WHERE = AUTHOR_QUESTIONS_WHERE;
 module.exports.HOT_SCORE_SQL = HOT_SCORE_SQL;
-module.exports.HAS_DETAIL_SQL = HAS_DETAIL_SQL;

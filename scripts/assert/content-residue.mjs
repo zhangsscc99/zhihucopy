@@ -1,8 +1,9 @@
 // content-residue.mjs — Z1045 验收断言：
 //   1) /question/1 首个回答的评论区不再出现自动化产物文案
 //      （「评论回写验证 rv6-*」「评论功能验证 comment-ui-*」「巡检第N轮/巡检甲*」）；
-//   2) /feed/recommended 前 10 条不含 detail_md 去空白为空的问题；
-//      （首页「推荐」tab 实际打 /questions?tab=new，一并对照前 10 条）
+//   2) /questions?tab=new 与 /feed/recommended 前 20 条不含测试形态标题
+//      （含「复盘 <token> ？」自动化残留），且都包含 id 339 —— 该问题是
+//      detail_md 为空的真实种子问题，防止将来有人再给公共流加 detail 门控；
 //   3) 计数一致性：随机抽 3 个问题，answers 接口 total 与 question.answer_count 一致。
 //
 // 判定口径直接复用 server/content-filter.js 的 isTestBody/isTestNickname，
@@ -16,7 +17,7 @@ import { ok, expect, main } from "./lib.mjs";
 const requireFromServer = createRequire(
   new URL("../../server/package.json", import.meta.url)
 );
-const { isTestBody, isTestNickname } = requireFromServer(
+const { isTestBody, isTestNickname, isTestTitle } = requireFromServer(
   "./content-filter.js"
 );
 
@@ -62,34 +63,29 @@ main("content-residue", async () => {
     `/question/1 首个回答评论区仍有 ${residue.length} 条测试产物`
   );
 
-  // ---- 2) 推荐流前 10 条无空 detail_md ----
-  const feed = await ok("GET", "/feed/recommended?page=1&limit=10");
-  const emptyInFeed = feed.items.filter(
-    (q) => !String(q.detail_md || "").trim()
-  );
-  console.log(
-    `[residue] /feed/recommended 前10条: items=${feed.items.length} 空detail_md=${emptyInFeed.length}`
-  );
-  for (const q of emptyInFeed) {
-    console.log(`  空详情: q#${q.id} ${q.title}`);
+  // ---- 2) 公共流前 20 条：无测试形态标题 + 空详情的真实问题（id 339）可见 ----
+  // Z1045 返修口径：detail_md 是可选字段，空详情问题必须照常出现在
+  // 最新/推荐流里；「复盘 <token> ？」这类自动化残留由标题形态规则抓出。
+  const feed = await ok("GET", "/feed/recommended?page=1&limit=20");
+  const newest = await ok("GET", "/questions?tab=new&page=1&limit=20");
+  for (const [name, list] of [
+    ["/feed/recommended", feed.items],
+    ["/questions?tab=new", newest.items],
+  ]) {
+    const hits = list.filter((q) => isTestTitle(q.title));
+    console.log(
+      `[residue] ${name} 前20条: items=${list.length} 测试形态标题=${hits.length}`
+    );
+    for (const q of hits) console.log(`  命中: q#${q.id} ${q.title}`);
+    expect(
+      hits.length === 0,
+      `${name} 前 20 条含 ${hits.length} 个测试形态标题（如「复盘 <token> ？」残留）`
+    );
+    expect(
+      list.some((q) => q.id === 339),
+      `${name} 前 20 条看不到 id 339（空 detail_md 真实问题）—— 疑似又加了 detail 门控`
+    );
   }
-  expect(
-    emptyInFeed.length === 0,
-    `推荐流前 10 条含 ${emptyInFeed.length} 个空 detail_md 问题`
-  );
-
-  // 首页「推荐」tab 实际请求的是 /questions?tab=new，同一口径对照。
-  const newest = await ok("GET", "/questions?tab=new&page=1&limit=10");
-  const emptyInNew = newest.items.filter(
-    (q) => !String(q.detail_md || "").trim()
-  );
-  console.log(
-    `[residue] /questions?tab=new 前10条: items=${newest.items.length} 空detail_md=${emptyInNew.length}`
-  );
-  expect(
-    emptyInNew.length === 0,
-    `tab=new 前 10 条含 ${emptyInNew.length} 个空 detail_md 问题`
-  );
 
   // ---- 3) 计数一致性：随机 3 个问题 answer_count === answers total ----
   const pool = newest.items.length ? newest.items : feed.items;
