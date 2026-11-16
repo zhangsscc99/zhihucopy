@@ -48,6 +48,13 @@ run("usermenu-a11y-name", async ({ browser, page }) => {
   await authed.goto(`${BASE}/`);
   await authed.locator(".usermenu__trigger").waitFor();
 
+  // 等首页内容区渲染完再量 innerText：usermenu 随 /auth/me 先渲染，
+  // feed 仍在 fetch，只看 trigger 会在冷启动时量到 ~70 字符的假白屏。
+  // 超时即真实失败（不 try/catch 吞掉）。
+  const tReady = Date.now();
+  await authed.locator(".feed__item, main .empty, .errorbox").first().waitFor({ timeout: 15000 });
+  console.log(`[ready] 首页内容容器就绪，等待 ${Date.now() - tReady}ms`);
+
   // ---- 通用守卫：页面非白屏 ----
   const bodyLen = await authed.evaluate(() => document.body.innerText.length);
   expect(bodyLen > 200, `页面内容过少：innerText=${bodyLen}`);
@@ -78,6 +85,8 @@ run("usermenu-a11y-name", async ({ browser, page }) => {
   expect(info, "未找到 .usermenu__trigger");
 
   // 可访问名 == 昵称原文，且不等于「首字母+昵称」拼接
+  // 注：user2 有头像时 accName 本身就等于昵称，咬不住「首字+昵称」
+  // 回归；该回归由下面的 aria-hidden||aria-label 守卫兜住。
   expect(
     info.accName === nickname,
     `可访问名「${info.accName}」≠ 昵称「${nickname}」（原文 rawText="${info.rawText}"）`
