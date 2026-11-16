@@ -256,6 +256,12 @@ run("comment-reply-ui", async ({ browser }) => {
   const deletedRows = page.locator("li.answer__comment", {
     has: page.locator(".answer__comment-body--deleted"),
   });
+  // [Z1069] 正向守卫：先确认场景里确实存在删除占位行，再断「无回复按钮」——
+  // 否则选择器一漂移整组断言恒真。
+  expect(
+    (await deletedRows.count()) > 0,
+    "正向守卫失败：页面应至少有一条「该评论已删除」占位行"
+  );
   expect(
     (await deletedRows.getByRole("button", { name: replyOpRe }).count()) === 0,
     "「该评论已删除」占位行不应出现「回复」按钮"
@@ -266,6 +272,41 @@ run("comment-reply-ui", async ({ browser }) => {
   );
   errs = await pageErrs(page);
   expect(errs.length === 0, `删父流程出现页面错误：${errs.join(" | ")}`);
+
+  // ---- [Z1069] 回复失败路径：表单仍开、[role=alert] 非空、草稿原样保留 ----
+  // 稳定复现：u2 发父评论 → 页面渲染出「回复」入口 → u1 展开表单并填草稿 →
+  // 服务端删掉父评论（页面行是陈旧的）→ 提交被 400「父评论不存在」拒。
+  const f1Text = mark("失败路径父评论");
+  const { comment: f1 } = await postComment(u2.token, aid, f1Text);
+  await page.reload();
+  await page.locator(".question__title").first().waitFor();
+  await ans.getByRole("button", { name: /条评论|收起评论/ }).click();
+  const f1Li = page.locator("li.answer__comment", { hasText: f1Text });
+  await f1Li.waitFor();
+  await f1Li.getByRole("button", { name: replyOpRe }).click();
+  expect((await replyForms.count()) === 1, "失败路径：回复表单未展开");
+  const failDraft = `失败草稿 ${Date.now()}`;
+  await replyForms.first().locator("textarea").fill(failDraft);
+  await apiOk("DELETE", `/comments/${f1.id}`, { token: u2.token });
+  await replyForms.first().getByRole("button", { name: "回复", exact: true }).click();
+  const failAlert = replyForms.first().locator("[role=alert]");
+  await failAlert.waitFor();
+  expect(
+    ((await failAlert.innerText()) || "").trim().length > 0,
+    "回复失败后 [role=alert] 未出现或文案为空"
+  );
+  expect(
+    (await replyForms.count()) === 1,
+    "回复失败后表单被关闭（应保持打开供用户重试/复制草稿）"
+  );
+  // 草稿用 inputValue() 读真实 value——getByText 会把 textarea 文本当节点文本误配。
+  const keptDraft = await replyForms.first().locator("textarea").inputValue();
+  expect(
+    keptDraft === failDraft,
+    `回复失败后草稿丢失：textarea=「${keptDraft}」期望「${failDraft}」`
+  );
+  errs = await pageErrs(page);
+  expect(errs.length === 0, `回复失败路径出现页面错误：${errs.join(" | ")}`);
 
   // ---- 匿名：点「回复」→ /login?next= ----
   const anon = await newPage(browser);

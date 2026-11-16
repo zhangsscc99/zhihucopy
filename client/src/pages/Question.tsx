@@ -179,6 +179,12 @@ export function Question() {
   const [replyDraft, setReplyDraft] = useState("");
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState("");
+  // replyFor 的 ref 镜像：removeComment 的 await 往返后要比对「当前」表单归属，
+  // 不能信发起那一帧的闭包值（期间用户可能已把表单切到别的评论）。
+  const replyForRef = useRef<number | null>(null);
+  useEffect(() => {
+    replyForRef.current = replyFor;
+  }, [replyFor]);
   const answersReq = useRef(0);
 
   // sort / sortLoading 都留一份 ref 影子值：effect 和 promise 回调里要读
@@ -222,8 +228,7 @@ export function Question() {
     setEditSaving(false);
     setCardConfirmDelId(null);
     setConfirmDelCommentId(null);
-    setReplyFor(null);
-    setReplyError("");
+    resetReplyState();
     get<{ question: QuestionType; answers: Answer[]; my_answers?: Answer[] }>(
       `/questions/${id}`
     )
@@ -306,6 +311,7 @@ export function Question() {
     setHasMore(false);
     setMoreLoading(false);
     setMoreError("");
+    resetReplyState();
     syncSortLoading(true);
     get<Page<Answer>>(answersUrl(next, 1))
       .then((res) => {
@@ -604,14 +610,26 @@ export function Question() {
     setConfirmDelCommentId(null);
     setReplyError("");
     // 切到另一条评论时草稿被静默丢弃，补一条提示（同一条收起不提示）。
+    // 属信息告知而非错误：info 级。
     if (replyFor !== null && replyFor !== c.id && replyDraft.trim()) {
-      toast("已放弃上一条未发送的回复", "error");
+      toast("已放弃上一条未发送的回复", "info");
     }
     setReplyDraft("");
     setReplyFor((cur) => (cur === c.id ? null : c.id));
   };
 
   const closeReplyForm = () => {
+    setReplyFor(null);
+    setReplyDraft("");
+    setReplyError("");
+  };
+
+  // 列表/排序整体重置时的回复表单收尾：三态一起清（漏清 replyDraft 会让旧草稿
+  // 串进下一条评论的表单）。确有未提交草稿被放弃时给一条 info 提示。
+  const resetReplyState = () => {
+    if (replyFor !== null && replyDraft.trim()) {
+      toast("已放弃未提交的回复草稿", "info");
+    }
     setReplyFor(null);
     setReplyDraft("");
     setReplyError("");
@@ -830,7 +848,9 @@ export function Question() {
       setConfirmDelCommentId(null);
       // 有子回复的一级评论删除后降级为占位行，挂在它下面的回复表单必须一并
       // 关掉——占位行没有「回复」入口，留着表单提交只会被服务端拒。
-      if (replyFor === c.id) closeReplyForm();
+      // 比对 ref 里的「当前」归属而非发起删除那一帧的闭包值：往返期间用户若已
+      // 把表单切到别的评论，绝不能误关新表单、丢掉里面的草稿。
+      if (replyForRef.current === c.id) closeReplyForm();
       toast("评论已删除");
     } catch (e) {
       toast((e as Error).message, "error");
@@ -1305,7 +1325,7 @@ export function Question() {
                                               className="answer__comment-op"
                                               aria-label={`回复 ${cName} 的评论`}
                                               aria-expanded={replyFor === c.id}
-                                              aria-controls={`reply-form-${c.id}`}
+                                              aria-controls={`reply-slot-${c.id}`}
                                               onClick={() => toggleReplyForm(c)}
                                             >
                                               回复
@@ -1356,46 +1376,52 @@ export function Question() {
                                     >
                                       {c.is_deleted ? c.placeholder ?? "该评论已删除" : c.content}
                                     </p>
-                                    {replyFor === c.id && (
+                                    {canReply && (
+                                      // 稳定存在的挂载槽：收起态「回复」按钮的 aria-controls
+                                      // 始终指向它，展开时表单渲染在槽内。
                                       <div
-                                        className="answer__reply-form"
-                                        id={`reply-form-${c.id}`}
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Escape") closeReplyForm();
-                                        }}
+                                        className="answer__reply-slot"
+                                        id={`reply-slot-${c.id}`}
                                       >
-                                        <Textarea
-                                          autoFocus
-                                          rows={2}
-                                          maxLength={500}
-                                          aria-label={`回复 ${cName}`}
-                                          placeholder={`回复 ${cName}：`}
-                                          value={replyDraft}
-                                          onChange={(e) => setReplyDraft(e.target.value)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Escape") closeReplyForm();
-                                          }}
-                                        />
-                                        {replyError && (
-                                          <p className="answer__reply-error" role="alert">
-                                            {replyError}
-                                          </p>
+                                        {replyFor === c.id && (
+                                          <div
+                                            className="answer__reply-form"
+                                            id={`reply-form-${c.id}`}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Escape") closeReplyForm();
+                                            }}
+                                          >
+                                            <Textarea
+                                              autoFocus
+                                              rows={2}
+                                              maxLength={500}
+                                              aria-label={`回复 ${cName}`}
+                                              placeholder={`回复 ${cName}：`}
+                                              value={replyDraft}
+                                              onChange={(e) => setReplyDraft(e.target.value)}
+                                            />
+                                            {replyError && (
+                                              <p className="answer__reply-error" role="alert">
+                                                {replyError}
+                                              </p>
+                                            )}
+                                            <div className="answer__reply-actions">
+                                              <Button
+                                                onClick={() => void submitReply(a, c)}
+                                                disabled={replySending || !replyDraft.trim()}
+                                              >
+                                                {replySending ? "回复中…" : "回复"}
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                disabled={replySending}
+                                                onClick={closeReplyForm}
+                                              >
+                                                取消
+                                              </Button>
+                                            </div>
+                                          </div>
                                         )}
-                                        <div className="answer__reply-actions">
-                                          <Button
-                                            onClick={() => void submitReply(a, c)}
-                                            disabled={replySending || !replyDraft.trim()}
-                                          >
-                                            {replySending ? "回复中…" : "回复"}
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            disabled={replySending}
-                                            onClick={closeReplyForm}
-                                          >
-                                            取消
-                                          </Button>
-                                        </div>
                                       </div>
                                     )}
                                   </li>
