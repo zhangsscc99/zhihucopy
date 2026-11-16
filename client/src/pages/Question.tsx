@@ -76,9 +76,19 @@ const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
     return [c];
   });
 
-// 评论区展开态的计数口径 = 实际渲染行数（一级 + 二级，含「该评论已删除」占位）。
-const commentRowCount = (list: CommentNode[]) =>
-  list.reduce((n, c) => n + 1 + (c.children?.length ?? 0), 0);
+// 评论计数口径 = 可见且未删除的评论数（与服务端 comment_count 一致）：
+// 「该评论已删除」占位行仍渲染但不计入；收起/展开两态共用同一数值。
+const visibleCommentCount = (list: CommentNode[]): number =>
+  list.reduce(
+    (n, c) => n + (c.is_deleted ? 0 : 1) + visibleCommentCount(c.children ?? []),
+    0
+  );
+
+// 已加载时按评论树统计非删除节点；未加载时回落服务端冗余列。
+const displayCommentCount = (
+  a: Answer,
+  cs: CommentNode[] | "loading" | undefined
+) => (Array.isArray(cs) ? visibleCommentCount(cs) : a.comment_count);
 
 export function Question() {
   const { id } = useParams<{ id: string }>();
@@ -1143,12 +1153,8 @@ export function Question() {
                       onClick={() => toggleComments(a.id)}
                     >
                       {openComments[a.id]
-                        ? `收起评论（${
-                            Array.isArray(cs)
-                              ? commentRowCount(cs as CommentNode[])
-                              : a.comment_count
-                          }）`
-                        : `${a.comment_count} 条评论`}
+                        ? `收起评论（${displayCommentCount(a, cs)}）`
+                        : `${displayCommentCount(a, cs)} 条评论`}
                     </button>
                     <div className="answer__fav">
                       <button

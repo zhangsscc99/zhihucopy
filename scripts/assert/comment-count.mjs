@@ -1,13 +1,13 @@
 // Z1029 — 评论计数常显（浏览器级断言）。
+// Z1066 — 计数口径统一为「可见且未删除的评论数」（= 服务端 comment_count）。
 //
 // 契约：
-//   评论区展开后按钮文案必须是「收起评论（N）」，且 N === 实际渲染的
-//   .answer__comment 行数（一级 + 二级，含「该评论已删除」占位行）；发布 +1、
-//   删除 -1 都即时回写；收起态回到「N 条评论」。
+//   收起态「N 条评论」与展开态「收起评论（N）」的 N 严格相等，且 N ===
+//   非删除可见行数（不含「该评论已删除」占位行）；占位行仍照常渲染。
+//   发布 +1、删除 -1 即时回写，两态同步。
 //
-// 场景里刻意埋一条已删除占位行：服务端 comment_count 不计已删除，
-// 但占位行仍占一个 .answer__comment —— 旧口径（直接回显 comment_count）
-// 会 N<行数 在此暴露（反向自检可复现 FAIL）。
+// 场景里刻意埋一条已删除占位行：渲染行数 = 3，非删除可见行数 = 2。
+// 旧口径（展开态回显渲染行数）会 N=3 vs 收起态 2 在此暴露。
 //
 // 通用守卫：body.innerText>200（防整站白屏假绿）、window.__errs 为空、
 // 每一步都同时断言「新文案存在」与「行数相等」。
@@ -43,6 +43,9 @@ async function injectErrs(page) {
 
 const pageErrs = (page) => page.evaluate(() => window.__errs || []);
 
+const RE_CLOSED = /^(\d+) 条评论$/;
+const RE_OPEN = /^收起评论（(\d+)）$/;
+
 run("comment-count", async ({ browser }) => {
   const op = await register(uniq("op"));
   const login = await api("POST", "/auth/login", {
@@ -62,7 +65,7 @@ run("comment-count", async ({ browser }) => {
   const aid = answer.id;
 
   // 预埋：1 条一级 + 1 条二级回复 + 1 条发后即删（占位行）。
-  //   渲染行数 = 3；服务端 comment_count = 2（不计已删除）。
+  //   渲染行数 = 3；非删除可见行数 = 2 = 服务端 comment_count。
   const { comment: parent } = await apiOk("POST", "/comments", {
     token: me.token,
     body: { target_type: "answer", target_id: aid, body: `计数断言一级 ${Date.now()}` },
@@ -85,49 +88,71 @@ run("comment-count", async ({ browser }) => {
   const ans = page.locator(`#answer-${aid}`);
   const toggle = ans.getByRole("button", { name: /条评论|收起评论/ });
 
-  // 收起态：「N 条评论」（N=服务端口径 2，已删除不计）。
-  const closedText = await toggle.innerText();
-  expect(closedText.includes("2 条评论"), `收起态文案异常：「${closedText}」期望含 2 条评论`);
+  // 收起态：「N 条评论」（N=非删除可见行数 2，占位不计）。
+  const closedText = (await toggle.innerText()).trim();
+  const mClosed = RE_CLOSED.exec(closedText);
+  expect(mClosed && Number(mClosed[1]) === 2, `收起态文案异常：「${closedText}」期望 2 条评论`);
 
   // ---- 通用守卫：页面非白屏 ----
   const bodyLen = await page.evaluate(() => document.body.innerText.length);
   expect(bodyLen > 200, `页面内容过少：innerText=${bodyLen}`);
 
-  // 展开后：文案必须仍是「收起评论（N）」且 N === 实际渲染行数。
+  // 展开后：文案「收起评论（N）」，N === 非删除可见行数；占位行仍渲染。
   const readOpenCount = async () => {
-    const text = await toggle.innerText();
-    const m = /收起评论（(\d+)）/.exec(text);
+    const text = (await toggle.innerText()).trim();
+    const m = RE_OPEN.exec(text);
     const rows = await ans.locator("li.answer__comment").count();
-    return { text, n: m ? Number(m[1]) : null, rows };
+    const placeholders = await ans
+      .locator("li.answer__comment", { hasText: "该评论已删除" })
+      .count();
+    return { text, n: m ? Number(m[1]) : null, rows, visible: rows - placeholders };
   };
 
   await toggle.click();
   await ans.locator("li.answer__comment").first().waitFor();
   let st = await readOpenCount();
   expect(st.n !== null, `展开后计数消失：「${st.text}」不匹配 收起评论（N）`);
-  expect(st.n === st.rows && st.n === 3, `展开后 N=${st.n} 行数=${st.rows}，期望均为 3（含删除占位）`);
+  expect(st.rows === 3, `展开后渲染行数=${st.rows}，期望 3（含删除占位）`);
+  expect(st.n === st.visible && st.n === 2, `展开后 N=${st.n} 可见=${st.visible}，期望均为 2（不含删除占位）`);
 
-  // ---- 发布一条（UI）：N +1 且与行数同步 ----
+  // ---- 发布一条（UI）：N +1 且与可见行数同步 ----
   const marker = `计数断言自发 ${Date.now()}s`;
   const form = ans.locator(".answer__comment-form");
   await form.locator("textarea").fill(marker);
   await form.getByRole("button", { name: /发布/ }).click();
   await page.locator("li.answer__comment", { hasText: marker }).waitFor();
   st = await readOpenCount();
-  expect(st.n !== null && st.n === st.rows && st.n === 4, `发布后 N=${st.n} 行数=${st.rows}，期望均为 4`);
+  expect(st.n !== null && st.n === st.visible && st.n === 3, `发布后 N=${st.n} 可见=${st.visible}，期望均为 3`);
 
-  // ---- 删除刚发的评论：N -1 且与行数同步 ----
+  // ---- 删除刚发的评论：N -1 且与可见行数同步 ----
   const myRow = page.locator("li.answer__comment", { hasText: marker });
   await myRow.getByRole("button", { name: "删除", exact: true }).click();
   await myRow.getByRole("button", { name: "确认删除" }).click();
   await page.locator("li.answer__comment", { hasText: marker }).waitFor({ state: "detached" });
   st = await readOpenCount();
-  expect(st.n !== null && st.n === st.rows && st.n === 3, `删除后 N=${st.n} 行数=${st.rows}，期望均为 3`);
+  expect(st.n !== null && st.n === st.visible && st.n === 2, `删除后 N=${st.n} 可见=${st.visible}，期望均为 2`);
 
-  // ---- 收起：回到「N 条评论」且计数正确 ----
+  // ---- 奇偶一致性：收起后「N 条评论」的 N 与展开态严格相等 ----
+  const openN = st.n;
   await toggle.click();
-  const closedAgain = await toggle.innerText();
-  expect(closedAgain.includes("2 条评论"), `收起后文案异常：「${closedAgain}」期望含 2 条评论`);
+  const closedAgain = (await toggle.innerText()).trim();
+  const mAgain = RE_CLOSED.exec(closedAgain);
+  expect(mAgain !== null, `收起后文案异常：「${closedAgain}」不匹配 N 条评论`);
+  expect(Number(mAgain[1]) === openN && openN === 2, `收起后 N=${mAgain[1]}，期望与展开态一致 =2`);
+
+  // ---- 重载页面（排序切换等价路径）后两态仍一致 ----
+  await page.reload();
+  await page.locator(".question__title").first().waitFor();
+  const ans2 = page.locator(`#answer-${aid}`);
+  const toggle2 = ans2.getByRole("button", { name: /条评论|收起评论/ });
+  const closedReload = (await toggle2.innerText()).trim();
+  const mReload = RE_CLOSED.exec(closedReload);
+  expect(mReload && Number(mReload[1]) === 2, `重载后收起态文案异常：「${closedReload}」期望 2 条评论`);
+  await toggle2.click();
+  await ans2.locator("li.answer__comment").first().waitFor();
+  const openText2 = (await toggle2.innerText()).trim();
+  const mOpen2 = RE_OPEN.exec(openText2);
+  expect(mOpen2 && Number(mOpen2[1]) === 2, `重载后展开态文案异常：「${openText2}」期望 收起评论（2）`);
 
   const errs = await pageErrs(page);
   expect(errs.length === 0, `计数流程出现页面错误：${errs.join(" | ")}`);
