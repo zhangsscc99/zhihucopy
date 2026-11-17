@@ -230,6 +230,8 @@ function UserResultRow({ u, kw }: { u: UserResult; kw: string }) {
             </span>
           )}
           <span className="urow__meta">
+            {/* Z1158：同一搜索结果里常出现同昵称/同简介用户，加入时间是最直观的区分。 */}
+            {u.created_at ? `加入 ${String(u.created_at).slice(0, 7)} · ` : ""}
             回答 {u.answer_count} · 关注者 {u.follower_count}
           </span>
         </span>

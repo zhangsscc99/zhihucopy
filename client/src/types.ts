@@ -109,6 +109,8 @@ export interface UserResult {
   bio: string;
   answer_count: number;
   follower_count: number;
+  // Z1158：搜索接口本就返回 created_at，用于同昵称/同简介时区分「加入时间」。
+  created_at?: string | null;
 }
 
 export interface ProfileData {
