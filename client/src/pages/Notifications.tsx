@@ -46,8 +46,10 @@ const ACTION_TEXT: Record<string, string> = {
   agree: "赞同了你的回答",
   vote: "赞同了你的回答",
   comment: "评论了你的回答",
+  reply: "回复了你的评论",
   follow: "关注了你",
   answer: "回答了你的问题",
+  moderation: "处理了你的回答",
 };
 
 
@@ -91,6 +93,13 @@ function TypeIcon({ kind }: { kind: string }) {
     commented: (
       <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-4.4 3.6A.5.5 0 0 1 4 19.2V5.5z" />
     ),
+    // 回复：回弯箭头
+    replied: (
+      <>
+        <path d="M9 14l-5-5 5-5" />
+        <path d="M4 9h8a6 6 0 0 1 6 6v4" />
+      </>
+    ),
     // 赞同：拇指
     agreed: (
       <>
@@ -105,6 +114,10 @@ function TypeIcon({ kind }: { kind: string }) {
         <path d="M4.5 20v-1a5.5 5.5 0 0 1 5.5-5.5h1" />
         <path d="M19 14v6M16 17h6" />
       </>
+    ),
+    // 处理：盾牌
+    moderated: (
+      <path d="M12 3.5l7 2.8v5.2c0 4.7-3.1 7.7-7 9.5-3.9-1.8-7-4.8-7-9.5V6.3l7-2.8z" />
     ),
     // 兜底：铃铛
     other: (
