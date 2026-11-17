@@ -15,6 +15,7 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
+import { register, req } from "./lib.mjs";
 
 const BASE = (
   process.env.E2E_BASE ||
@@ -124,6 +125,73 @@ async function main() {
       await ctx.close();
     }
 
+    // ---------- Z1133 — 长昵称（12 汉字）溢出保护：昵称省略、元信息仍单行 ----------
+    // API 造一个 12 个汉字昵称的账号（register()+PATCH /users/me，退出由 lib 自清理），
+    // 把昵称注入首屏第一张卡的 .feed__author-name，真实测量省略与溢出。
+    const LONG_NICK = "长昵称用户甲乙丙丁戊己"; // 12 个汉字
+    {
+      const { token } = await register();
+      const pr = await req("PATCH", "/users/me", {
+        token,
+        body: { nickname: LONG_NICK },
+      });
+      expect(
+        pr.status === 200 && pr.data.user && pr.data.user.nickname === LONG_NICK,
+        `PATCH /users/me 长昵称 -> ${pr.status} ${JSON.stringify(pr.data).slice(0, 160)}`
+      );
+
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+        locale: "zh-CN",
+      });
+      const page = await ctx.newPage();
+      shotPage = page;
+      page.setDefaultTimeout(15000);
+      await injectErrs(page);
+      await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+      await page.locator("li.feed__item").first().waitFor({ state: "visible" });
+      await page.waitForTimeout(300);
+
+      await page.evaluate((nick) => {
+        const el = document.querySelector(
+          "li.feed__item .feed__meta .feed__author-name"
+        );
+        el.textContent = nick;
+      }, LONG_NICK);
+      await page.waitForTimeout(100);
+
+      const m = await page.evaluate(() => {
+        const meta = document.querySelector("li.feed__item .feed__meta");
+        const name = meta.querySelector(".feed__author-name");
+        const card = meta.closest("li.feed__item");
+        return {
+          metaH: meta.scrollHeight,
+          nameSW: name.scrollWidth,
+          nameCW: name.clientWidth,
+          textOverflow: getComputedStyle(name).textOverflow,
+          cardDiff: card.scrollWidth - card.clientWidth,
+          metaText: meta.innerText.replace(/\s+/g, " "),
+          bodyLen: document.body.innerText.length,
+        };
+      });
+      expect(m.metaH <= 24, `390px 长昵称：meta scrollHeight ${m.metaH} > 24（折行）`);
+      expect(
+        m.nameSW > m.nameCW,
+        `390px 长昵称：昵称未省略 scrollWidth=${m.nameSW} <= clientWidth=${m.nameCW}`
+      );
+      expect(
+        m.textOverflow === "ellipsis",
+        `390px 长昵称：textOverflow=${m.textOverflow} !== ellipsis`
+      );
+      expect(m.cardDiff === 0, `390px 长昵称：卡片横向溢出 ${m.cardDiff}`);
+      expect(/浏览/.test(m.metaText), `390px 长昵称：「浏览」被挤出可视文本：「${m.metaText}」`);
+      expect(m.bodyLen > 200, `390px 长昵称：body.innerText=${m.bodyLen} <= 200`);
+      await checkOverflow(page, "390px 长昵称首页");
+      const errs = await pageErrs(page);
+      expect(errs.length === 0, `390px 长昵称：页面错误：${errs.join(" | ")}`);
+      await ctx.close();
+    }
+
     // ---------- 桌面 1440×900：原文回归保护 ----------
     {
       const ctx = await browser.newContext({
@@ -155,6 +223,27 @@ async function main() {
       await checkOverflow(page, "1440px 首页");
       const errs = await pageErrs(page);
       expect(errs.length === 0, `1440px：页面错误：${errs.join(" | ")}`);
+
+      // Z1133 — 桌面端同样注入 12 字昵称：长文案不变、无横向溢出。
+      await page.evaluate((nick) => {
+        const el = document.querySelector(
+          "li.feed__item .feed__meta .feed__author-name"
+        );
+        el.textContent = nick;
+      }, LONG_NICK);
+      await page.waitForTimeout(100);
+      const t0 = (await metas.nth(0).innerText()).replace(/\s+/g, " ");
+      expect(/\d+\s*个回答/.test(t0), `1440px 长昵称：桌面文案变化：「${t0}」`);
+      expect(/\d+\s*次浏览/.test(t0), `1440px 长昵称：桌面文案变化：「${t0}」`);
+      const d0 = await page.evaluate(() => {
+        const meta = document.querySelector("li.feed__item .feed__meta");
+        const card = meta.closest("li.feed__item");
+        return card.scrollWidth - card.clientWidth;
+      });
+      expect(d0 === 0, `1440px 长昵称：卡片横向溢出 ${d0}`);
+      await checkOverflow(page, "1440px 长昵称首页");
+      const errs2 = await pageErrs(page);
+      expect(errs2.length === 0, `1440px 长昵称：页面错误：${errs2.join(" | ")}`);
       await ctx.close();
     }
 
