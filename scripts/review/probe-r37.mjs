@@ -1,5 +1,5 @@
 // 第三十七轮真实用户走查探针（只读，不改产品代码）
-import { BASE, launch, run, uniq } from "./lib.mjs";
+import { BASE, launch, run, uniq } from "../e2e/lib.mjs";
 
 const NICK = "顾屿舟" + String(Date.now()).slice(-4);
 const OUT = (o) => console.log(JSON.stringify(o));

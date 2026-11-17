@@ -1,5 +1,5 @@
 // 第三十七轮补充探针 D：移动端放大镜为何点不动 / 点赞 aria-pressed
-import { BASE, run } from "./lib.mjs";
+import { BASE, run } from "../e2e/lib.mjs";
 const OUT = (o) => console.log(JSON.stringify(o));
 
 run("probe-r37d", async ({ browser }) => {

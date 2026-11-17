@@ -1,5 +1,5 @@
 // 第三十七轮补充探针：点赞态 / 搜索首屏 / 移动端搜索入口
-import { BASE, API, launch, run, uniq } from "./lib.mjs";
+import { BASE, API, launch, run, uniq } from "../e2e/lib.mjs";
 
 const OUT = (o) => console.log(JSON.stringify(o));
 

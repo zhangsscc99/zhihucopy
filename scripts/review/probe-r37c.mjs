@@ -1,5 +1,5 @@
 // 第三十七轮补充探针 C：顶栏搜索输入 / 移动端入口 / 点赞可访问性
-import { BASE, run } from "./lib.mjs";
+import { BASE, run } from "../e2e/lib.mjs";
 const OUT = (o) => console.log(JSON.stringify(o));
 
 run("probe-r37c", async ({ browser }) => {
