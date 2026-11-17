@@ -537,3 +537,6 @@
 - [x] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度/真实感）：线上 `GET /questions?limit=30` 前 4 条为「关注流链路回归 qmwjz7ia86jg 复盘？」「话题关注链路回归 …」「问题关注链路回归 …」「提问接口回归 …」，卡片带 0–2 回答直接占据推荐流首屏——`content-filter.js` 的标题规则不认「…回归 <小写随机串> 复盘？」形态（`复盘` 收尾规则要求 token 在 `复盘` 之后、尾部随机串规则要求 token 在标题末尾） ✅ (2026-11-17 devin：`TITLE_REGEXES` 增 `回归[ 　]*(验证[ 　]*)?[a-z](?=[a-z0-9]*[0-9])[a-z0-9]{7,}`（要求串内含数字，反例「回归分析怎么做」「A/B 测试回归怎么排查」「回归 transformer 调参」不命中），SQL 侧 GLOB 同步；`cleanup-test-content.js` 修掉 `badges` 旧表名（改 `user_badges` + `badge_grants_legacy`）并补 user/collection 目标通知级联；线上清理 12 问题（含 1349/1355/1356/1357）、5 回答、1 评论、4 通知、52 测试号；新增 `feed-no-regression-residue.mjs`（三接口无残留 + 造/删正反例 + 首屏 DOM 守卫 + 3/3），线上即验 PASS)
   verify: node scripts/assert/feed-no-regression-residue.mjs
   risk: med
+- [ ] Z1079 关注流误滤「被关注者的真实提问」（P1，Z1078 副作用回归）：`/feed/following` 用 `testQuestionSql(q,u)` 同时按**标题形态**过滤，导致 `scripts/assert/feed-following.mjs` 用「关注流链路回归 <token> 复盘？」造的 B 提问进不了 A 的关注流（Z964/Z971 由 PASS 转 FAIL）——真实用户写「回归测试该谁负责？」也会被从关注流吞掉。关注流是私域图，应只按**作者身份**过滤（`testUserSql`），标题形态过滤保留给推荐/热榜/搜索等公共出口
+  verify: node scripts/assert/following-title-allow.mjs
+  risk: med
