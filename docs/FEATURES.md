@@ -233,7 +233,7 @@
 
 ## 第五轮巡检待办（2026-11-15 17:35，来源 docs/PRODUCT-REVIEW.md 第五轮）
 
-- [ ] Z976 桌面端通知入口 + 未读角标：顶栏/用户菜单加「通知」，角标读 `unread-count`，进 `/notifications` 后标已读
+- [x] Z976 桌面端通知入口 + 未读角标：顶栏/用户菜单加「通知」，角标读 `unread-count`，进 `/notifications` 后标已读 ✅ (2026-11-17 devin：断言补齐，notify-entry.mjs PASS)
   verify: node scripts/assert/notify-entry.mjs
   risk: med
 - [x] Z980 「发现」「等你来答」真实页面：新增 `/unanswered`（`tab=unanswered`，answer_count=0 的问题流）与话题广场入口，顶栏不得再有指向 `/` 或 `/?tab=hot` 的假链接 ✅ (2026-11-15 devin)
@@ -554,7 +554,7 @@
 
 
 ## 第二十一轮收尾观察（待办）
-- [ ] Z1085 个人主页看不到自己写的内容（P1，产品自见性 + 断言契约）：`GET /users/:id` 的 `stats.answers` 与 `/answers?author=` 共用 `AUTHOR_ANSWERS_SQL`，对作者与访客同口径套 `testQuestionSql`；因此测试号（@test.dev）+`[e2e]` 标题造出的回答在**自己的主页**上显示 0 回答、空态文案「TA 还没有写过回答」，`scripts/e2e/profile.mjs` 的链接断言 8s 超时（部署门禁里 PENDING）。实测同一脚本在「seed 前生产库副本」上同样 FAIL，属既有契约缺口、非本轮改动引入。产品口径应为「看自己的主页能看到自己写的内容」（viewer === author 时放行 is_test/测试标题过滤），断言随之改为「本人主页可见刚发的回答，访客视角仍不可见」
+- [x] Z1085 个人主页看不到自己写的内容（P1，产品自见性 + 断言契约）：`GET /users/:id` 的 `stats.answers` 与 `/answers?author=` 共用 `AUTHOR_ANSWERS_SQL`，对作者与访客同口径套 `testQuestionSql`；因此测试号（@test.dev）+`[e2e]` 标题造出的回答在**自己的主页**上显示 0 回答、空态文案「TA 还没有写过回答」，`scripts/e2e/profile.mjs` 的链接断言 8s 超时（部署门禁里 PENDING）。实测同一脚本在「seed 前生产库副本」上同样 FAIL，属既有契约缺口、非本轮改动引入。产品口径应为「看自己的主页能看到自己写的内容」（viewer === author 时放行 is_test/测试标题过滤），断言随之改为「本人主页可见刚发的回答，访客视角仍不可见」 ✅ (2026-11-17 devin：authorAnswersSql({selfView}) 三处同口径，本人可见/访客与匿名仍 0；profile.mjs 选择器 [e2e] 字符类 bug 一并修复)
   verify: node scripts/assert/profile-self-visibility.mjs
   risk: med
 - [ ] Z1086 「走查评论」规则标签区间过宽（P3，误杀风险）：`server/content-filter.js` 的 `^走查评论[A-Za-z0-9]{0,4}[：:]` 允许 0 位标签，而 clean 脚本 `--apply` 是物理删除；建议收窄为 `^走查评论[A-Z]{1,3}[：:]`（JS 与 SQL 枚举同步），并把手写「走查评论：」开头的真实标题加入反例集
@@ -596,18 +596,18 @@
 
 ## 第二十三轮走查待办（2026-11-17 05:3x，来源 docs/PRODUCT-REVIEW.md 第二十一轮）
 
-- [ ] Z1097 种子回答人设与问题领域错位（P1，内容真实感）：`scripts/seed.js` 把 story 的回答随机派给种子用户，实测 `/question/6`（React useEffect）前两条回答作者分别是「南山南 — 健身教练」与「余光169 — HR」，同一用户主页横跨 React/基础架构/0 糖饮料/咖啡因/久坐五个领域。需给种子用户定领域标签、回答只派给同域作者，并写幂等修正脚本（`--dry-run` 默认，`FIX_ALLOW_PROD=1` 才写生产库）重排现有回答归属
+- [x] Z1097 种子回答人设与问题领域错位（P1，内容真实感）：`scripts/seed.js` 把 story 的回答随机派给种子用户，实测 `/question/6`（React useEffect）前两条回答作者分别是「南山南 — 健身教练」与「余光169 — HR」，同一用户主页横跨 React/基础架构/0 糖饮料/咖啡因/久坐五个领域。需给种子用户定领域标签、回答只派给同域作者，并写幂等修正脚本（`--dry-run` 默认，`FIX_ALLOW_PROD=1` 才写生产库）重排现有回答归属 ✅ (2026-11-17 devin：persona-domains 单一来源 + seed 只派同域作者 + fix-answer-authors-by-domain.js 默认 dry-run；verify PASS 85/85 命中，基线 77.6% FAIL)
   verify: node scripts/assert/seed-persona-domain.mjs
   risk: high
-- [ ] Z1098 关注用户不产生通知（P2，社交回路）：`server/routes/users.js` 的 `POST/DELETE /:id/follow` 无 notifications 写入，与通知空态文案「赞同、评论与关注会出现在这里」矛盾；需写 `type='follow'` 通知（自关注不计、重复关注不重复写），前端通知行文案对应「关注了你」
+- [x] Z1098 关注用户不产生通知（P2，社交回路）：`server/routes/users.js` 的 `POST/DELETE /:id/follow` 无 notifications 写入，与通知空态文案「赞同、评论与关注会出现在这里」矛盾；需写 `type='follow'` 通知（自关注不计、重复关注不重复写），前端通知行文案对应「关注了你」 ✅ (2026-11-17 devin：follow 通知仅在新关注时写、取消再关注幂等；follow-notify.mjs PASS，基线 RC=1)
   verify: node scripts/assert/follow-notify.mjs
   risk: med
-- [ ] Z1099 通知入口/未读角标缺断言（P2，测试基建）：`client/src/components/TopNav.tsx:337-362` 的 `topnav__bell` + `badge` 已实现，但 `scripts/assert/notify-entry.mjs` 不存在，Z976 至今无法勾选。需补浏览器级断言：1440 与 390 各有一个指向 `/notifications` 的入口；构造未读后角标数字可见，进通知页后角标消失且刷新仍为 0
+- [x] Z1099 通知入口/未读角标缺断言（P2，测试基建）：`client/src/components/TopNav.tsx:337-362` 的 `topnav__bell` + `badge` 已实现，但 `scripts/assert/notify-entry.mjs` 不存在，Z976 至今无法勾选。需补浏览器级断言：1440 与 390 各有一个指向 `/notifications` 的入口；构造未读后角标数字可见，进通知页后角标消失且刷新仍为 0 ✅ (2026-11-17 devin：新增 notify-entry.mjs（1440/390 入口 + 角标 0→1→进页清零且刷新仍 0）；Z976 一并勾选)
   verify: node scripts/assert/notify-entry.mjs
   risk: low
-- [ ] Z1100 桌面右栏只有一块（P2，Z1010 复现）：1440×900 下 `.rail-block` 仅热榜 705px，底部约 195px 纯空白；补第二模块（建议「等你来答」：复用 `/unanswered` 数据，5 条 + 「更多」）
+- [x] Z1100 桌面右栏只有一块（P2，Z1010 复现）：1440×900 下 `.rail-block` 仅热榜 705px，底部约 195px 纯空白；补第二模块（建议「等你来答」：复用 `/unanswered` 数据，5 条 + 「更多」） ✅ (2026-11-17 devin：UnansweredRail 第二块，1440 两块 / 390 隐藏 / 0 条不渲染；rail-second-block.mjs PASS，基线 FAIL)
   verify: node scripts/assert/rail-second-block.mjs
   risk: low
-- [ ] Z1101 生产库残留断言评论 + 删除占位仍在渲染（P2，内容治理）：comment id 497 正文 `租赁这个比喻讲得清楚，清理函数就是退租 411293`（作者种子号 user2，尾部六位随机数）；`/question/6` 评论区另有 6 行「该评论已删除」占位。需写清理脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库）并让已删除评论不再渲染成占位行
+- [x] Z1101 生产库残留断言评论 + 删除占位仍在渲染（P2，内容治理）：comment id 497 正文 `租赁这个比喻讲得清楚，清理函数就是退租 411293`（作者种子号 user2，尾部六位随机数）；`/question/6` 评论区另有 6 行「该评论已删除」占位。需写清理脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库）并让已删除评论不再渲染成占位行 ✅ (2026-11-17 devin：clean-residue-comments.js 默认 dry-run + Question.tsx 不再渲染无存活子回复的删除占位；comment-residue.mjs PASS)
   verify: node scripts/assert/comment-residue.mjs
   risk: med
