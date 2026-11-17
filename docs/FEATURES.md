@@ -620,7 +620,7 @@
 
 ## 第二十四轮走查待办（2026-11-17 06:5x，来源 docs/PRODUCT-REVIEW.md 第二十二轮）
 
-- [ ] Z1103 种子语料「显式 author」绕过领域校验（P1，内容真实感）：`/question/6`（React useEffect）第一条回答作者「温故52 — 统计出身，现在做增长」，而 `scripts/persona-domains.js` 里 `温故: ["data","sci"]`，本不该答 code 类问题；`scripts/seed-data/*.js` 中硬编码 `author` 的语料不走同域校验，`seed-persona-domain.mjs` 抽样也只覆盖随机派单的回答。需：seed 阶段对显式 author 做同域校验（不符则改派同域作者或抛错）、写幂等修正脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库，同步 `answers`/`answer_revisions`）、断言改全库口径（作者领域 ∩ 问题话题大类 ≠ ∅ 比例 100%，显式 author 单独计数且错位 0）
+- [x] Z1103 种子语料「显式 author」绕过人设领域校验（P1，内容真实感）：`scripts/seed-data/*.js` 硬编码 `author:` 的 243 条语料不参与 `domainsOf()/acceptedDomains()` 同域校验（其中 10 条错位，落库 5 条——如苏晚/运营答 Code Review、程一/创业答接私活代码题）；`assert/seed-persona-domain.mjs` 只抽样随机派单导致盲区。需让显式 author 走同一套校验（不符改派同域作者、无候选抛错）、断言改全库口径且显式 author 错位单列要求为 0 ✅ (2026-11-17 devin：seed 显式 author 不符即改派同域并打印；断言 db 全库 100% 命中 + 显式错位单列=0，基线 FAIL 98.3%/5 条；fix-authors dry-run 输出补标题，生产库已 0 错位) 
   verify: node scripts/assert/seed-persona-domain.mjs
   risk: high
 - [x] Z1104 登录/注册表单 label 未与 input 关联（P2，a11y）：`/register`、`/login` 的 `<label>` 无 `for`、`<input>` 无 `id`，点标签不聚焦、读屏读不出字段名；且 `.field:focus { outline:none }` 压掉全局 `input:focus-visible` 焦点环 ✅ (2026-11-17 devin：Register/Login 每个 input 补稳定 id（reg-*/login-*）+ label htmlFor；styles.css 补 `.field:focus-visible` 2px 主色轮廓；新增 a11y-form-labels.mjs（getByLabel 唯一定位 + 点 label 聚焦 + Tab 焦点环 + 双视口溢出/errs 守卫）PASS，基线 FAIL；auth.mjs、a11y.mjs 回归全绿)
