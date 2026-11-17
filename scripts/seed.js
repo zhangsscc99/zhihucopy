@@ -391,7 +391,8 @@ function pickTail(cat, content) {
   return pool[i];
 }
 
-// Z1147/Z1152：同一 answer 下文案不重复、全站同一句占用率 ≤8%、同一句
+// Z1147/Z1152/Z1152b：同一 answer 下文案不重复、同一 question 下同一句
+// ≤1 次（读者连刷同题多条回答不撞句）、全站同一句占用率 ≤8%、同一句
 // 出现在 ≤3 个不同 question 下。
 // 一级评论优先取「关键词命中回答正文」的领域锚定句，锚定集为空退通用池；
 // 二级回复走 REPLIES（k 需命中父评论文本，k=[] 兜底限量）。
@@ -420,48 +421,58 @@ const leastUsed = (cands) => {
   }
   return best;
 };
-const pickCommentText = (a, used, useCap) => {
+// 语料四轮全占满时的最终兜底句计数器：保证返回文案全局唯一（实测不命中，
+// 只为守住「同题同句 ≤1」不退让的底线）。
+let commentEmergencySeq = 0;
+const pickCommentText = (a, used, usedQ, useCap) => {
   // 候选顺序：关键词命中正文的锚定句 → 引述兜底句（从正文摘片段，天然
   // 实指且不耗跨题额度）→ 本大类兜底句(k=[])+通用池 → 回复池。引述句排
   // 在通用池前面：语料池在 8% 占用/≤3 跨题双上限下会被耗尽，若兜底走
   // 通用句，新库里实指占比会跌到断言线以下。
+  // Z1152b：uniq 同时要求「同 answer 未用」且「同 question 未用」。
   const anchored = anchoredTexts(a.cat, a.content, { includeFallback: false });
   const catFallback = (DOMAIN_COMMENTS[a.cat] || [])
     .filter((e) => e.k.length === 0)
     .map((e) => e.t);
+  const uniq = (x) => !used.has(x) && !usedQ.has(x);
   const ok = (x) =>
-    !used.has(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, a.qid);
+    uniq(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, a.qid);
   const t0 = leastUsed(anchored.filter(ok));
   if (t0) return t0;
   const qt = pickQuote(a.content, used, a.aid, ok);
   if (qt) return qt;
   const t1 = leastUsed(catFallback.concat(COMMENTS).filter(ok));
   if (t1) return t1;
-  // 兜底：同 answer 去重仍优先；实在挑不出（理论上不发生）才允许撞占用上限。
+  // 池子占满后不许退回跨题通用句：换 seed 再走引述兜底（只留同答/同题
+  // 去重约束）；仍无则在同题未用过的池内句里挑最少使用的。
+  const qt2 = pickQuote(a.content, used, a.aid + 7919, uniq);
+  if (qt2) return qt2;
   const replyAll = REPLIES.map((e) => e.t);
   return (
-    leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
-    leastUsed(replyAll.filter((x) => !used.has(x))) ||
-    COMMENTS[ri(COMMENTS.length)]
+    leastUsed(catFallback.concat(COMMENTS, replyAll).filter(uniq)) ||
+    `这篇我又翻出来看了一遍，第 ${++commentEmergencySeq} 次读还是发现新细节。`
   );
 };
-const pickReplyText = (parentText, used, useCap, qid, content) => {
+const pickReplyText = (parentText, used, usedQ, useCap, qid, content) => {
   // 回复要挂在父评论的实指上：先挑 k 命中父评论文本的，再并入 k=[] 兜底；
   // 都占满时引述回答正文兜底（实指成立且不耗跨题额度）。
+  // Z1152b：uniq 同时要求「同 answer 未用」且「同 question 未用」。
   const { matched, fallback } = replyTexts(parentText);
+  const uniq = (x) => !used.has(x) && !usedQ.has(x);
   const ok = (x) =>
-    !used.has(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, qid);
+    uniq(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, qid);
   for (const pool of [matched, matched.concat(fallback)]) {
     const t = leastUsed(pool.filter(ok));
     if (t) return t;
   }
   const qt = content ? pickQuote(content, used, 7919, ok) : null;
   if (qt) return qt;
+  const qt2 = content ? pickQuote(content, used, 7919 + qid, uniq) : null;
+  if (qt2) return qt2;
   const all = matched.concat(fallback);
   return (
-    leastUsed(all.filter((x) => !used.has(x))) ||
-    leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
-    all[ri(all.length)]
+    leastUsed(all.concat(COMMENTS).filter(uniq)) ||
+    `楼上这条我又看了一遍，补一句第 ${++commentEmergencySeq} 次想到的话。`
   );
 };
 
@@ -824,6 +835,7 @@ function main() {
     // scale=1 时预算合计约 9*20 + 15*6 + 22*2.5 + 14*0.5 ≈ 330。
     const commentTimes = new Map();
     const commentTexts = new Map(); // aid -> Set(已用文案)，同 answer 去重（Z1147）
+    const commentQTexts = new Map(); // qid -> Set(已用文案)，同 question 去重（Z1152b）
     const commentQueue = [];
     for (const q of questionPlan) {
       const list = byQuestion.get(q.qid) || [];
@@ -855,6 +867,7 @@ function main() {
     for (const a of commentQueue) {
       const existing = commentTimes.get(a.aid) || [];
       const usedTexts = commentTexts.get(a.aid) || new Set();
+      const usedQTexts = commentQTexts.get(a.qid) || new Set();
       const author = userIds[ri(N_USERS)];
       const isReply = existing.length > 0 && g() < 0.34;
       let parent = null;
@@ -867,8 +880,8 @@ function main() {
         }
       }
       const text = parent
-        ? pickReplyText(parent.text, usedTexts, commentUseCap, a.qid, a.content)
-        : pickCommentText(a, usedTexts, commentUseCap);
+        ? pickReplyText(parent.text, usedTexts, usedQTexts, commentUseCap, a.qid, a.content)
+        : pickCommentText(a, usedTexts, usedQTexts, commentUseCap);
       const prevT = existing.length ? existing[existing.length - 1].t : null;
       const t = commentTime(
         a.createdMs,
@@ -883,6 +896,8 @@ function main() {
       commentTimes.set(a.aid, existing);
       usedTexts.add(text);
       commentTexts.set(a.aid, usedTexts);
+      usedQTexts.add(text);
+      commentQTexts.set(a.qid, usedQTexts);
       noteCommentText(text, a.qid);
       bump("comments");
     }
