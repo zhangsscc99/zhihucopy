@@ -534,3 +534,6 @@
 - [ ] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选
   verify: node scripts/assert/mobile-search.mjs && node scripts/assert/notfound-page.mjs && node scripts/assert/login-copy.mjs && node scripts/assert/mobile-nav.mjs
   risk: low
+- [ ] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度）：`GET /api/questions?limit=30` 前 4 条为回归脚本残留（1355/1356/1357/1349「…回归 <token> 复盘？」），`TITLE_REGEXES` 复盘规则要求 token 在「复盘」之后、尾串规则要求随机串在结尾，实测 token 在「复盘」之前均漏判；需补「回归（验证）<sep><小写token≥8含数字>」判定（JS/SQL 同步）+ 物理清理 + 断言防再犯
+  verify: node scripts/assert/feed-no-regression-residue.mjs
+  risk: low
