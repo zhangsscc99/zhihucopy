@@ -746,3 +746,15 @@
 - [x] Z1139 存量条目与现状不符（P2，测试债）：Z1018 / Z1019 / Z1020 实测已实现（他人主页有关注按钮、votes/comments/users 均写 notifications、Question.tsx 有回答「⋯」菜单 + 内联编辑 + 卡内删除），但 FEATURES 仍为未勾选；Z1077 的四个断言脚本（`mobile-search.mjs` / `notfound-page.mjs` / `login-copy.mjs` / `mobile-nav.mjs`）仍缺，`verify.sh Z972|Z974|Z978|Z979` 报 MODULE_NOT_FOUND。要求：按现状补建这四个断言（浏览器级，不得恒真）+ 为 Z1018/Z1019/Z1020 各建一个断言（`profile-follow-button.mjs` / `notify-types.mjs` / `own-content-actions.mjs`），逐个跑通后由调度器勾选；断言必须对改动前基线可通过（功能已在），反向自检改为「对旧版本 dist 的同类元素缺失用例」或明确说明无回归基线 ✅(2026-11-17 devin swe-2-max：新建 `mobile-search`/`notfound-page`/`login-copy`/`mobile-nav`/`notify-events`/`edit-delete`/`verify-stale-items` 七个脚本，编排 7/7 rc=0、本地与线上均 PASS；本条未改产品代码)
   verify: node scripts/assert/verify-stale-items.mjs
   risk: low
+
+## 第十一轮待办（2026-11-17 17:55，第三十四轮走查）
+
+- [ ] Z1140 话题归属错标（P1，内容厚度/信息架构）：JavaScript 话题（`/topic/2`）19 题里 5 题与 JS 无关（q9「Python 项目工程化」、q20「程序员接私活」、q21「Python 爬虫商用」、q23「Python GIL」、q27「Redis 当数据库」），数据库话题混入 q4（event loop）、q17（Code Review 冲突）、q24（pandas 性能），前端开发话题混入 q14（慢查询排查）。是种子数据分配错位而非个别手滑（每道题的 2–3 个标签里通常只有一个是准的）。要求：① 新增 `scripts/audit-topic-tags.mjs`（默认 dry-run，输出每个话题的「可疑归属」清单与可疑率；每话题关键词表 ≥6 词、大小写归一、含英文别名），判据必须能解释（命中词/未命中词都打印）；② 修正数据：可疑标签在「该题还有命中话题」时删除错标，一题只剩错标时保留最贴近且报告；`--apply --prod` 需 `ZH_ALLOW_PROD_WRITE=1` 且先 `.backup()`，幂等，只动 `question_topics`（不改表结构、不动题目正文）；③ 断言 `scripts/assert/topic-attribution.mjs`：全站话题可疑归属率 ≤10%、`/topic/2` 前 20 条不出现 q9/q20/q21/q23/q27、`/topic/5` 不出现 q4/q17/q24、每题至少一个话题命中关键词、`--self-test` 在副本库植入错标必须检出；反向自检改动前线上必须 FAIL。
+  verify: node scripts/assert/topic-attribution.mjs
+  risk: med
+- [ ] Z1141 「邀请回答」死按钮（P2，可预期性，Z1002 第三次复核）：问题页「邀请回答」点击后正文长度 1332→1332、URL 不变、无弹窗、无 toast（1440 实测）。要求：点击打开邀请弹层——按昵称搜索可邀请用户（复用 `/api/users` 或 `/api/search?type=user`）、点「邀请」写一条邀请记录并 toast「已邀请 N 人」、列表显示「已邀请」态；无可用用户时空态给「暂无匹配用户」。不改问题页其他动作与关注逻辑。断言 `scripts/assert/invite-dialog.mjs`：点击后弹层出现（`[role=dialog]` 或 `.invite`）且 `main` 文本含「邀请」、搜索输入可用、选中一个用户点邀请后按钮变「已邀请」且刷新保持、Esc 可关、1440/390 无横向溢出、`window.__errs` 为空；反向自检线上 FAIL。
+  verify: node scripts/assert/invite-dialog.mjs
+  risk: med
+- [ ] Z1142 话题页头部「关注」重复、统计与按钮挤在一起（P3，可读性）：`/topic/2` 头部文本为「JavaScript 从语言特性到运行时行为的实践讨论 66 关注 19 讨论 关注」——两个「关注」相邻，扫读时分不清哪个是按钮。要求：统计文案改为「66 人关注 · 19 个讨论」（或等价、与站内其他计数口径一致），统计与关注按钮之间 ≥12px 且按钮文案保持不变；1440 单行、390 不折行不溢出。断言 `scripts/assert/topic-header-copy.mjs`：`.topic` 头部内不出现「关注 关注」连续形态、统计文本含「人关注」或「个讨论」、统计容器与按钮间距 ≥12px、双端无横向溢出。
+  verify: node scripts/assert/topic-header-copy.mjs
+  risk: low
