@@ -324,6 +324,44 @@ router.get("/:id", (req, res) => {
   });
 });
 
+// GET /questions/:id/related?limit= — 问题页底部「相关问题」区块数据源：
+// 本题话题下 answer_count/view_count 最高的其它问题（排除自身、折叠题与测试
+// 内容）；本题无话题 → items:[]。话题走 topicsForQuestions 批量取，无 N+1。
+router.get("/:id/related", (req, res) => {
+  const db = getDb();
+  const q = db
+    .prepare("SELECT id FROM questions WHERE id = ?")
+    .get(req.params.id);
+  if (!q) return res.status(404).json({ error: "问题不存在" });
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 12);
+  const rows = db
+    .prepare(
+      `SELECT q.id, q.title, q.answer_count, q.view_count FROM questions q
+       JOIN users u ON u.id = q.author_id
+       WHERE q.id != ? AND q.is_collapsed = 0 AND ${testQuestionSql("q", "u")}
+         AND EXISTS (
+           SELECT 1 FROM question_topics qt
+           WHERE qt.question_id = q.id
+             AND qt.topic_id IN (
+               SELECT topic_id FROM question_topics WHERE question_id = ?
+             )
+         )
+       ORDER BY q.answer_count DESC, q.view_count DESC, q.id ASC
+       LIMIT ?`
+    )
+    .all(q.id, q.id, limit);
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      answer_count: r.answer_count,
+      view_count: r.view_count,
+      topics: topicsByQ.get(r.id) || [],
+    })),
+  });
+});
+
 // GET /questions/:id/answers?sort=default|newest&page=&limit=
 router.get("/:id/answers", (req, res) => {
   const db = getDb();

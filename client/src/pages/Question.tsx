@@ -39,6 +39,15 @@ interface InviteUser {
   bio: string;
 }
 
+// 「相关问题」行形态（GET /questions/:id/related）：话题胶囊只回 id+name。
+interface RelatedItem {
+  id: number;
+  title: string;
+  answer_count: number;
+  view_count: number;
+  topics: { id: number; name: string }[];
+}
+
 const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
 
 type AnswerSort = "default" | "newest";
@@ -240,6 +249,8 @@ export function Question() {
   const anchorTimerRef = useRef(0);
   // 本人在本问题下的回答（detail 的 my_answers）：固定条独立成栏，不进排序列表。
   const [myAnswers, setMyAnswers] = useState<Answer[]>([]);
+  // 「相关问题」：独立于回答分页/排序的一条只读拉取；空数组/失败都不渲染。
+  const [related, setRelated] = useState<RelatedItem[]>([]);
   const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [delPending, setDelPending] = useState<Record<number, boolean>>({});
   // 回答卡「⋯」菜单 / 内联编辑 / 卡内删除确认条（confirmDelId 是固定条的确认态，互不影响）。
@@ -341,6 +352,21 @@ export function Question() {
   }, [id]);
 
   useEffect(load, [load]);
+
+  // 「相关问题」拉取：只随问题切换重发，失败/空列表都静默（区块整块不渲染），
+  // 不碰回答列表的分页与排序状态。
+  useEffect(() => {
+    let alive = true;
+    setRelated([]);
+    get<{ items: RelatedItem[] }>(`/questions/${id}/related`)
+      .then((d) => {
+        if (alive) setRelated(Array.isArray(d.items) ? d.items : []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   const loadMoreAnswers = () => {
     if (moreLoading || sortLoading || !hasMore) return;
@@ -1823,6 +1849,27 @@ export function Question() {
             </p>
           ) : null)}
       </section>
+
+      {related.length > 0 && (
+        <section className="related" aria-label="相关问题">
+          <h2 className="related__title">相关问题</h2>
+          <ul className="related__list">
+            {related.slice(0, 6).map((r) => (
+              <li className="related__item" key={r.id}>
+                <Link className="related__link" to={`/question/${r.id}`}>
+                  {r.title}
+                </Link>
+                <span className="related__meta">{r.answer_count} 个回答</span>
+                {r.topics.map((t) => (
+                  <Link key={t.id} className="tag" to={`/topic/${t.id}`}>
+                    {t.name}
+                  </Link>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {anchorMiss && (
         <div className="anchor-miss" role="status">
