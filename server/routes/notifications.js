@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { badRequest } = require("../util");
 const { requireAuth } = require("../auth");
-const { testNotificationSql } = require("../content-filter");
+const { testNotificationResidueSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -123,9 +123,10 @@ router.get("/", requireAuth, (req, res) => {
 
   const conds = ["n.user_id = ?"];
   const params = [req.user.id];
-  // 自动化残留通知（测试账号 actor 或指向测试问题/回答）不进列表与 total，
-  // 与公共流的过滤口径一致（Z1082：巡检探针banv 等残留通知）。
-  conds.push(testNotificationSql("n"));
+  // 自动化残留通知不进列表与 total（Z1088 窄口径）：只挡残留昵称形态的
+  // actor（走查<数字>/巡检探针<拉丁>/巡检<随机串>），不按测试邮箱域/is_test/
+  // 目标标题过滤 —— 普通测试号与真实用户的交互通知必须送达。
+  conds.push(testNotificationResidueSql("n"));
   if (type) {
     conds.push("n.type = ?");
     params.push(type);
@@ -151,7 +152,7 @@ router.get("/", requireAuth, (req, res) => {
   const unread = db
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
+       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationResidueSql("n")}`
     )
     .get(req.user.id).c;
 
@@ -163,7 +164,7 @@ router.get("/unread-count", requireAuth, (req, res) => {
   const count = getDb()
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
+       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationResidueSql("n")}`
     )
     .get(req.user.id).c;
   res.json({ count });
