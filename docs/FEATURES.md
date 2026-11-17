@@ -611,3 +611,9 @@
 - [x] Z1101 生产库残留断言评论 + 删除占位仍在渲染（P2，内容治理）：comment id 497 正文 `租赁这个比喻讲得清楚，清理函数就是退租 411293`（作者种子号 user2，尾部六位随机数）；`/question/6` 评论区另有 6 行「该评论已删除」占位。需写清理脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库）并让已删除评论不再渲染成占位行 ✅ (2026-11-17 devin：clean-residue-comments.js 默认 dry-run + Question.tsx 不再渲染无存活子回复的删除占位；comment-residue.mjs PASS)
   verify: node scripts/assert/comment-residue.mjs
   risk: med
+
+## 第二十三轮收尾观察（待办）
+
+- [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
+  verify: node scripts/assert/rail-second-block.mjs
+  risk: med
