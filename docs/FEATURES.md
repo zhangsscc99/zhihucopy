@@ -569,15 +569,27 @@
 
 ## 第二十二轮待办（2026-11-17 04:4x，来源 docs/PRODUCT-REVIEW.md 第二十轮线上走查）
 
-- [ ] Z1090 信息流卡片只有标题可点，整卡空白区点了没反应（P1，操作手感/真知乎行为）：`Home.tsx` 里 `.feed__item` 是 `<li>`，只有 `.feed__title`/`.feed__author`/`.tag` 三个 `<a>`；鼠标点摘要下方或卡片右侧空白处（`elementFromPoint` 返回 `LI.feed__item`、`cursor:auto`）URL 完全不变，390px 移动端同样点不动。需让整卡可进 `/question/:id`（标题/作者/话题链接保持各自跳转、不冒泡错跳），`cursor:pointer`，hover 有 1px 位移或边框色变化；键盘可达（卡片内可 Tab 到标题、焦点框可见）
+- [x] Z1090 信息流卡片只有标题可点，整卡空白区点了没反应（P1，操作手感/真知乎行为）：`Home.tsx` 里 `.feed__item` 是 `<li>`，只有 `.feed__title`/`.feed__author`/`.tag` 三个 `<a>`；鼠标点摘要下方或卡片右侧空白处（`elementFromPoint` 返回 `LI.feed__item`、`cursor:auto`）URL 完全不变，390px 移动端同样点不动。需让整卡可进 `/question/:id`（标题/作者/话题链接保持各自跳转、不冒泡错跳），`cursor:pointer`，hover 有 1px 位移或边框色变化；键盘可达（卡片内可 Tab 到标题、焦点框可见） ✅ (2026-11-17 devin swe-2-high：新增 `client/src/lib/cardNav.ts`，返回 role=link/tabIndex/onClick/onKeyDown 摊到 `.feed__item`；`closest("a,button")` 放行卡内标题/作者/话题链接、拖选文字不误跳、Enter 仅在卡片自身聚焦时触发；Home.tsx 的 FeedCard/AnswerResultCard/HotFeedCard 与 Topic/Topics/Unanswered 的问题卡同步；styles.css 加 cursor:pointer + hover 边框加深 + :focus-visible 焦点环。新增 `assert/feed-card-click.mjs`（桌面空白点击跳转且标题一致、作者→/u/、话题→/topic/、390px tap 跳转、cursor/hover 前后差异、卡片 Enter、__errs 空、无溢出）；未修基线 FAIL「cursor=auto」，修后 3/3 PASS；线上实测点第 2 卡空白区跳 /question/11)
   verify: node scripts/assert/feed-card-click.mjs
   risk: med
-- [ ] Z1091 回答结尾模板尾巴（P1，内容真实感）：`scripts/seed.js:564` 给每 6 条回答追加同一句 `> 补充：${alpha}——任何方法都有适用边界，先确认你的约束和我的一致，再决定要不要照做。`，生产库 50/303 条命中（16%），其中 20 条写成「补充：补充一个反例」，变体「评论区有人问到成本」出现在 0 评论的回答上。需改为按话题/观点生成互不相同的收尾句（≥12 种句式池 + 不声称不存在的评论 + 禁用「补充：补充」重复词），并写一次生产库修正脚本（同时改写 `answers.content_md` 与其 `answer_revisions` 对应记录），断言任意两篇回答最长公共后缀 ≤20 字
+- [x] Z1091 回答结尾模板尾巴（P1，内容真实感）：`scripts/seed.js:564` 给每 6 条回答追加同一句 `> 补充：${alpha}——任何方法都有适用边界，先确认你的约束和我的一致，再决定要不要照做。`，生产库 50/303 条命中（16%），其中 20 条写成「补充：补充一个反例」，变体「评论区有人问到成本」出现在 0 评论的回答上。需改为按话题/观点生成互不相同的收尾句（≥12 种句式池 + 不声称不存在的评论 + 禁用「补充：补充」重复词），并写一次生产库修正脚本（同时改写 `answers.content_md` 与其 `answer_revisions` 对应记录），断言任意两篇回答最长公共后缀 ≤20 字 ✅ (2026-11-17 devin swe-2-high：`scripts/seed.js` 用按大类分池的 `ANSWER_TAILS`（code18/work13/psy7/life7/sci7/edu5/health5/money4，共 66 句，40–90 字）替换原单一模板，`pickTail(cat)` 游标轮转保证同批不重复、不再虚构评论区；新增 `scripts/fix-answer-tails.js`（默认 dry-run，`FIX_ALLOW_PROD=1` 才能写生产库，重写 `answers.content_md` 并同口径改写 `answer_revisions`，幂等：第二次命中 0 条）；新增 `assert/seed-tails-variety.mjs`（旧尾巴/「补充：补充」清零 + 任意两回答末 120 字最长公共后缀 ≤20 + 无评论回答不虚构互动 + seed 池 ≥12 且无禁用串 + API 抽 8 条，5/5）；生产库已 apply 50 条（备份 data/backups/zhihu-20261117-0500-dbbackup.db），线上 /question/6 旧尾巴 0 命中、新句可见)
   verify: node scripts/assert/seed-tails-variety.mjs
   risk: med
-- [ ] Z1092 回答卡作者行缺「+ 关注」入口（P2，社交回路）：关注作者目前只能点进 `/u/:id` 再点，回答卡作者行右侧空白。需在回答作者行加「+ 关注 / 已关注」小按钮（未登录点击跳 `/login?next=<当前路径>`），点击后 1.5s 内变「已关注」且刷新保持，自己的回答不显示该按钮
+- [x] Z1092 回答卡作者行缺「+ 关注」入口（P2，社交回路）：关注作者目前只能点进 `/u/:id` 再点，回答卡作者行右侧空白。需在回答作者行加「+ 关注 / 已关注」小按钮（未登录点击跳 `/login?next=<当前路径>`），点击后 1.5s 内变「已关注」且刷新保持，自己的回答不显示该按钮 ✅ (2026-11-17 devin swe-2-high：`server/routes/questions.js` 抽 `followedUserIds()`（一次 IN 查询，无 N+1）+ `answerItem()`，问题详情/回答列表在登录态回带 `author.is_following`（匿名不输出）；`Question.tsx` 作者行右侧加 `.answer__follow`（+ 关注/已关注，同作者多卡联动、按 userId 重置本地覆盖态、自己的回答不渲染、未登录走 needLogin 带 next）；新增 `assert/answer-author-follow.mjs`（关注→后端生效→刷新保持→可取消、自己回答无按钮、未登录跳 /login?next=、390px 不重叠无溢出、__errs 空、测后清理）；未修基线 FAIL（15s 超时找不到按钮），修后 3/3 PASS；线上 3 个回答作者行均可见「+ 关注」（59×27）)
   verify: node scripts/assert/answer-author-follow.mjs
   risk: med
-- [ ] Z1093 登录成功后按浏览器后退回到登录页（P2，导航常识）：`/login?next=/question/6` 登录成功后是 push 到目标页，登录页仍留在历史栈，后退又看到一张登录表单。需在登录成功跳转时替换当前历史项（`navigate(dest,{replace:true})` 或 `history.replaceState` 后跳），注册成功同理；断言：登录 → 后退 → 不出现 `.authform`（或登录表单输入框数为 0），且回到落地页
+- [x] Z1093 登录成功后按浏览器后退回到登录页（P2，导航常识）：`/login?next=/question/6` 登录成功后是 push 到目标页，登录页仍留在历史栈，后退又看到一张登录表单。需在登录成功跳转时替换当前历史项（`navigate(dest,{replace:true})` 或 `history.replaceState` 后跳），注册成功同理；断言：登录 → 后退 → 不出现 `.authform`（或登录表单输入框数为 0），且回到落地页 ✅ (2026-11-17 devin swe-2-medium：`Login.tsx`/`Register.tsx` 成功跳转改 `navigate(dest,{replace:true})`，并对已登录访问 `/login`/`/register` 用 `<Navigate replace>` 直接走、`loading` 时渲染 null；新增 `assert/login-history-replace.mjs`（有/无 next 两种后退都不出现 `.authform`、已登录访问登录页不留表单、注册路径同验、__errs 空）；基线 FAIL「后退后仍见 .authform」、修后 3/3 PASS；线上实测登录→后退停在 /question/6 且 `.authform`=0)
   verify: node scripts/assert/login-history-replace.mjs
   risk: low
+
+## 第二十二轮收尾观察（待办）
+
+- [ ] Z1094 登录后用浏览器「后退」，头部仍渲染未登录态（P3，状态一致性）：线上实测登录成功 → `history.back()` 停在 `/question/6`（`next=` 回跳正确、`.authform` 已消失），但顶栏仍显示「登录 注册」，刷新后才变「林间有风」。原因是后退命中的历史项由浏览器缓存/React 未重跑 auth 校验。需在 `popstate`（或路由变化）时重新校验 token/user，保证任何一次进入页面都按当前 token 渲染头部
+  verify: node scripts/assert/back-auth-state.mjs
+  risk: low
+- [ ] Z1095 通知文案「与你互动了」过于含糊（P3，文案）：通知页 7 条里 3 条是「XXX · 与你互动了」，看不出对方是回答了你的问题、还是评论/邀请了。真知乎会写「回答了你的问题」「在回答中提到了你」。需按 type 细分文案，并同步 e2e/assert 里的文案断言
+  verify: node scripts/assert/notification-copy.mjs
+  risk: low
+- [ ] Z1096 关注流「有新回答」提示（P2，社交回路）：现在关注流只能靠手动刷新；建议在「关注」tab 上加「N 条新回答」pill，基于 `answers.created_at > 上次访问时间` 计算，点击后插入并清零
+  verify: node scripts/assert/following-new-answers.mjs
+  risk: med
