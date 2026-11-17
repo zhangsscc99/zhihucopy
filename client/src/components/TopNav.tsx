@@ -106,6 +106,7 @@ function MobileSearch({ initial, onClose }: { initial: string; onClose: () => vo
         <form
           className="msearch__form"
           role="search"
+          aria-label="移动端搜索"
           onSubmit={(e) => {
             e.preventDefault();
             submit(term);
