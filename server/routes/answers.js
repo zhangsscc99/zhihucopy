@@ -118,6 +118,8 @@ router.get("/:id", (req, res) => {
       updated_at: a.updated_at,
       author: { id: a.author_id, nickname: a.author_nickname, avatar_url: a.author_avatar },
       is_collected: isCollected(db, req.user && req.user.id, a.id),
+      // is_mine 与问题页列表同口径：仅登录态输出。
+      ...(req.user ? { is_mine: a.author_id === req.user.id } : {}),
     },
   });
 });
@@ -164,7 +166,7 @@ router.patch("/:id", requireAuth, (req, res) => {
     )
     .get(id);
   res.json({
-    answer: { ...answerRow(row), is_collected: isCollected(db, req.user.id, id) },
+    answer: { ...answerRow(row), is_collected: isCollected(db, req.user.id, id), is_mine: true },
   });
 });
 
