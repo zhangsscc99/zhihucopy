@@ -7,7 +7,8 @@
 //   反对、自赞、自评不产生通知；回复二级评论时通知被回复的评论作者。
 //   分页锚点：目标回答排在首屏 5 条之外时——提问者侧自动补页落到列表项
 //     （li.answer#answer-N，高亮出现且 2.4s 内消失、无 box-shadow、scrollY>0），
-//     作者侧落到「你的回答」固定条兜底项（.myanswers__item#answer-N）。
+//     作者侧（Z1155 起本人回答带「你的回答」置顶为 .answerlist 第一条）
+//     落到 li.answer.answer--mine#answer-N。
 //
 // 环境：verify.sh 透传 API_BASE；e2e/lib.mjs 的 BASE/API 在模块加载时定型，
 // 故先按 API_BASE 反推 E2E_BASE/E2E_API 再动态 import。
@@ -179,7 +180,7 @@ run("notify-comment-anchor", async ({ browser }) => {
     body: { target_type: "answer", target_id: backAns.id, body: "后页回答的评论" },
   });
 
-  // 预埋校验：detail 首屏 5 条且不含 backAns（默认序第 7），否则用例无效。
+  // 预埋校验：匿名 detail 首屏 5 条且不含 backAns（默认序第 7），否则用例无效。
   const det2 = await apiOk("GET", `/questions/${q2.id}`);
   expect(
     det2.answers.length === 5 && !det2.answers.some((x) => x.id === backAns.id),
@@ -216,7 +217,8 @@ run("notify-comment-anchor", async ({ browser }) => {
   // 高亮 2.4s 内消失
   await pageA.waitForSelector(`li.answer#answer-${backAns.id}:not(.answer--anchor)`, { timeout: 2400 });
 
-  // -- 路径 B（「你的回答」固定条兜底）：B2 的 comment 通知指向自己的 backAns --
+  // -- 路径 B（本人回答置顶卡）：B2 的 comment 通知指向自己的 backAns --
+  // Z1155 起本人回答带「你的回答」置顶为 .answerlist 第一条，锚点直接落该卡。
   const pageB = await authedPage(browser, b2.token);
   await pageB.goto(`${BASE}/notifications`);
   const rowB = pageB
@@ -228,15 +230,15 @@ run("notify-comment-anchor", async ({ browser }) => {
   expect(hrefB && hrefB.endsWith(`#answer-${backAns.id}`), `B2 通知 href 锚点不符：${hrefB}`);
   await rowB.locator("a.ntf__hit").first().click();
   await pageB.waitForFunction((h) => window.location.hash === h, `#answer-${backAns.id}`, { timeout: 10000 });
-  const barItem = pageB.locator(`.myanswers__item#answer-${backAns.id}`);
-  await barItem.waitFor({ state: "attached" });
+  const mineItem = pageB.locator(`li.answer.answer--mine#answer-${backAns.id}`);
+  await mineItem.waitFor({ state: "attached" });
   await until(
     async () => {
-      const bx = await barItem.boundingBox().catch(() => null);
+      const bx = await mineItem.boundingBox().catch(() => null);
       return bx && bx.y < vp.height && bx.y + bx.height > 0 ? bx : false;
     },
-    { label: `固定条兜底 #answer-${backAns.id} 未滚入视口` }
+    { label: `置顶卡 #answer-${backAns.id} 未滚入视口` }
   );
   const scrollYB = await pageB.evaluate(() => window.scrollY);
-  expect(scrollYB > 0, `固定条落地后 scrollY=${scrollYB}，仍停在顶部`);
+  expect(scrollYB > 0, `置顶卡落地后 scrollY=${scrollYB}，仍停在顶部`);
 });

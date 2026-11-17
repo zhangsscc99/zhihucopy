@@ -166,7 +166,9 @@ async function main() {
     await page.waitForTimeout(1800);
     const acAfter = (await apiOk("GET", `/questions/${QID}`)).question.answer_count;
     expect(acAfter === acBefore + 1, `回答数未 +1: ${acBefore}->${acAfter}`);
-    const qDetail = await apiOk("GET", `/questions/${QID}`);
+    // Z1155：本人回答并入 detail.answers（is_mine 标记）仅登录态生效，
+    // 必须带 A 的 token 取详情，匿名响应里没有它（匿名口径不变）。
+    const qDetail = await apiOk("GET", `/questions/${QID}`, { token: A.token });
     const myAns = qDetail.answers.find((a) => a.author?.id === A.user.id);
     expect(!!myAns, "新回答未在详情返回");
     await noErrs(page, "answer");

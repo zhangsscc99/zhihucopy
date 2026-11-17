@@ -67,12 +67,6 @@ const readSort = (search: string): AnswerSort => {
 };
 const sortSearch = (s: AnswerSort) => (s === "newest" ? "?sort=new" : "");
 
-// 固定条/摘要共用：去 Markdown 记号、压平空白后截断（保留连字符等普通标点）。
-const answerExcerpt = (md: string, n = 80) => {
-  const text = md.replace(/[#>*`[\]()!]/g, "").replace(/\s+/g, " ").trim();
-  return text.length > n ? `${text.slice(0, n)}…` : text;
-};
-
 // 已删除或被折叠的评论统一按「gone」处理：正文不渲染。
 const isGoneComment = (c: CommentNode) => Boolean(c.is_deleted || c.is_collapsed);
 
@@ -235,6 +229,7 @@ export function Question() {
   // Z1154 — 收起回答：首屏快照（条数/页号/hasMore）。「已展开」= 当前渲染条数
   // 超过首屏条数；收起即截回快照并把分页态复位，不发重复请求。投票/收藏/
   // 评论状态按 answer.id 分存，不受截断影响；排序快照随 applySort 换。
+  // count 只数非本人条目：本人回答在置顶池 myAnswers，收起不截它（Z1155）。
   const [firstPage, setFirstPage] = useState({ count: 0, page: 0, hasMore: false });
   const [moreLoading, setMoreLoading] = useState(false);
   const [moreError, setMoreError] = useState("");
@@ -251,13 +246,13 @@ export function Question() {
   const anchorSeenRef = useRef<string | null>(null);
   const anchorFetchRef = useRef(0);
   const anchorTimerRef = useRef(0);
-  // 本人在本问题下的回答（detail 的 my_answers）：固定条独立成栏，不进排序列表。
+  // 本人在本问题下的全部未删回答（detail/分页响应里 is_mine 的条目拆出）：
+  // 置顶渲染在 .answerlist 最前并带「你的回答」标识，不占排序位、不受收起截断。
   const [myAnswers, setMyAnswers] = useState<Answer[]>([]);
   // 「相关问题」：独立于回答分页/排序的一条只读拉取；空数组/失败都不渲染。
   const [related, setRelated] = useState<RelatedItem[]>([]);
-  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
   const [delPending, setDelPending] = useState<Record<number, boolean>>({});
-  // 回答卡「⋯」菜单 / 内联编辑 / 卡内删除确认条（confirmDelId 是固定条的确认态，互不影响）。
+  // 回答卡「⋯」菜单 / 内联编辑 / 卡内删除确认条。
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -316,7 +311,6 @@ export function Question() {
     setMoreError("");
     setNewId(null);
     setMyAnswers([]);
-    setConfirmDelId(null);
     setMenuFor(null);
     setEditingId(null);
     setEditSaving(false);
@@ -330,16 +324,18 @@ export function Question() {
         if (seq !== answersReq.current) return;
         setQuestion(d.question);
         setFollowing(Boolean(d.question.followed));
-        setMyAnswers(d.my_answers ?? []);
+        // 本人回答（is_mine）从排序列表拆出进置顶池；answers 只装他人条目。
+        // detail 的 answers 已含本人在首屏之外的全部回答，mine 即全集。
+        const mine = d.answers.filter((a) => a.is_mine);
         setError("");
         if (wanted === "default") {
-          setAnswers(d.answers);
-          setHasMore(d.question.answer_count > d.answers.length);
-          setFirstPage({
-            count: d.answers.length,
-            page: 0,
-            hasMore: d.question.answer_count > d.answers.length,
-          });
+          const rest = d.answers.filter((a) => !a.is_mine);
+          setMyAnswers(mine);
+          setAnswers(rest);
+          // d.answers.length 含并入的本人回答，与 answer_count 同口径相减不漏页。
+          const more = d.question.answer_count > d.answers.length;
+          setHasMore(more);
+          setFirstPage({ count: rest.length, page: 0, hasMore: more });
           return;
         }
         // ?sort=new 深链/刷新：detail 只给默认序首屏，最新序另取分页第 1 页
@@ -347,10 +343,16 @@ export function Question() {
           `/questions/${id}/answers?sort=newest&page=1&limit=${ANSWER_PAGE_SIZE}`
         ).then((res) => {
           if (seq !== answersReq.current) return;
-          setAnswers(res.items);
+          // 本页自然命中的本人条目（最新序常在首位）按 is_mine 拆出，
+          // 与置顶池合并去重；其余进排序列表。
+          const resMine = res.items.filter((a) => a.is_mine);
+          const resMineIds = new Set(resMine.map((a) => a.id));
+          const rest = res.items.filter((a) => !a.is_mine);
+          setMyAnswers([...resMine, ...mine.filter((m) => !resMineIds.has(m.id))]);
+          setAnswers(rest);
           setPage(1);
           setHasMore(res.has_more);
-          setFirstPage({ count: res.items.length, page: 1, hasMore: res.has_more });
+          setFirstPage({ count: rest.length, page: 1, hasMore: res.has_more });
         });
       })
       .catch((e) => {
@@ -392,7 +394,13 @@ export function Question() {
         if (seq !== answersReq.current) return;
         setAnswers((prev) => {
           const seen = new Set(prev.map((a) => a.id));
-          return [...prev, ...res.items.filter((a) => !seen.has(a.id))];
+          for (const m of myAnswers) seen.add(m.id);
+          // 分页里自然命中的本人条目（is_mine）丢弃——由置顶池统一渲染，
+          // 否则同一回答会既在首位又在分页位置重复出现。
+          return [
+            ...prev,
+            ...res.items.filter((a) => !a.is_mine && !seen.has(a.id)),
+          ];
         });
         setPage(next);
         setHasMore(res.has_more);
@@ -452,10 +460,19 @@ export function Question() {
         sortFailedKeyRef.current = null;
         // 排序成功落地后再丢草稿/表单：失败回滚时列表没变，不该清空用户输入。
         resetReplyState();
-        setAnswers(res.items);
+        // 排序只作用于他人回答：本页自然命中的本人条目按 is_mine 拆回置顶池，
+        // 不在本页的本人回答照旧保留（置顶不随排序/分页丢失）。
+        const resMine = res.items.filter((a) => a.is_mine);
+        const resIds = new Set(res.items.map((a) => a.id));
+        const rest = res.items.filter((a) => !a.is_mine);
+        setMyAnswers((prev) => [
+          ...resMine,
+          ...prev.filter((m) => !resIds.has(m.id)),
+        ]);
+        setAnswers(rest);
         setPage(1);
         setHasMore(res.has_more);
-        setFirstPage({ count: res.items.length, page: 1, hasMore: res.has_more });
+        setFirstPage({ count: rest.length, page: 1, hasMore: res.has_more });
       })
       .catch((e: Error) => {
         if (seq !== answersReq.current) return;
@@ -640,15 +657,17 @@ export function Question() {
     return () => window.clearTimeout(t);
   }, [newId]);
 
-  const answerIdsKey = answers.map((a) => a.id).join(",");
-  // hash 指向的目标 answer id：渲染期同步解析——「你的回答」固定条在目标
-  // 不在列表时兜底渲染 id="answer-N"，锚点 effect 用 getElementById 找它。
-  const anchorAid = (() => {
-    const m = /^#answer-(\d+)$/.exec(location.hash);
-    return m ? Number(m[1]) : null;
-  })();
+  // 渲染序列 = 本人置顶池 + 排序列表（按 id 去重兜底，正常两池不相交）。
+  // 本人回答固定在 .answerlist 最前，不参与排序/翻页；Z1154「收起回答」
+  // 也只截排序池 answers，置顶条目始终保留。
+  const mineIds = new Set(myAnswers.map((a) => a.id));
+  const listAnswers = [
+    ...myAnswers,
+    ...answers.filter((a) => !mineIds.has(a.id)),
+  ];
+  const answerIdsKey = listAnswers.map((a) => a.id).join(",");
 
-  // 深链 #answer-N：目标已在 DOM（列表项或「你的回答」固定条兜底项）→
+  // 深链 #answer-N：目标已在 DOM（列表项；本人回答恒在置顶位因此必命中）→
   // 滚动定位 + 2s 高亮；不在 → 按当前排序自动补页（上限 ANCHOR_MAX_FETCH 页），
   // 每页落地后本 effect 重跑再判；拉尽/到上限仍找不到 → anchorMiss 轻量提示。
   // 只依赖 hash、id 集合与加载态——投票/评论重建 answers 不重复滚动。
@@ -835,11 +854,13 @@ export function Question() {
         { target_type: "answer", target_id: a.id, value: next }
       );
       setVotes((v) => ({ ...v, [a.id]: d.vote }));
-      setAnswers((xs) =>
+      // 本人卡与他人卡分存两池，同一条 answer 只在一处出现，两边各尝试命中。
+      const bumpVotes = (xs: Answer[]) =>
         xs.map((x) =>
           x.id === a.id ? { ...x, vote_up: d.voteup_count, vote_down: d.votedown_count } : x
-        )
-      );
+        );
+      setAnswers(bumpVotes);
+      setMyAnswers(bumpVotes);
     } catch (e) {
       // 会话陈旧（页面残留 user 态但 token 已失效/被清）时服务端回 401：
       // 先按当前 token 重放校验清掉残留 user（否则登录页会因 user 非空
@@ -975,7 +996,7 @@ export function Question() {
     }
   };
 
-  // 评论计数同步改两处：回答列表与「你的回答」固定条展示的是同一条 answer。
+  // 评论计数同步改两处：排序列表与本人置顶池里可能是同一条 answer。
   const bumpCommentCount = (answerId: number, delta: number) => {
     const bump = (xs: Answer[]) =>
       xs.map((x) =>
@@ -1014,8 +1035,12 @@ export function Question() {
     }
   };
 
-  const setAnswerCollected = (answerId: number, val: boolean) =>
-    setAnswers((xs) => xs.map((x) => (x.id === answerId ? { ...x, is_collected: val } : x)));
+  const setAnswerCollected = (answerId: number, val: boolean) => {
+    const mark = (xs: Answer[]) =>
+      xs.map((x) => (x.id === answerId ? { ...x, is_collected: val } : x));
+    setAnswers(mark);
+    setMyAnswers(mark);
+  };
 
   const toggleFav = async (answerId: number, trigger?: HTMLElement) => {
     if (!user) return needLogin();
@@ -1141,7 +1166,7 @@ export function Question() {
     }
   };
 
-  // 「你的回答」固定条删除入口：软删除后两侧列表同步摘除、页头计数 -1。
+  // 删除回答（置顶卡/列表卡共用）：软删后两侧同步摘除、页头计数 -1。
   const removeAnswer = async (a: Answer) => {
     if (delPending[a.id]) return;
     setDelPending((d) => ({ ...d, [a.id]: true }));
@@ -1152,7 +1177,6 @@ export function Question() {
       setQuestion((q) =>
         q ? { ...q, answer_count: Math.max(0, q.answer_count - 1) } : q
       );
-      setConfirmDelId(null);
       setCardConfirmDelId(null);
       setMenuFor(null);
       if (editingId === a.id) setEditingId(null);
@@ -1207,8 +1231,11 @@ export function Question() {
       const { answer } = await post<{ answer: Answer }>(`/questions/${id}/answers`, {
         content_md: draft,
       });
-      setAnswers((xs) => [answer, ...xs.filter((x) => x.id !== answer.id)]);
-      setMyAnswers((xs) => [answer, ...xs.filter((x) => x.id !== answer.id)]);
+      // 新回答进本人置顶池（带 is_mine），渲染在 .answerlist 第一条；
+      // 排序列表侧只防重（正常不会含它），不占排序位。
+      const mineAnswer = { ...answer, is_mine: true };
+      setMyAnswers((xs) => [mineAnswer, ...xs.filter((x) => x.id !== answer.id)]);
+      setAnswers((xs) => xs.filter((x) => x.id !== answer.id));
       setQuestion((q) => (q ? { ...q, answer_count: q.answer_count + 1 } : q));
       setNewId(answer.id);
       setDraft("");
@@ -1310,88 +1337,12 @@ export function Question() {
             </Link>
           </p>
         )}
-        {myAnswers.length > 0 && (
-          <section className="myanswers" aria-label="你的回答">
-            <h3 className="myanswers__title">你的回答</h3>
-            <ul className="myanswers__list">
-              {myAnswers.map((a) => {
-                const inList = answers.some((x) => x.id === a.id);
-                return (
-                  <li
-                    key={a.id}
-                    className={`myanswers__item${
-                      a.id === anchorId ? " answer--anchor" : ""
-                    }`}
-                    // 深链兜底：目标是本人回答且尚未加载进列表时，固定条顶替
-                    // 渲染 id="answer-N"（在列表里则不重复 id，避免 DOM id 冲突）。
-                    id={!inList && anchorAid === a.id ? `answer-${a.id}` : undefined}
-                  >
-                    <div className="myanswers__body">
-                      <p className="myanswers__excerpt">
-                        {answerExcerpt(a.content_md)}
-                      </p>
-                      <p className="myanswers__meta">
-                        {a.vote_up} 赞同 · {a.comment_count} 评论 · 发布于{" "}
-                        {formatTime(a.created_at)}
-                      </p>
-                    </div>
-                    <div className="myanswers__ops">
-                      {inList && (
-                        <button
-                          type="button"
-                          className="myanswers__op"
-                          onClick={() =>
-                            document
-                              .getElementById(`answer-${a.id}`)
-                              ?.scrollIntoView({
-                                behavior: "smooth",
-                                block: "start",
-                              })
-                          }
-                        >
-                          定位
-                        </button>
-                      )}
-                      {confirmDelId === a.id ? (
-                        <>
-                          <button
-                            type="button"
-                            className="myanswers__op myanswers__op--danger"
-                            disabled={delPending[a.id]}
-                            onClick={() => void removeAnswer(a)}
-                          >
-                            {delPending[a.id] ? "删除中…" : "确认删除"}
-                          </button>
-                          <button
-                            type="button"
-                            className="myanswers__op"
-                            disabled={delPending[a.id]}
-                            onClick={() => setConfirmDelId(null)}
-                          >
-                            取消
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="myanswers__op"
-                          onClick={() => setConfirmDelId(a.id)}
-                        >
-                          删除
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-        {answers.length === 0 ? (
+        {listAnswers.length === 0 ? (
           <Empty title="还没有回答" hint="写下第一个回答，帮提问的人一把" />
         ) : (
           <ul className="answerlist">
-            {answers.map((a) => {
+            {listAnswers.map((a) => {
+              const mine = mineIds.has(a.id);
               const my = votes[a.id] ?? 0;
               const cs = comments[a.id];
               const commentRows = Array.isArray(cs)
@@ -1403,11 +1354,12 @@ export function Question() {
               return (
                 <li
                   key={a.id}
-                  className={`answer${a.id === newId ? " answer--new" : ""}${
-                    a.id === anchorId ? " answer--anchor" : ""
-                  }`}
+                  className={`answer${mine ? " answer--mine" : ""}${
+                    a.id === newId ? " answer--new" : ""
+                  }${a.id === anchorId ? " answer--anchor" : ""}`}
                   id={`answer-${a.id}`}
                 >
+                  {mine && <span className="answer__mine">你的回答</span>}
                   <div className="answer__author">
                     <Link
                       to={`/u/${a.author.id}`}
@@ -1863,7 +1815,7 @@ export function Question() {
             })}
           </ul>
         )}
-        {answers.length > 0 &&
+        {listAnswers.length > 0 &&
           (moreError ? (
             <div className="feed-foot feed-foot--error" role="alert">
               <p className="feed-foot__text">加载更多失败：{moreError}</p>

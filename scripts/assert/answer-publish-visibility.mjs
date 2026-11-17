@@ -1,8 +1,8 @@
 // Z1032 — 浏览器级断言（Playwright）：问题页发布回答后，
 //   1) 不刷新即见自己的回答（乐观置顶 + 高亮），并从 DOM 取回答 id 登记清理；
-//   2) 刷新后默认视图 0 次点击即可看到：「你的回答」固定条展示本人回答
-//      （默认排序保持纯赞数序的公开口径，作者可见性靠固定条，不改写列表序）。
-//      基线（无固定条、无置顶口径）上，新回答在 9 条里排最末、首屏 5 条之外，
+//   2) 刷新后默认视图 0 次点击即可看到：Z1155 起本人回答带「你的回答」标识
+//      置顶为 .answerlist 第一条（他人条目仍保持纯赞数序公开口径）。
+//      基线（无置顶口径）上，新回答在 9 条里排最末、首屏 5 条之外，
 //      需点 1 次「查看全部」→ clicks===1 → FAIL；
 //   3) 排序切换写进 URL（?sort=new），刷新后保持；翻到底条数与页头计数自洽；
 //   4) 回归：?sort=new 下点右栏热榜（Link 无 query，search → ""）跨问题导航，
@@ -92,13 +92,8 @@ run("answer-publish-visibility", async ({ page }) => {
   const before = parseInt((await countLoc.textContent()) || "0", 10);
   expect(before === 8, `发布前应为 8 个回答，页头显示「${await countLoc.textContent()}」`);
 
-  // mine：回答列表口径；mineAny：列表或「你的回答」固定条（可见性口径）。
+  // mine：回答列表里正文含 marker 的卡（本人回答置顶后就是第一条）。
   const mine = page.locator(".answerlist .answer", { hasText: marker });
-  const mineAny = page.locator(".answerlist .answer, .myanswers__item", {
-    hasText: marker,
-  });
-  const bar = page.locator(".myanswers");
-  const mineBar = bar.locator(".myanswers__item", { hasText: marker });
 
   // —— UI 发布 ——
   await page.locator(".answer-editor textarea").fill(body);
@@ -121,43 +116,53 @@ run("answer-publish-visibility", async ({ page }) => {
     "发布后页头回答计数未 +1"
   );
 
-  // —— 刷新：「你的回答」固定条出现，默认视图 0 次点击即可看到自己的回答 ——
+  // —— 刷新：本人回答带「你的回答」标识置顶为 .answerlist 第一条（0 点击可见）——
   await page.reload();
   await page.locator(".answerlist .answer").first().waitFor();
-  await until(() => visible(bar), {
-    label: "刷新后默认视图没有「你的回答」固定条",
+  const firstLi = page.locator(".answerlist > li").first();
+  await until(async () => (await firstLi.innerText()).includes(marker), {
+    label: "刷新后默认视图列表第一条不是自己的回答",
   });
   expect(
-    (((await bar.textContent()) || "").includes("你的回答")),
-    "固定条缺少「你的回答」标签"
+    (await firstLi.getAttribute("id")) === `answer-${myAnswerId}`,
+    `刷新后自己的回答未置顶为第一条（id=${await firstLi.getAttribute("id")}）`
   );
-  await until(() => visible(mineBar), {
-    label: "「你的回答」固定条里看不到刚发的回答",
-  });
+  expect(
+    ((await firstLi.innerText()) || "").includes("你的回答"),
+    "置顶第一条缺少「你的回答」标识"
+  );
 
-  // —— 默认排序口径回归：首屏 vote_up 必须单调不增（纯赞数序），
-  // 0 赞的新回答不得出现在第 1 位；作者可见性只由「你的回答」固定条负责 ——
-  const voteUps = await page.$$eval(".answerlist .answer .answer__vote--up", (els) =>
-    els.map((el) => parseInt((el.textContent || "").replace(/\D+/g, ""), 10) || 0)
+  // —— 默认排序口径回归：他人条目 vote_up 必须单调不增（纯赞数序），
+  // 0 赞的新回答只许走 is_mine 置顶位，不得混入他人排序位 ——
+  const voteUps = await page.$$eval(
+    ".answerlist .answer:not(.answer--mine) .answer__vote--up",
+    (els) =>
+      els.map((el) => parseInt((el.textContent || "").replace(/\D+/g, ""), 10) || 0)
   );
-  expect(voteUps.length === 5, `默认首屏应渲染 5 条回答，实际 ${voteUps.length}`);
+  expect(
+    voteUps.length === 5,
+    `默认首屏应渲染 5 条他人回答，实际 ${voteUps.length}`
+  );
   expect(
     voteUps.every((v, i) => i === 0 || v <= voteUps[i - 1]),
     `默认排序首屏 vote_up 非单调不增：${voteUps.join(",")}`
   );
   expect(
     voteUps[0] >= 1,
-    `首屏第 1 条应是被赞过的存量回答（vote_up>=1），实际 ${voteUps[0]}`
+    `他人首条应是被赞过的存量回答（vote_up>=1），实际 ${voteUps[0]}`
   );
   const firstDefault =
-    (await page.locator(".answerlist .answer").first().textContent()) || "";
+    (await page
+      .locator(".answerlist .answer:not(.answer--mine)")
+      .first()
+      .textContent()) || "";
   expect(
     !firstDefault.includes(marker),
-    "0 赞的新回答出现在默认序第 1 位（疑似作者置顶混入默认排序）"
+    "0 赞的新回答出现在他人序第 1 位（疑似置顶混入默认排序）"
   );
 
   let clicks = 0;
-  if (!(await visible(mineAny))) {
+  if (!(await visible(mine))) {
     // 兼容「明确提示 + 一次点击」的实现：只允许点翻页/提示按钮，不许点排序切换
     // （基线上「最新」一点就能看到 → 会掩盖真实缺陷）。
     const more = page.locator(".feed-foot button").first();
@@ -168,7 +173,7 @@ run("answer-publish-visibility", async ({ page }) => {
     await more.click();
     clicks++;
   }
-  await until(() => visible(mineAny), {
+  await until(() => visible(mine), {
     timeout: 8000,
     label: `刷新后默认视图 ${clicks} 次点击内仍看不到自己的回答`,
   });

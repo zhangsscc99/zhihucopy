@@ -281,8 +281,10 @@ router.get("/:id", (req, res) => {
        ORDER BY a.vote_up DESC, a.created_at ASC, a.id ASC LIMIT 5`
     )
     .all(q.id);
-  // 登录用户本人的回答单独成栏返回（前端「你的回答」固定条用）：
-  // 不改写公开排序，也能让作者刷新后在首屏找到自己的回答。
+  // 登录用户本人在本题下的全部未删回答：Z1155 起并入 answers 返回并打
+  // is_mine 标记（本就在首屏的原位保留不重复，其余追加在后），让作者发布/
+  // 刷新后能在列表里找到自己的回答（真知乎置顶口径）；my_answers 继续原样
+  // 返回，兼容仍读该字段的旧消费方。answer_count/分页口径不受影响。
   const myAnswerRows = req.user
     ? db
         .prepare(
@@ -292,6 +294,8 @@ router.get("/:id", (req, res) => {
         )
         .all(q.id, req.user.id)
     : [];
+  const onFirstPage = new Set(answerRows.map((a) => a.id));
+  const mineIds = new Set(myAnswerRows.map((a) => a.id));
   const collected = collectedAnswerIds(
     db,
     req.user && req.user.id,
@@ -304,10 +308,17 @@ router.get("/:id", (req, res) => {
         [...answerRows, ...myAnswerRows].map((a) => a.author_id)
       )
     : null;
-  const answers = answerRows.map((a) => answerItem(a, collected, followedAuthors));
-  const my_answers = myAnswerRows.map((a) =>
-    answerItem(a, collected, followedAuthors)
-  );
+  // is_mine 仅登录态输出（匿名响应不含该字段）：本人回答 true、其余 false。
+  const item = (a, mine) => {
+    const row = answerItem(a, collected, followedAuthors);
+    if (req.user) row.is_mine = mine;
+    return row;
+  };
+  const answers = [
+    ...answerRows.map((a) => item(a, mineIds.has(a.id))),
+    ...myAnswerRows.filter((a) => !onFirstPage.has(a.id)).map((a) => item(a, true)),
+  ];
+  const my_answers = myAnswerRows.map((a) => item(a, true));
 
   const followed = req.user
     ? !!db
@@ -393,9 +404,13 @@ router.get("/:id/answers", (req, res) => {
         answerRows.map((a) => a.author_id)
       )
     : null;
-  const items = answerRows.map((a) =>
-    answerItem(a, collected, followedAuthors)
-  );
+  // is_mine 与 detail 同口径：仅登录态输出，本人回答 true、其余 false；
+  // 分页集合本身不做作者置顶/注入，total/has_more 不变。
+  const items = answerRows.map((a) => {
+    const row = answerItem(a, collected, followedAuthors);
+    if (req.user) row.is_mine = a.author_id === req.user.id;
+    return row;
+  });
   const total = db
     .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0")
     .get(req.params.id).c;
@@ -439,7 +454,7 @@ router.post("/:id/answers", requireAuth, (req, res) => {
   grantFor(req.user.id, "answer_5");
   res
     .status(201)
-    .json({ answer: { ...answerRow(a), is_collected: isCollected(db, req.user.id, a.id) } });
+    .json({ answer: { ...answerRow(a), is_collected: isCollected(db, req.user.id, a.id), is_mine: true } });
 });
 
 function questionFollowerCount(db, qid) {

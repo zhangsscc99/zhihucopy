@@ -248,10 +248,10 @@ run("content-ownership", async ({ page }) => {
     (await countHead(page)) === beforeCount - 1,
     `reload 后页头计数应为 ${beforeCount - 1}`
   );
-  // 「你的回答」固定条也应消失（本人回答已软删）。
+  // 置顶位的本人回答卡也应消失（本人回答已软删）。
   expect(
-    (await page.locator(".myanswers__item", { hasText: edited }).count()) === 0,
-    "「你的回答」固定条里仍列着已删回答"
+    (await page.locator(".answerlist .answer--mine", { hasText: edited }).count()) === 0,
+    "置顶位的本人回答列表里仍列着已删回答"
   );
 
   // —— API 复核：GET 已删回答 404，列表口径与页头一致 ——

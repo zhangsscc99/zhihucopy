@@ -72,6 +72,8 @@ export interface Answer {
   updated_at: string;
   author: Author;
   is_collected?: boolean;
+  // 仅登录请求返回：该回答是否为当前用户本人所发（置顶与「你的回答」标识用）。
+  is_mine?: boolean;
 }
 
 export interface Page<T> {
