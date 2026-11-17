@@ -643,3 +643,9 @@
 - [x] Z1110 搜索召回偏窄疑点复核（P3，检索口径）：线上 `/search?q=React` 仅「相关结果 · 2 条」（问题 2 / 回答 6 / 用户 0），`useEffect` 2 条。只读核对：questions title/detail LIKE '%React%'=2、answers content LIKE=6、answer_fts 303/303 行与 answers 全量对齐——**接口命中与库内 LIKE 计数一致，不是召回 bug**（库内 React 字面命中本就少，且命中分散在回答 tab）；真正的问题是 question scope 未排除 `is_collapsed`。断言 `scripts/assert/search-recall.mjs`：四词（React/useEffect/数据库/职场）counts.question ≥ 只读 LIKE 基线、answer>0、React/react/REACT 三态一致、type=answer total 与 counts.answer 自洽 ✅ (2026-11-17 devin：qWhere 补 `q.is_collapsed = 0`；search-recall.mjs 四词全 PASS；search-page/search-scope/search-guard 回归 PASS)
   verify: node scripts/assert/search-recall.mjs
   risk: low
+- [ ] Z1111 作者主页落点为空（P2，内容厚度）：走查第 10 步点「半山腰214」进 `/u/214`，页面答 0 问 1，只有「还没有回答 / 浏览 TA 的提问 / 去逛逛推荐」空态，落点落差比不能点更大。主页空态改为列出「TA 最近关注的问题」+「TA 最近赞同的回答」（无数据再退回现有文案）。断言 `scripts/assert/profile-empty-fallback.mjs`：对回答数=0 且关注数>0 的用户，主页至少渲染 3 条可点内容（问题或回答），且无「还没有回答」与列表并存
+  verify: node scripts/assert/profile-empty-fallback.mjs
+  risk: med
+- [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：`scripts/report.sh` 本轮统计 `verify fails=50`（Z1058-Z1077 区间多条断言脚本缺失或口径过期），报告噪声掩盖真实回归。逐条三选一：补断言脚本 / 修正 verify 行 / 若功能已废弃则标 `~~` 并注明原因，目标降到 0。断言 `scripts/assert/verify-clean.mjs`：遍历 `verify.sh --list`，已勾选条目的 verify 命令退出码全为 0
+  verify: node scripts/assert/verify-clean.mjs
+  risk: med
