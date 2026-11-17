@@ -179,7 +179,7 @@ async function main() {
     await page.waitForTimeout(700);
     const nrow = page.locator(".ntf__item", { hasText: B.user.nickname }).first();
     expect(await nrow.count(), "通知列表无 B 的评论通知");
-    await nrow.locator("a.ntf__title").click();
+    await nrow.locator("a.ntf__hit").click();
     await page.waitForTimeout(1400);
     const landHash = await page.evaluate(() => location.hash);
     expect(/^#answer-\d+$/.test(landHash), `落点无 #answer- 锚: ${landHash}`);

@@ -85,8 +85,8 @@ run("notify-comment-anchor", async ({ browser }) => {
   const href = await hit.getAttribute("href");
   expect(href && href.includes(`#answer-${aid}`), `通知行 href 无锚点：${href}`);
   expect(href && href.includes(`/question/${question.id}`), `href 的 question id 与目标不符：${href}`);
-  // .ntf__title 覆盖在 .ntf__hit 之上接收指针事件——用户实际点的是它（href 同样带锚点）。
-  await row.locator("a.ntf__title").first().click();
+  // 整行唯一链接是 .ntf__hit（position:absolute; inset:0 撑满整行），点击它即等价用户点击。
+  await row.locator("a.ntf__hit").first().click();
   await page.waitForFunction((h) => window.location.hash === h, `#answer-${aid}`, { timeout: 10000 });
   const target = page.locator(`#answer-${aid}`);
   await target.waitFor({ state: "attached" });
@@ -197,7 +197,7 @@ run("notify-comment-anchor", async ({ browser }) => {
   const hrefA = await rowA.locator("a.ntf__hit").first().getAttribute("href");
   expect(hrefA && hrefA.includes(`/question/${q2.id}`), `href 的 question id 与目标不符：${hrefA}`);
   expect(hrefA && hrefA.endsWith(`#answer-${backAns.id}`), `href 锚点不符：${hrefA}`);
-  await rowA.locator("a.ntf__title").first().click();
+  await rowA.locator("a.ntf__hit").first().click();
   await pageA.waitForFunction((h) => window.location.hash === h, `#answer-${backAns.id}`, { timeout: 10000 });
   const liA = pageA.locator(`li.answer#answer-${backAns.id}`);
   // 高亮 class 出现（补页落地瞬间挂上，2s 后淡出——先查出现在再查消失）。
@@ -226,7 +226,7 @@ run("notify-comment-anchor", async ({ browser }) => {
   await rowB.waitFor();
   const hrefB = await rowB.locator("a.ntf__hit").first().getAttribute("href");
   expect(hrefB && hrefB.endsWith(`#answer-${backAns.id}`), `B2 通知 href 锚点不符：${hrefB}`);
-  await rowB.locator("a.ntf__title").first().click();
+  await rowB.locator("a.ntf__hit").first().click();
   await pageB.waitForFunction((h) => window.location.hash === h, `#answer-${backAns.id}`, { timeout: 10000 });
   const barItem = pageB.locator(`.myanswers__item#answer-${backAns.id}`);
   await barItem.waitFor({ state: "attached" });
