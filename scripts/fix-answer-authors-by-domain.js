@@ -20,11 +20,13 @@
  *
  * 用法：
  *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js            # dry-run（默认）
- *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js --apply
- *   DB_PATH=/path/zhihu.db FIX_ALLOW_PROD=1 node scripts/fix-answer-authors-by-domain.js
+ *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js --apply    # 非生产库写库
+ *   ZH_ALLOW_PROD_WRITE=1 node scripts/fix-answer-authors-by-domain.js \
+ *     --apply --prod --backup data/backups/zhihu-<YYYYMMDD>-<HHmm>.db              # 生产库
  *
- * 写库门槛：--apply 或 FIX_ALLOW_PROD=1 任一即进入写库；写操作只允许对
- * worktree/临时库副本执行，目标为 /www/zhihucopy/data/zhihu.db 一律拒绝。
+ * 写库门槛：非生产库 --apply 或 FIX_ALLOW_PROD=1 任一即写；目标为
+ * /www/zhihucopy/data/zhihu.db 时走受控写闸（scripts/prod-write-gate.js）：
+ * --apply + --prod + ZH_ALLOW_PROD_WRITE=1 + 当日备份文件，缺一拒绝并打印缺项。
  * 写库前自动 .backup() 到 data/backups/。
  */
 "use strict";
@@ -49,22 +51,20 @@ const {
   acceptedForTopics,
 } = require("./persona-domains");
 
-// 写库门槛：--apply 或 FIX_ALLOW_PROD=1（Z1106：默认 dry-run，两者任一才写库）。
-const APPLY =
-  process.argv.includes("--apply") || process.env.FIX_ALLOW_PROD === "1";
 const DB_PATH = path.resolve(
   process.env.DB_PATH || path.join(__dirname, "..", "data", "zhihu.db")
 );
-const PROD_DB = "/www/zhihucopy/data/zhihu.db";
-
-// 生产库硬拒绝：写操作只允许对 worktree/临时库副本执行（Z1106）。
-if (APPLY && DB_PATH === PROD_DB) {
-  console.error(
-    `[fix-authors] 拒绝对生产库写入: ${DB_PATH}\n` +
-      `[fix-authors] 写操作只允许对 worktree/临时库副本执行，请先 cp 再修`
-  );
-  process.exit(1);
-}
+// 写库门槛：非生产库 --apply 或 FIX_ALLOW_PROD=1；生产库走受控写闸
+// （--apply --prod ZH_ALLOW_PROD_WRITE=1 + 当日备份，缺一拒绝）。
+const { resolveWriteMode } = require("./prod-write-gate");
+const APPLY =
+  resolveWriteMode({
+    argv: process.argv,
+    env: process.env,
+    dbPath: DB_PATH,
+    scriptName: "fix-authors",
+    Database,
+  }) === "apply";
 
 const topicCat = new Map(TOPICS.map((t) => [t.name, t.cat]));
 

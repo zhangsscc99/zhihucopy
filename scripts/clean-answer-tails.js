@@ -11,11 +11,19 @@
  *   原样保留，末尾多余空行 trim 掉。幂等：跑第二遍命中 0 条。
  *
  * 用法：
- *   DB_PATH=/path/zhihu.db node scripts/clean-answer-tails.js   # 默认 dry-run
- *   DB_PATH=/path/zhihu.db FIX_ALLOW_PROD=1 node scripts/clean-answer-tails.js  # 写库
+ *   DB_PATH=/path/zhihu.db node scripts/clean-answer-tails.js   # 默认 dry-run（--dry-run 等价）
+ *   DB_PATH=/path/zhihu.db node scripts/clean-answer-tails.js --apply   # 非生产库写库
+ *   ZH_ALLOW_PROD_WRITE=1 node scripts/clean-answer-tails.js \
+ *     --apply --prod --backup data/backups/zhihu-<YYYYMMDD>-<HHmm>.db   # 生产库
+ *
+ * 写库门槛：非生产库 --apply 或 FIX_ALLOW_PROD=1 任一即写；目标为
+ * /www/zhihucopy/data/zhihu.db 时走受控写闸（scripts/prod-write-gate.js）：
+ * --apply + --prod + ZH_ALLOW_PROD_WRITE=1 + 当日备份文件，缺一拒绝并打印缺项。
+ * 写库前自动 .backup() 到 data/backups/。
  */
 "use strict";
 
+const fs = require("fs");
 const path = require("path");
 
 function requireFromServer(name) {
@@ -31,7 +39,17 @@ const { TOPICS } = require("./seed");
 const DB_PATH = path.resolve(
   process.env.DB_PATH || path.join(__dirname, "..", "data", "zhihu.db")
 );
-const APPLY = process.env.FIX_ALLOW_PROD === "1";
+// 写库门槛：非生产库 --apply 或 FIX_ALLOW_PROD=1；生产库走受控写闸
+// （--apply --prod ZH_ALLOW_PROD_WRITE=1 + 当日备份，缺一拒绝）。
+const { resolveWriteMode } = require("./prod-write-gate");
+const APPLY =
+  resolveWriteMode({
+    argv: process.argv,
+    env: process.env,
+    dbPath: DB_PATH,
+    scriptName: "clean-tails",
+    Database,
+  }) === "apply";
 
 // 数据免责尾巴标记：与 assert/answer-tail-domain.mjs 同一口径
 const TAIL_MARK_RE = /别照抄|小流量验证|我这份数据/;
@@ -49,7 +67,7 @@ function stripTail(md) {
   return kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
-function main() {
+async function main() {
   const db = new Database(DB_PATH);
 
   const hits = db
@@ -88,10 +106,21 @@ function main() {
   }
 
   if (!APPLY) {
-    console.log(`[clean-tails] dry-run：不改库（FIX_ALLOW_PROD=1 生效）`);
+    console.log(`[clean-tails] dry-run：不改库（--apply 生效；生产库另需 --prod + ZH_ALLOW_PROD_WRITE=1 + 当日备份）`);
     db.close();
     return;
   }
+
+  // 写库前备份到 data/backups/（写闸要求的当日备份是 apply 前的底线）
+  const backupDir = path.join(path.dirname(DB_PATH), "backups");
+  fs.mkdirSync(backupDir, { recursive: true });
+  const ts = new Date()
+    .toISOString()
+    .replace(/[-:T]/g, "")
+    .replace(/\..*$/, "");
+  const backupPath = path.join(backupDir, `zhihu-${ts}-tails.db`);
+  await db.backup(backupPath);
+  console.log(`[clean-tails] 写库前备份完成：${backupPath}`);
 
   const upd = db.prepare("UPDATE answers SET content_md = ? WHERE id = ?");
   let changed = 0;
@@ -103,4 +132,7 @@ function main() {
   db.close();
 }
 
-main();
+main().catch((e) => {
+  console.error(`[clean-tails] 失败: ${e.message || e}`);
+  process.exit(1);
+});
