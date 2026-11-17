@@ -593,3 +593,21 @@
 - [ ] Z1096 关注流「有新回答」提示（P2，社交回路）：现在关注流只能靠手动刷新；建议在「关注」tab 上加「N 条新回答」pill，基于 `answers.created_at > 上次访问时间` 计算，点击后插入并清零
   verify: node scripts/assert/following-new-answers.mjs
   risk: med
+
+## 第二十三轮走查待办（2026-11-17 05:3x，来源 docs/PRODUCT-REVIEW.md 第二十一轮）
+
+- [ ] Z1097 种子回答人设与问题领域错位（P1，内容真实感）：`scripts/seed.js` 把 story 的回答随机派给种子用户，实测 `/question/6`（React useEffect）前两条回答作者分别是「南山南 — 健身教练」与「余光169 — HR」，同一用户主页横跨 React/基础架构/0 糖饮料/咖啡因/久坐五个领域。需给种子用户定领域标签、回答只派给同域作者，并写幂等修正脚本（`--dry-run` 默认，`FIX_ALLOW_PROD=1` 才写生产库）重排现有回答归属
+  verify: node scripts/assert/seed-persona-domain.mjs
+  risk: high
+- [ ] Z1098 关注用户不产生通知（P2，社交回路）：`server/routes/users.js` 的 `POST/DELETE /:id/follow` 无 notifications 写入，与通知空态文案「赞同、评论与关注会出现在这里」矛盾；需写 `type='follow'` 通知（自关注不计、重复关注不重复写），前端通知行文案对应「关注了你」
+  verify: node scripts/assert/follow-notify.mjs
+  risk: med
+- [ ] Z1099 通知入口/未读角标缺断言（P2，测试基建）：`client/src/components/TopNav.tsx:337-362` 的 `topnav__bell` + `badge` 已实现，但 `scripts/assert/notify-entry.mjs` 不存在，Z976 至今无法勾选。需补浏览器级断言：1440 与 390 各有一个指向 `/notifications` 的入口；构造未读后角标数字可见，进通知页后角标消失且刷新仍为 0
+  verify: node scripts/assert/notify-entry.mjs
+  risk: low
+- [ ] Z1100 桌面右栏只有一块（P2，Z1010 复现）：1440×900 下 `.rail-block` 仅热榜 705px，底部约 195px 纯空白；补第二模块（建议「等你来答」：复用 `/unanswered` 数据，5 条 + 「更多」）
+  verify: node scripts/assert/rail-second-block.mjs
+  risk: low
+- [ ] Z1101 生产库残留断言评论 + 删除占位仍在渲染（P2，内容治理）：comment id 497 正文 `租赁这个比喻讲得清楚，清理函数就是退租 411293`（作者种子号 user2，尾部六位随机数）；`/question/6` 评论区另有 6 行「该评论已删除」占位。需写清理脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库）并让已删除评论不再渲染成占位行
+  verify: node scripts/assert/comment-residue.mjs
+  risk: med
