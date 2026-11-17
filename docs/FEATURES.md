@@ -643,7 +643,7 @@
 - [x] Z1110 搜索召回偏窄疑点复核（P3，检索口径）：线上 `/search?q=React` 仅「相关结果 · 2 条」（问题 2 / 回答 6 / 用户 0），`useEffect` 2 条。只读核对：questions title/detail LIKE '%React%'=2、answers content LIKE=6、answer_fts 303/303 行与 answers 全量对齐——**接口命中与库内 LIKE 计数一致，不是召回 bug**（库内 React 字面命中本就少，且命中分散在回答 tab）；真正的问题是 question scope 未排除 `is_collapsed`。断言 `scripts/assert/search-recall.mjs`：四词（React/useEffect/数据库/职场）counts.question ≥ 只读 LIKE 基线、answer>0、React/react/REACT 三态一致、type=answer total 与 counts.answer 自洽 ✅ (2026-11-17 devin：qWhere 补 `q.is_collapsed = 0`；search-recall.mjs 四词全 PASS；search-page/search-scope/search-guard 回归 PASS)
   verify: node scripts/assert/search-recall.mjs
   risk: low
-- [ ] Z1111 作者主页落点为空（P2，内容厚度）：走查第 10 步点「半山腰214」进 `/u/214`，页面答 0 问 1，只有「还没有回答 / 浏览 TA 的提问 / 去逛逛推荐」空态，落点落差比不能点更大。主页空态改为列出「TA 最近关注的问题」+「TA 最近赞同的回答」（无数据再退回现有文案）。断言 `scripts/assert/profile-empty-fallback.mjs`：对回答数=0 且关注数>0 的用户，主页至少渲染 3 条可点内容（问题或回答），且无「还没有回答」与列表并存
+- [x] Z1111 作者主页落点为空（P2，内容厚度）：走查第 10 步点「半山腰214」进 `/u/214`，页面答 0 问 1，只有「还没有回答 / 浏览 TA 的提问 / 去逛逛推荐」空态，落点落差比不能点更大。主页空态改为列出「TA 最近关注的问题」+「TA 最近赞同的回答」（无数据再退回现有文案）。断言 `scripts/assert/profile-empty-fallback.mjs`：对回答数=0 且关注数>0 的用户，主页至少渲染 3 条可点内容（问题或回答），且无「还没有回答」与列表并存 ✅ (2026-11-17 devin swe-2-high：`server/routes/users.js` 新增 `GET /users/:id/highlights`（关注的问题 5 条 + 最近赞同的回答 5 条，两条 SQL 无 N+1）；`Profile.tsx` 回答数为 0 时渲染「TA 最近关注的问题」「TA 最近赞同的回答」两块，有内容即不再出现「还没有回答」；新增 `assert/profile-empty-fallback.mjs`（1440/390 ≥3 条可点、空态与列表不并存、__errs/溢出/正文长度守卫）；基线线上 /u/214 FAIL（question 链接 0），修后 PASS；线上 /u/214 现渲染 10 条可点问题，无「还没有回答」)
   verify: node scripts/assert/profile-empty-fallback.mjs
   risk: med
 - [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：`scripts/report.sh` 本轮统计 `verify fails=50`（Z1058-Z1077 区间多条断言脚本缺失或口径过期），报告噪声掩盖真实回归。逐条三选一：补断言脚本 / 修正 verify 行 / 若功能已废弃则标 `~~` 并注明原因，目标降到 0。断言 `scripts/assert/verify-clean.mjs`：遍历 `verify.sh --list`，已勾选条目的 verify 命令退出码全为 0
@@ -652,9 +652,9 @@
 
 ## 第二十六轮走查新增（2026-11-17 08:4x，来源 docs/PRODUCT-REVIEW.md 第二十六轮）
 
-- [ ] Z1113 信息流卡缺作者头像（P2，视觉保真）：`Home.tsx` 的 `FeedCard`/`AnswerResultCard` 元信息行只有 `feed__author` 文本链接，卡片内 `img`=0；真知乎每张卡左下是「24px 圆形头像 + 昵称」。后端 `q.author.avatar_url` 已有（`/u/27` 主页能显示），只需在卡片元信息左侧渲染头像（无 avatar_url 时用昵称首字占位圆），并与昵称同一链接跳 `/u/:id`；1440 与 390 都不许挤压元信息换行、不许横向溢出
+- [x] Z1113 信息流卡缺作者头像（P2，视觉保真）：`Home.tsx` 的 `FeedCard`/`AnswerResultCard` 元信息行只有 `feed__author` 文本链接，卡片内 `img`=0；真知乎每张卡左下是「24px 圆形头像 + 昵称」。后端 `q.author.avatar_url` 已有（`/u/27` 主页能显示），只需在卡片元信息左侧渲染头像（无 avatar_url 时用昵称首字占位圆），并与昵称同一链接跳 `/u/:id`；1440 与 390 都不许挤压元信息换行、不许横向溢出 ✅ (2026-11-17 devin swe-2-medium：新增 `client/src/components/FeedAuthor.tsx`（24px 头像，无 avatar_url 用昵称首字占位圆，头像+昵称同一 `/u/:id` 链接），`Home.tsx` FeedCard/AnswerResultCard/HotFeedCard 与 Topic/Unanswered 卡片接入；`styles.css` 元信息单行不折行、≤767px 隐藏浏览数；新增 `assert/feed-card-avatar.mjs`（1440/390 头像几何 18–32px、点头像跳 /u、元信息高 ≤28px、__errs/溢出守卫）；基线卡内 avatar 命中 0 → FAIL，修后 PASS；线上首屏 20/20 卡带头像)
   verify: node scripts/assert/feed-card-avatar.mjs
   risk: low
-- [ ] Z1114 推荐流话题偏科（P2，内容厚度）：干净会话 `/`（推荐 tab）首屏 20 条中 14 条属技术大类（JavaScript/前端开发/Python/数据库/编程），生活/心理/职场/教育只出现在第 15 条之后，首屏像技术社区不像知乎。需在推荐排序里加大类配额（单一领域 ≤50%，生活/心理/职场/教育各保底 ≥2 条）并对同话题做 MMR 去重，接口另返回 `diversity` 统计供断言读取
+- [x] Z1114 推荐流话题偏科（P2，内容厚度）：干净会话 `/`（推荐 tab）首屏 20 条中 14 条属技术大类（JavaScript/前端开发/Python/数据库/编程），生活/心理/职场/教育只出现在第 15 条之后，首屏像技术社区不像知乎。需在推荐排序里加大类配额（单一领域 ≤50%，生活/心理/职场/教育各保底 ≥2 条）并对同话题做 MMR 去重，接口另返回 `diversity` 统计供断言读取 ✅ (2026-11-17 devin swe-2-high：新增 `server/feed-diversity.js`（话题→大类映射 + 大类配额重排 + 同话题 MMR 降权，纯内存排序无新依赖），`/feed/recommended` 返回 `diversity` 诊断字段，`Home.tsx` 推荐 tab 改调该端点（热榜/最新不变）；新增 `assert/feed-diversity.mjs`（limit=20 条数/tech_ratio≤0.5/非技术大类≥4/同 topic 连续≤2/两次请求同序/1440-390 浏览器级）；基线线上 tech_ratio 0.70 → FAIL，修后 0.30、非技术大类 7 个，全量 e2e 16/16 PASS)
   verify: node scripts/assert/feed-diversity.mjs
   risk: med
