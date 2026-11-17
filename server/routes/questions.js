@@ -53,6 +53,27 @@ function questionRow(q) {
   };
 }
 
+// 批量取一组问题的话题（id+name，按名称稳定排序、每题最多 3 个）：一次 IN 查询，
+// 列表页 30 条只多 1 次 SQL，无 N+1。feed/topics/search 之外的列表路由复用同一口径。
+function topicsForQuestions(db, questionIds, perQuestion = 3) {
+  const map = new Map();
+  const ids = [...new Set(questionIds)].filter((x) => Number.isInteger(x));
+  if (!ids.length) return map;
+  for (const t of db
+    .prepare(
+      `SELECT qt.question_id, t.id, t.name FROM question_topics qt
+       JOIN topics t ON t.id = qt.topic_id
+       WHERE qt.question_id IN (${ids.map(() => "?").join(",")})
+       ORDER BY t.name ASC, t.id ASC`
+    )
+    .all(...ids)) {
+    const arr = map.get(t.question_id) || [];
+    if (arr.length < perQuestion) arr.push({ id: t.id, name: t.name });
+    map.set(t.question_id, arr);
+  }
+  return map;
+}
+
 function answerRow(a) {
   return {
     id: a.id,
@@ -125,8 +146,9 @@ router.post("/", requireAuth, (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q JOIN users u ON u.id = q.author_id WHERE q.id = ?`
     )
     .get(created);
+  const createdTopics = topicsForQuestions(db, [q.id]).get(q.id) || [];
   grantFor(req.user.id, "first_question");
-  res.status(201).json({ question: questionRow(q) });
+  res.status(201).json({ question: questionRow({ ...q, topics: createdTopics }) });
 });
 
 // GET /questions?tab=hot|new|unanswered&author=<id>&page=&limit=
@@ -158,15 +180,19 @@ router.get("/", (req, res) => {
     conds.push("q.answer_count = 0");
   }
   const where = conds.join(" AND ");
-  const items = db
+  const rows = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS}${hotScoreCol} FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${where}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
-    .all(...params, limit, offset)
-    .map(questionRow);
+    .all(...params, limit, offset);
+  // 本页问题的话题一次捞回（id+name，最多 3 个/题），卡片胶囊数据源。
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  const items = rows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
   // rank_delta：本次整榜名次 vs 上次内存快照（author 过滤的列表不算整榜，
   // 不比也不污染基线）。snapshot 用同一条 WHERE/ORDER 的全量 id 序重建。
   if (tab === "hot" && req.query.author === undefined) {
@@ -390,5 +416,6 @@ router.delete("/:id/follow", requireAuth, (req, res) => {
 
 module.exports = router;
 module.exports.questionRow = questionRow;
+module.exports.topicsForQuestions = topicsForQuestions;
 module.exports.AUTHOR_QUESTIONS_WHERE = AUTHOR_QUESTIONS_WHERE;
 module.exports.HOT_SCORE_SQL = HOT_SCORE_SQL;
