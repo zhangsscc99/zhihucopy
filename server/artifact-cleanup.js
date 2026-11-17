@@ -6,7 +6,12 @@
 // 共同语义：显式 q/a/c/col 清单直接进删除集；u: 仅当账号命中测试标记/形态且非管理员
 // 才删；被删账号/问题/回答级联带走其内容；最后按 DEPS 的 FK 顺序硬删并回填计数。
 
-const { questionMatchSql, userMatchSql } = require("./content-filter");
+const { questionMatchSql, userMatchSql, probeUserMatchSql } = require("./content-filter");
+
+// u: 可删判定 = 测试形态口径 + 探针号口径（Z1121：「真人…/real-*@zhihucopy.dev」
+// 断言探针号是真实形态，userMatchSql 判不中，但属测试产物、可删）。
+// 种子人设账号两口径都不命中，仍被保护。
+const deletableUserSql = (u, opts) => `(${userMatchSql(u, opts)} OR ${probeUserMatchSql(u)})`;
 
 // IN 子查询片段 —— 调用方拼 SQL 时用。
 const SEL = {
@@ -89,13 +94,13 @@ function addOwnedTargets(db, owned, { age = () => "1=1", hasIsTest = true } = {}
         .prepare(
           `SELECT u.id, u.nickname, u.email FROM users u
            WHERE u.id IN ${listIds(owned.u)}
-             AND NOT (${userMatchSql("u", OPTS)} AND u.is_admin = 0)`
+             AND NOT (${deletableUserSql("u", OPTS)} AND u.is_admin = 0)`
         )
         .all()
     );
     db.prepare(
       `INSERT OR IGNORE INTO _del_u SELECT u.id FROM users u
-       WHERE u.id IN ${listIds(owned.u)} AND ${userMatchSql("u", OPTS)}
+       WHERE u.id IN ${listIds(owned.u)} AND ${deletableUserSql("u", OPTS)}
          AND u.is_admin = 0 AND ${age("u.created_at")}`
     ).run();
   }
@@ -149,7 +154,7 @@ function addOwnedTargetsGuarded(db, owned, { caller, hasIsTest }) {
     const okIds = new Set(
       db.prepare(
         `SELECT u.id FROM users u
-         WHERE u.id IN ${listIds(owned.u)} AND u.is_admin = 0 AND ${userMatchSql("u", OPTS)}
+         WHERE u.id IN ${listIds(owned.u)} AND u.is_admin = 0 AND ${deletableUserSql("u", OPTS)}
            AND (? = 1 OR ? = 1 OR u.id = ?)`
       ).all(admin, istest, cid).map((r) => r.id)
     );
