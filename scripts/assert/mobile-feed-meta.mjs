@@ -15,7 +15,7 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-import { register, req } from "./lib.mjs";
+import { register, req, cleanupOwned } from "./lib.mjs";
 
 const BASE = (
   process.env.E2E_BASE ||
@@ -104,7 +104,9 @@ async function main() {
         const m = metas.nth(i);
         const text = (await m.innerText()).replace(/\s+/g, " ");
         expect(/\d+\s*答/.test(text), `390px：第 ${i + 1} 卡 meta 缺「N 答」：「${text}」`);
-        expect(/浏览/.test(text), `390px：第 ${i + 1} 卡 meta 缺「浏览」：「${text}」`);
+        // 取可见短文案节点的 innerText（视觉裁切不影响 meta 整体 innerText，会恒真）
+        const viewsText = (await m.locator(".feed__views-short").innerText()).trim();
+        expect(/浏览/.test(viewsText), `390px：第 ${i + 1} 卡 .feed__views-short 缺「浏览」：「${viewsText}」`);
         expect(
           !/个回答|次浏览/.test(text),
           `390px：第 ${i + 1} 卡 meta 仍是桌面长文案：「${text}」`
@@ -152,12 +154,39 @@ async function main() {
       await page.locator("li.feed__item").first().waitFor({ state: "visible" });
       await page.waitForTimeout(300);
 
-      await page.evaluate((nick) => {
+      // CSS 契约：作者节点的 max-width 必须是百分比且 ≤40%（旧构建是 none → FAIL），
+      // 省略约束落在昵称文本节点 .feed__author-name 上（text-overflow: ellipsis）。
+      const cssContract = await page.evaluate(() => {
+        const author = document.querySelector(
+          "li.feed__item .feed__meta .feed__author"
+        );
+        const name = author && author.querySelector(".feed__author-name");
+        if (!author || !name) return { ok: false };
+        return {
+          ok: true,
+          mw: getComputedStyle(author).maxWidth,
+          to: getComputedStyle(name).textOverflow,
+        };
+      });
+      expect(cssContract.ok, "390px CSS 契约：首屏卡片缺 .feed__author/.feed__author-name");
+      expect(
+        /%$/.test(cssContract.mw) && parseFloat(cssContract.mw) <= 40,
+        `390px CSS 契约：.feed__author max-width=${cssContract.mw}（应为 ≤40% 百分比）`
+      );
+      expect(
+        cssContract.to === "ellipsis",
+        `390px CSS 契约：.feed__author-name text-overflow=${cssContract.to} !== ellipsis`
+      );
+
+      const injected = await page.evaluate((nick) => {
         const el = document.querySelector(
           "li.feed__item .feed__meta .feed__author-name"
         );
+        if (!el) return false;
         el.textContent = nick;
+        return true;
       }, LONG_NICK);
+      expect(injected, "首屏卡片没有 .feed__author-name");
       await page.waitForTimeout(100);
 
       const m = await page.evaluate(() => {
@@ -184,7 +213,13 @@ async function main() {
         `390px 长昵称：textOverflow=${m.textOverflow} !== ellipsis`
       );
       expect(m.cardDiff === 0, `390px 长昵称：卡片横向溢出 ${m.cardDiff}`);
-      expect(/浏览/.test(m.metaText), `390px 长昵称：「浏览」被挤出可视文本：「${m.metaText}」`);
+      const vs = await page.evaluate(() => {
+        const el = document.querySelector(
+          "li.feed__item .feed__meta .feed__views-short"
+        );
+        return el ? el.innerText.trim() : "";
+      });
+      expect(/浏览/.test(vs), `390px 长昵称：「浏览」被挤出可视文本：「${vs}」`);
       expect(m.bodyLen > 200, `390px 长昵称：body.innerText=${m.bodyLen} <= 200`);
       await checkOverflow(page, "390px 长昵称首页");
       const errs = await pageErrs(page);
@@ -225,12 +260,15 @@ async function main() {
       expect(errs.length === 0, `1440px：页面错误：${errs.join(" | ")}`);
 
       // Z1133 — 桌面端同样注入 12 字昵称：长文案不变、无横向溢出。
-      await page.evaluate((nick) => {
+      const injected0 = await page.evaluate((nick) => {
         const el = document.querySelector(
           "li.feed__item .feed__meta .feed__author-name"
         );
+        if (!el) return false;
         el.textContent = nick;
+        return true;
       }, LONG_NICK);
+      expect(injected0, "1440px：首屏卡片没有 .feed__author-name");
       await page.waitForTimeout(100);
       const t0 = (await metas.nth(0).innerText()).replace(/\s+/g, " ");
       expect(/\d+\s*个回答/.test(t0), `1440px 长昵称：桌面文案变化：「${t0}」`);
@@ -248,9 +286,11 @@ async function main() {
     }
 
     await browser.close();
+    cleanupOwned(); // 显式清理 register() 产物（exit 钩子兜底，这里在 finally 语义上先跑）
     console.log(`[ASSERT] mobile-feed-meta PASS — ${BASE}`);
     process.exit(0);
   } catch (e) {
+    cleanupOwned();
     try {
       fs.mkdirSync(SHOT_DIR, { recursive: true });
       if (shotPage) {
