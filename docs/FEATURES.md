@@ -722,3 +722,6 @@
 - [ ] Z1132 个人主页徽章与统计仍在同一条视觉带上（P3，信息架构）：Z1123 已让徽章显示全称 + title，但徽章胶囊与「获赞 / 关注 / 粉丝」并排同字号同色，扫读时仍混成一组数字。要求：徽章区加「成就」小标题或整体降一级视觉权重（字号 ≤12px、色 #8590A6），与统计区至少 16px 间距且不折行溢出；断言 `scripts/assert/profile-badge-hierarchy.mjs`：徽章容器与统计容器为不同父节点、字号差 ≥2px、间距 ≥16px、1440/390 无横向溢出
   verify: node scripts/assert/profile-badge-hierarchy.mjs
   risk: low
+- [ ] Z1133 移动端卡片元信息缺溢出保护（P3，边界）：390 下 meta 现为「望山的人 · 3 答 · 6115 浏览」，单行 OK 但未验证长昵称 + 5 位浏览数组合（种子里有「王吴周郑」「简宁不慌」，实验号可能更长）。要求：`.feed__meta` 的昵称节点 `max-width: 40%` + `text-overflow: ellipsis; white-space: nowrap`，短文案节点 `flex: none`，任何组合下仍单行且 `scrollWidth-clientWidth=0`；断言 `scripts/assert/mobile-feed-meta.mjs` 增补一个注入 12 字昵称的用例（可用 query 参数或临时造号，不得只测种子现状）
+  verify: node scripts/assert/mobile-feed-meta.mjs
+  risk: low
