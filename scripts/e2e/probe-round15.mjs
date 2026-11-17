@@ -68,8 +68,11 @@ const upCount = async (loc) => {
 async function main() {
   fs.mkdirSync(SHOT_DIR, { recursive: true });
   const tag = Date.now().toString(36).slice(-4);
-  const A = await register(`巡检探针${tag}`);
-  const B = await register(`巡检探针B${tag}`);
+  // Z1088：通知过滤按残留昵称形态拦截，「巡检探针*」正是残留形态 —— 探针
+  // 账号改用非残留昵称（仍是 @test.dev 测试号，自清理口径不变），否则 B 的
+  // 评论通知会被当作残留挡掉、notification 步骤恒 FAIL。
+  const A = await register(`r15探针${tag}`);
+  const B = await register(`r15探针B${tag}`);
   console.log(`[probe15] ${BASE}  A=u${A.user.id}  B=u${B.user.id}`);
   const browser = await launch();
   let shotPage = null;

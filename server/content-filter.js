@@ -246,6 +246,23 @@ function likeBoundedPrefix(col, prefix) {
 // 「≥n 位小写字母数字」的 GLOB 形态：单字符类重复 n 次。
 const globRun = (n) => "[a-z0-9]".repeat(n);
 
+// 自动化残留昵称形态（GLOB 条件列，与 NICK_REGEXES 中三条残留形态一一对应）：
+//   巡检<小写随机串> / 走查<纯数字> / 巡检探针<拉丁串>。
+// userMatchSql 与 residueActorSql 共用这份条件，保证全量口径与窄口径同源。
+function residueNickConds(nickCol) {
+  const c = nickCol;
+  return [
+    // 「巡检<随机串>」小号中缀（巡检c41o）
+    `${c} GLOB '*巡检${globRun(2)}*'`,
+    // Z1082「走查<纯数字>」：前缀一位数字起步，且其后（substr 3 起）全为数字。
+    // 「走查员3lq4」「走查会议记录」substr 内含非数字，被 NOT GLOB 拦下。
+    `(${c} GLOB '走查[0-9]*' AND substr(${c}, 3) NOT GLOB '*[^0-9]*')`,
+    // Z1082「巡检探针<拉丁串>」：探针本体或其后只跟拉丁字母数字。
+    // 与 JS /^巡检探针[A-Za-z0-9]*$/ 同口径。
+    `(${c} GLOB '巡检探针' OR ${c} GLOB '巡检探针[A-Za-z0-9]*')`,
+  ];
+}
+
 // 标题是测试产物的正向条件（不带 NOT）。与 isTestTitle 同口径：
 //   前缀/括号前缀 LIKE + TITLE_REGEXES 的 GLOB 化 + 尾串近似
 //   （结尾 10 连小写字母数字、或再多跟一个标点；末 16 字符内含数字；标题长 >12）。
@@ -304,18 +321,14 @@ function userMatchSql(userAlias = "u", opts = {}) {
     ...(opts.isTest === false ? [] : [`${u}.is_test = 1`]),
     ...NICK_PREFIXES.map((p) => likePrefix(`${u}.nickname`, p)),
     ...NICK_BOUNDED_PREFIXES.map((p) => likeBoundedPrefix(`${u}.nickname`, p)),
-    // run 标记段 / 批量注册「用户<随机串>」/「巡检<随机串>」中缀
+    // run 标记段 / 批量注册「用户<随机串>」中缀
     `${u}.nickname GLOB '*-mw${globRun(4)}*'`,
     `${u}.nickname GLOB '*用户${globRun(8)}*'`,
-    `${u}.nickname GLOB '*巡检${globRun(2)}*'`,
     // 「rv6<随机串>」第六轮巡检注册号：锚定开头 + ≥3 位小写字母数字
     `${u}.nickname GLOB 'rv6${globRun(3)}*'`,
-    // Z1082「走查<纯数字>」：前缀一位数字起步，且其后（substr 3 起）全为数字。
-    // 「走查员3lq4」「走查会议记录」substr 内含非数字，被 NOT GLOB 拦下。
-    `(${u}.nickname GLOB '走查[0-9]*' AND substr(${u}.nickname, 3) NOT GLOB '*[^0-9]*')`,
-    // Z1082「巡检探针<拉丁串>」：探针本体或其后只跟拉丁字母数字。
-    // 虽已被 巡检 前缀兜住，此处与 JS /^巡检探针[A-Za-z0-9]*$/ 同口径显式列出。
-    `(${u}.nickname GLOB '巡检探针' OR ${u}.nickname GLOB '巡检探针[A-Za-z0-9]*')`,
+    // 残留昵称形态（巡检<随机串>/走查<纯数字>/巡检探针<拉丁串>），
+    // 与 residueActorSql 同源（residueNickConds）。
+    ...residueNickConds(`${u}.nickname`),
     ...TEST_EMAIL_DOMAINS.map((d) => likeSuffix(`${u}.email`, `@${d}`)),
   ];
   return `(${conds.join(" OR ")})`;
@@ -397,6 +410,22 @@ function testNotificationSql(nAlias = "n", opts = {}) {
   )`;
 }
 
+// ---- 通知窄口径（Z1088） --------------------------------------------------
+// 通知过滤只挡「自动化残留昵称」形态的 actor：走查<纯数字>、巡检探针<拉丁串>、
+// 巡检<小写随机串>。明确不按测试邮箱域（@test.dev/@test.local/example.com）、
+// is_test 标记、或目标问题的标题/正文测试标记过滤 —— 否则 e2e/断言脚本
+// 测试号产生的真实交互会被整体吞掉（unread-count 恒 0，列表为空）。
+// residueActorSql 返回正向条件（不带 NOT）；testNotificationResidueSql 返回
+// 可直接拼进 WHERE 的 NOT EXISTS 片段。
+function residueActorSql(uAlias = "na") {
+  return `(${residueNickConds(`${uAlias}.nickname`).join(" OR ")})`;
+}
+
+function testNotificationResidueSql(nAlias = "n") {
+  const n = nAlias;
+  return `NOT EXISTS (SELECT 1 FROM users na WHERE na.id = ${n}.actor_id AND ${residueActorSql("na")})`;
+}
+
 module.exports = {
   TEST_TITLE_PATTERNS,
   TEST_NICK_PATTERNS,
@@ -416,4 +445,6 @@ module.exports = {
   testUserSql,
   testCommentSql,
   testNotificationSql,
+  residueActorSql,
+  testNotificationResidueSql,
 };
