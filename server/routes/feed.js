@@ -178,6 +178,7 @@ router.get("/recommended", (req, res) => {
         r.author_bio
       ),
       topicIds: new Set(tps.map((t) => t.id)),
+      zero: r.answer_count === 0, // Z1120：空壳降权标记（首窗让位，不排除）
     };
   });
   const { items: ranked, missing } = rerankRecommended(candidates, limit);
