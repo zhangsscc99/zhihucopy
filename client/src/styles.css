@@ -3074,6 +3074,17 @@ a.ntf__title:hover {
   font-weight: 500;
 }
 
+/* Z1123 徽章语义化：徽章行（.profile__badges）与统计行（.profile__stats）
+   明确分隔——统计行自带 1px 顶边线 + 20px 上边距，徽章容器再补 4px 下间距；
+   徽章等高（24px），390px 下允许换行且不高低不齐、不横向溢出。 */
+.profile__badges {
+  margin-bottom: 4px;
+}
+.profile__badge {
+  height: 24px;
+  box-sizing: border-box;
+}
+
 /* ---------- 收藏页 ---------- */
 
 /* tab 条里允许放链接式 tab（个人主页「收藏」跳 /collections） */

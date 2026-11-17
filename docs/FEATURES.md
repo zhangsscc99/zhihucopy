@@ -701,9 +701,9 @@
 
 ## 第七轮待办（2026-11-17 12:55，第三十轮走查）
 
-- [ ] Z1123 个人主页徽章语义不明（P2，可读性）：`/u/27` 头部一行是「十赞 被看见 首答 首问 已关注 获赞 138 关注 5 粉丝 6」，四枚徽章无任何解释，新用户读不出「首答＝首个回答」「十赞＝收获 10 个赞同」；徽章与统计区之间也没有分隔，视觉上像同一组数字。要求：每枚徽章带 `title` 与完整文案（首个回答 / 首个提问 / 收获 10 赞 / 被关注过），徽章行与统计行之间加分隔；断言 `scripts/assert/profile-badge-labels.mjs`：主页每枚徽章 `[class*=badge]` 均有非空 `title` 且文案 ∈ 白名单、徽章区与统计区 DOM 相邻但不同容器、1440/390 无溢出、`__errs` 空
+- [x] Z1123 个人主页徽章语义不明（P2，可读性）：/u/27 头部四枚徽章「十赞 / 被看见 / 首答 / 首问」是缩写，新用户读不出含义，且与右侧「获赞 138 关注 5 粉丝 6」挤在一行像同一组指标。要求：徽章显示可读全称（首个粉丝 / 首个回答 / 首个提问 / 收获 10 赞 / 发布 5 个回答），每个带完整中文 title；徽章行与统计行明确分隔；1440 单行不折行、390 允许换行但等高不溢出 ✅ (2026-11-17 devin：`server/badges.js` 每枚徽章加 `label`/`title` 展示字段（不入库，`listFor` 按 code 合并，未知 code `label=null` 由前端兜底显示 code 原文，兼容旧数据）；`Profile.tsx` 徽章渲染 `b.label || b.code` + `title`，容器加 `.profile__badges`、胶囊加 `.profile__badge`；`styles.css` 徽章等高 24px + 与统计行分隔（统计行自带 1px 顶边线 + ≥20px 间距）；`types.ts` Badge 补可选字段；新增 `assert/profile-badge-labels.mjs`（API 造 5 徽章页主——自发 1 题、答 5 题、10 号点赞、1 号关注——1440/390 验每枚徽章 title≥6 字且文案 ∈ 全称白名单、main 无四个缩写词、徽章/统计容器独立且间距 ≥12px、无横向溢出、__errs 空）；`profile-header-clarity.mjs` 维持全量 main 文本口径不动——first_follower 全称定为「首个粉丝」，与「头部不含被关注」断言无冲突；反向自检线上基线 FAIL（"被看见" 不在白名单），修后 PASS；profile-header-clarity / e2e profile / server test 38/38 全 PASS)
   verify: node scripts/assert/profile-badge-labels.mjs
-  risk: med
+  risk: low
 - [ ] Z1124 移动端信息流卡片丢热度信号（P2，信息密度）：390px 下卡片元信息只剩「3 个回答」，浏览数按 Z1113 的取舍被隐藏，移动端无法判断「这题多少人看」。改为紧凑单行「3 答 · 5973 浏览」（≥10000 用 `1.2 万浏览`），≤767px 不折行、不横向溢出，1440 保持现文案；断言 `scripts/assert/mobile-feed-meta.mjs`：390 卡片元信息含「浏览」且高度 ≤24px、1440 文案不变、双端 `scrollWidth-clientWidth=0`
   verify: node scripts/assert/mobile-feed-meta.mjs
   risk: low

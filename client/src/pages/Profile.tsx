@@ -506,15 +506,19 @@ export function Profile() {
               {formatTime(user.created_at)} 加入
             </p>
             {badges.length > 0 && (
-              <ul className="medals" aria-label="勋章">
+              <ul className="medals profile__badges" aria-label="勋章">
                 {badges.map((b) => (
-                  <li key={b.code} className="medals__pill" title={b.description}>
+                  <li
+                    key={b.code}
+                    className="medals__pill profile__badge"
+                    title={b.title || b.description || b.code}
+                  >
                     <span
                       className="medals__icon"
                       aria-hidden="true"
                       dangerouslySetInnerHTML={{ __html: b.icon_svg }}
                     />
-                    <span className="medals__name">{b.name}</span>
+                    <span className="medals__name">{b.label || b.code}</span>
                   </li>
                 ))}
               </ul>

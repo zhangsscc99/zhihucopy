@@ -3,6 +3,10 @@ export interface Badge {
   name: string;
   description: string;
   icon_svg: string;
+  // Z1123 展示字段：label 为可读全称，title 为完整中文说明；
+  // 未知 code 时 label 为 null，前端兜底显示 code 原文。
+  label?: string | null;
+  title?: string | null;
   granted_at?: string;
 }
 
