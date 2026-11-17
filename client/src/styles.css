@@ -484,6 +484,7 @@ textarea:focus-visible {
 }
 .feed__meta > span {
   flex: none;
+  white-space: nowrap;
 }
 .feed__answers-short,
 .feed__views-short {
@@ -495,6 +496,8 @@ textarea:focus-visible {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: 40%;
+  flex: none;
 }
 .feed__author-name {
   overflow: hidden;
