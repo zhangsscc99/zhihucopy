@@ -563,3 +563,6 @@
 - [ ] Z1087 种子回答收尾句模板化（P3，内容真实感）：423 条回答里 32 条（8%）以「最后一句：…」收尾，psy/health/sci 另有「首先是…其次是…第三是」罗列；建议续写时换收尾句式
   verify: node scripts/assert/seed-tone-variety.mjs
   risk: low
+- [x] Z1088 通知过滤过宽打红 e2e 通知链路（P0 回归，Z1082 引入） ✅ (2026-11-17 devin：`content-filter` 抽出 `residueNickConds()` 供 `userMatchSql` 与新 `testNotificationResidueSql()` 共用；`/notifications` 列表与 `unread-count` 同源改用窄口径，只挡 `巡检<小写随机串>`/`走查<纯数字>`/`巡检探针<拉丁串>` 三种残留昵称，不再按邮箱域/is_test/测试标题一刀切；`e2e/probe-round15.mjs` 的 A/B 昵称由「巡检探针<tag>」改为「r15探针<tag>」；新增 `assert/notification-residue-scope.mjs`（残留 actor 被挡 + 普通测试号 actor 放行 + unread-count 同口径，旧代码上 FAIL）。部署门禁 notifications.mjs 4.7s PASS、probe-round15.mjs 48.6s PASS，全量 15/16）
+  verify: node scripts/e2e/notifications.mjs && node scripts/e2e/probe-round15.mjs
+  risk: med
