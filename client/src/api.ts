@@ -1,5 +1,5 @@
 const BASE = "/zhihucopy/api";
-const TOKEN_KEY = "zhihu_token";
+export const TOKEN_KEY = "zhihu_token";
 
 export class ApiError extends Error {
   status: number;
@@ -22,10 +22,17 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+export interface ApiOptions {
+  // 默认 true：401 时触发全局未授权处理（清 user + 跳登录页）。
+  // 后台静默重校验（/auth/me）传 false，只清 token、不把用户从当前页拽走。
+  onUnauthorized?: boolean;
+}
+
 export async function api<T = unknown>(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  opts?: ApiOptions
 ): Promise<T> {
   const token = getToken();
   const res = await fetch(BASE + path, {
@@ -39,7 +46,7 @@ export async function api<T = unknown>(
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && token) {
     setToken(null);
-    unauthorizedHandler?.();
+    if (opts?.onUnauthorized !== false) unauthorizedHandler?.();
   }
   if (!res.ok) {
     throw new ApiError(data.error || `请求失败（${res.status}）`, res.status);
@@ -47,7 +54,8 @@ export async function api<T = unknown>(
   return data as T;
 }
 
-export const get = <T>(path: string) => api<T>("GET", path);
+export const get = <T>(path: string, opts?: ApiOptions) =>
+  api<T>("GET", path, undefined, opts);
 export const post = <T>(path: string, body?: unknown) => api<T>("POST", path, body);
 export const patch = <T>(path: string, body?: unknown) => api<T>("PATCH", path, body);
 export const del = <T>(path: string) => api<T>("DELETE", path);
