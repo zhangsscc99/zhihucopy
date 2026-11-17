@@ -209,13 +209,13 @@
 - [x] Z971 关注流接真实数据：移除 `Home.tsx` 的 `tab==="following"` 短路，接已关注问题接口（Z964 收尾） ✅ (2026-11-15 devin)
   verify: node scripts/assert/feed-following.mjs
   risk: med
-- [ ] Z972 移动端搜索入口：390px 下顶部搜索框 width:0 无替代入口，补放大镜图标/全屏搜索层
+- [x] Z972 移动端搜索入口：390px 下顶部搜索框 width:0 无替代入口，补放大镜图标/全屏搜索层 ✅(2026-11-17 Z1139：新建 `mobile-search.mjs`，390 下点放大镜 14ms 开层、搜索带 q=、无溢出、__errs 空；连跑 3/3 PASS)
   verify: node scripts/assert/mobile-search.mjs
   risk: low
 - [ ] Z973 登录回跳与动作续做：所有 `navigate("/login")` 带 `next`，登录后回原页并恢复点赞/关注意图
   verify: node scripts/assert/login-next.mjs
   risk: med
-- [ ] Z974 404 页返修：区分「内容不存在」与网络错误，补「回首页/搜索/提问」入口（Z967 收尾）
+- [x] Z974 404 页返修：区分「内容不存在」与网络错误，补「回首页/搜索/提问」入口（Z967 收尾） ✅(2026-11-17 Z1139：新建 `notfound-page.mjs`，两路径×双视口文案命中「不存在/找不到」、无「请检查网络」、出口≥2 含回首页，实测 HTTP 404；连跑 3/3 PASS)
   verify: node scripts/assert/notfound-page.mjs
   risk: low
 - [x] Z975 评论计数常显：评论区展开后「N 条评论」计数消失，展开态保留数量（复核结论：产品侧 `收起评论（N）` 已在 Z1029/Z1066 落地，本轮补齐断言——展开态按钮必须正向含当前计数、全页「N 条评论」计数节点 ≤1；基线 `790b267` FAIL） ✅ (2026-11-17 devin swe-2-medium：`assert/comment-count.mjs` 新增 `countCommentCountNodes()` 叶子节点统计 + 展开态 `includes（N）` 正向断言 + 收起/重载两态节点数守卫，3/3 连跑 PASS；基线 worktree FAIL「展开后计数消失：「收起评论」不匹配 收起评论（N）」)
@@ -224,10 +224,10 @@
 - [x] Z977 时间统一：7 天内相对时间、更早 `YYYY-MM-DD`，提问/回答/评论同一格式（Z958 收尾） ✅ (2026-11-15 devin)
   verify: node scripts/assert/time-format.mjs
   risk: low
-- [ ] Z978 未登录文案去空格：「登录后即可回答」「登录后参与评论」（Z960 收尾）
+- [x] Z978 未登录文案去空格：「登录后即可回答」「登录后参与评论」（Z960 收尾） ✅(2026-11-17 Z1139：新建 `login-copy.mjs`，「登录后即可回答」「登录后参与评论」存在且不匹配 `/登录\s+后/`；连跑 3/3 PASS)
   verify: node scripts/assert/login-copy.mjs
   risk: low
-- [ ] Z979 底部导航 active 唯一：`?tab=hot` 时仅「热榜」带 `aria-current`（Z967 收尾）
+- [x] Z979 底部导航 active 唯一：`?tab=hot` 时仅「热榜」带 `aria-current`（Z967 收尾） ✅(2026-11-17 Z1139：新建 `mobile-nav.mjs`，按现结构断言 `?tab=hot` 时 `.tabs [aria-current]` 唯一=热榜、`.bottomnav [aria-current]` 唯一=首页、`/` 时=推荐/首页；底部导航自 Z967 起已无「热榜」项，口径写在脚本头注)
   verify: node scripts/assert/mobile-nav.mjs
   risk: low
 
@@ -326,13 +326,13 @@
   verify: node scripts/e2e/ask-editor.mjs && node scripts/e2e/answer-editor.mjs && node scripts/e2e/admin.mjs && node scripts/e2e/probe-extra.mjs
   risk: med
 
-- [ ] Z1018 他人主页无「关注」按钮：`/u/:id` 头部只有 回答/提问 两 tab，「关注 N / 粉丝 M」是纯文本不可点，全站无法关注用户（P1）
+- [x] Z1018 他人主页无「关注」按钮：`/u/:id` 头部只有 回答/提问 两 tab，「关注 N / 粉丝 M」是纯文本不可点，全站无法关注用户（P1） ✅(2026-11-17 Z1139：`follow-user.mjs` 本地+线上均 PASS，他人主页 👤 头部有「关注」按钮且两态可切)
   verify: node scripts/assert/follow-user.mjs
   risk: med
-- [ ] Z1019 通知只覆盖「回答我的问题」：赞同/评论/关注均不产生通知，与空态文案「赞同、评论与关注会出现在这里」不符（P1）
+- [x] Z1019 通知只覆盖「回答我的问题」：赞同/评论/关注均不产生通知，与空态文案「赞同、评论与关注会出现在这里」不符（P1） ✅(2026-11-17 Z1139：新建 `notify-events.mjs`，B 回答/赞同/评论/关注 A 四事件均产生通知，列表 4 行、四类关键词全中)
   verify: node scripts/assert/notify-events.mjs
   risk: med
-- [ ] Z1020 自己的内容无编辑/删除入口：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1）
+- [x] Z1020 自己的内容无编辑/删除入口：自己的回答只有 赞同/反对/评论/收藏/分享，自己的评论 0 个按钮（P1） ✅(2026-11-17 Z1139：新建 `edit-delete.mjs`，「⋯」菜单含编辑/删除，编辑 147ms 生效且刷新持久、删除后卡片消失不复活、自有评论有行内删除)
   verify: node scripts/assert/edit-delete.mjs
   risk: med
 - [x] Z1021 收藏后无处查看：收藏夹无页面路由（`/collections/:id` 不存在），个人主页无「收藏」tab，收藏仍半闭环（P0 残留） ✅ (2026-11-15 devin)
@@ -422,8 +422,8 @@
 - [x] Z1045 公开内容残留测试评论与空详情问题（P1）：`/question/1` 首答评论区可见「评论回写验证 rv6-…」「评论功能验证 comment-ui-2007」「巡检甲2：…」；推荐流首条问题 `detail_md` 为空仍占首屏
   verify: node scripts/assert/content-residue.mjs
   risk: med ✅ (2026-11-16 devin：评论正文/作者双侧过滤（`testCommentSql`，公共列表与 total 同源）+ 标题侧抓「复盘 <token> ？」残留 + 摘要空态「暂无补充说明」；(detail_md 为空的门控已被返修撤销——detail_md 是可选字段，门控会藏掉真实新问题)
-- [ ] Z1046 首页「加载更多」无加载反馈（P2）：点击后 1.7s 内 `[class*=skeleton]` 为 0、按钮无 loading 态，用户无法判断是否点中
-  verify: node scripts/assert/loadmore-feedback.mjs
+- [x] Z1046 首页「加载更多」无加载反馈（P2）：点击后 1.7s 内 `[class*=skeleton]` 为 0、按钮无 loading 态，用户无法判断是否点中 ✅(2026-11-17 Z1137 覆盖：按钮原地进「加载中…」+disabled+aria-busy+3px 进度条，失败给「重试」；verify 改指 `scripts/assert/load-more-feedback.mjs`)
+  verify: node scripts/assert/load-more-feedback.mjs
   risk: low
 - [ ] Z1047 通知锚点在回答数 >50 的问题上落空且文案误报（P2，Z1038 遗留）：补页上限 5 页(50 条) 后仍找不到就显示「该回答可能已被删除」，但回答实际存在（默认序新回答恒在末尾）
   verify: node scripts/assert/anchor-deep-page.mjs
@@ -531,7 +531,7 @@
 - [x] Z1076 列表接口 topics 恒为空 → 首页/话题流卡片无话题胶囊（P1，视觉保真 + 数据）：`GET /api/questions` 实测 `topics:[]`（30/30 条全空），而 `question_topics` 有 114 行、60/61 问题已绑话题；Z902 的「话题胶囊接口返回时渲染」因此从未真正显示。需列表 SQL join 话题（保持分页与 N+1 不回归）并断言卡片出现胶囊 ✅ (2026-11-17 devin：`questions.js` 新增 `topicsForQuestions()` 单次 `IN` 查询批量取话题（≤3/题，30 条列表共 3 次 SQL 无 N+1），列表/热榜/话题流/创建接口统一返回 topics；`Home.tsx` 胶囊按 Z902 顺序移到元信息之后；新增 `feed-topic-pills.mjs`（API ≥20 条带 topics + 桌面/移动各 ≥8 个可见胶囊 + DOM 顺序 + 3/3），线上实测 26/30 条带胶囊、首屏可见，即验 PASS)
   verify: node scripts/assert/feed-topic-pills.mjs
   risk: med
-- [ ] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选
+- [x] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选 ✅(2026-11-17 Z1139：四个断言脚本已补建并跑通（`mobile-search`/`notfound-page`/`login-copy`/`mobile-nav`），Z972/Z974/Z978/Z979 已勾选)
   verify: node scripts/assert/mobile-search.mjs && node scripts/assert/notfound-page.mjs && node scripts/assert/login-copy.mjs && node scripts/assert/mobile-nav.mjs
   risk: low
 - [x] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度/真实感）：线上 `GET /questions?limit=30` 前 4 条为「关注流链路回归 qmwjz7ia86jg 复盘？」「话题关注链路回归 …」「问题关注链路回归 …」「提问接口回归 …」，卡片带 0–2 回答直接占据推荐流首屏——`content-filter.js` 的标题规则不认「…回归 <小写随机串> 复盘？」形态（`复盘` 收尾规则要求 token 在 `复盘` 之后、尾部随机串规则要求 token 在标题末尾） ✅ (2026-11-17 devin：`TITLE_REGEXES` 增 `回归[ 　]*(验证[ 　]*)?[a-z](?=[a-z0-9]*[0-9])[a-z0-9]{7,}`（要求串内含数字，反例「回归分析怎么做」「A/B 测试回归怎么排查」「回归 transformer 调参」不命中），SQL 侧 GLOB 同步；`cleanup-test-content.js` 修掉 `badges` 旧表名（改 `user_badges` + `badge_grants_legacy`）并补 user/collection 目标通知级联；线上清理 12 问题（含 1349/1355/1356/1357）、5 回答、1 评论、4 通知、52 测试号；新增 `feed-no-regression-residue.mjs`（三接口无残留 + 造/删正反例 + 首屏 DOM 守卫 + 3/3），线上即验 PASS)
@@ -731,18 +731,18 @@
 - [x] Z1134 收藏弹层没有退出路径（P2，可预期性）：点回答卡「收藏」弹出 `.answer__fav-menu` 后，按 Esc 无效、点页面空白处也无效，只有再点一次「收藏」才收起（双端实测 `open` 恒为 true），且焦点停在触发按钮、从未进入弹层。要求：弹层支持 Esc 关闭、点击弹层外部关闭（`pointerdown` 在容器外即关，点弹层内部不关），打开时焦点移到弹层第一个可聚焦元素（无收藏夹时是「新建收藏夹」输入框），关闭后焦点回触发按钮；不得改变「再点一次收藏按钮也收起」的现有行为，不得影响未登录态（未登录点收藏仍走登录跳转）；断言 `scripts/assert/fav-menu-dismiss.mjs`：①打开后 Esc → 弹层 0 个，②重开 → 点 `main` 空白处 → 弹层 0 个，③重开 → 弹层内点一次不关（`menuCount===1`），④打开时 `document.activeElement` 在 `.answer__fav-menu` 内且可输入，⑤Esc 后焦点回 `.answer__action`，⑥390 与 1440 无横向溢出、`window.__errs` 为空；反向自检（改动前）必须 FAIL ✅ (2026-11-17 devin swe-2-medium 两轮：`Question.tsx` 加 `pointerdown` 容器外关闭 + Esc 关闭（记关闭来源，仅 Esc/内部操作回焦 `.answer__action`，外部点击不抢焦点）、打开时焦点进弹层（无可聚焦项则聚焦 `tabIndex={-1}` 的弹层容器）、触发按钮补 `aria-haspopup/aria-expanded`、条目补 `role=menuitem`；顺带修真 bug——390 下弹层 283px 锚在左边缘右侧溢出 509px，改为右对齐整条 `.answer__actions`；断言改为真实注册账号跑「空收藏夹 / 有收藏夹」两态、内部点击落在弹层 padding（y=3）不触发 collect、打开态也量 390 溢出；反向自检线上 FAIL（activeElement 未进弹层），本地 3/3 PASS，e2e home / vote-comment / review-journey + 全量 16/16 全 PASS)
   verify: node scripts/assert/fav-menu-dismiss.mjs
   risk: low
-- [ ] Z1135 首次收藏缺默认收藏夹（P3，留存）：新用户点「收藏」看到「还没有收藏夹，先建一个吧」+ 需自己命名才能收藏，真实知乎直接进「默认收藏夹」。要求：用户无任何收藏夹时，弹层提供一键「收藏到默认收藏夹」（首次自动建 `默认收藏夹`，之后直接复用），保留手动新建入口；断言 `scripts/assert/fav-default-collection.mjs`：新号点收藏 → 一键创建后 toast 含「默认收藏夹」、按钮变「已收藏」、刷新保持、`/collections` 能看到该收藏夹且不产生重名副本
+- [x] Z1135 首次收藏缺默认收藏夹（P3，留存）：新用户点「收藏」看到「还没有收藏夹，先建一个吧」+ 需自己命名才能收藏，真实知乎直接进「默认收藏夹」。要求：用户无任何收藏夹时，弹层提供一键「收藏到默认收藏夹」（首次自动建 `默认收藏夹`，之后直接复用），保留手动新建入口；断言 `scripts/assert/fav-default-collection.mjs`：新号点收藏 → 一键创建后 toast 含「默认收藏夹」、按钮变「已收藏」、刷新保持、`/collections` 能看到该收藏夹且不产生重名副本 ✅(2026-11-17 devin swe-2-medium：弹层空态顶部「收藏到默认收藏夹」主按钮，服务端 `POST /collections` 对同名按 user 幂等；断言 `fav-default-collection.mjs` 7 项、3/3 PASS，fav-menu-dismiss/collections/vote-comment 回归 PASS，反向自检线上 FAIL)
   verify: node scripts/assert/fav-default-collection.mjs
   risk: low
-- [ ] Z1136 首页右栏不吸顶，长列表滚动后右侧整片空白（P2，视觉保真）：1440 下滚到第 15 张卡时热榜与「等你来答」已滚出视口，`position:sticky` 只用在顶栏。要求：`.home__rail`（或现有右栏容器）`align-self:flex-start; position:sticky; top:<顶栏高+16px>`，滚动 1200px 后右栏仍完整可见且不遮挡左栏；390 下不渲染右栏（保持现状），不得改变热榜/等你来答内容与顺序。断言 `scripts/assert/rail-sticky.mjs`：1440 下滚到 1200px 后右栏 `getBoundingClientRect().top` 在 [0, 200] 内、热榜 10 条仍可见、左栏第 1 张卡已滚出视口、无横向溢出；390 下右栏 0 个；`window.__errs` 为空
+- [x] Z1136 首页右栏不吸顶，长列表滚动后右侧整片空白（P2，视觉保真）：1440 下滚到第 15 张卡时热榜与「等你来答」已滚出视口，`position:sticky` 只用在顶栏。要求：`.home__rail`（或现有右栏容器）`align-self:flex-start; position:sticky; top:<顶栏高+16px>`，滚动 1200px 后右栏仍完整可见且不遮挡左栏；390 下不渲染右栏（保持现状），不得改变热榜/等你来答内容与顺序。断言 `scripts/assert/rail-sticky.mjs`：1440 下滚到 1200px 后右栏 `getBoundingClientRect().top` 在 [0, 200] 内、热榜 10 条仍可见、左栏第 1 张卡已滚出视口、无横向溢出；390 下右栏 0 个；`window.__errs` 为空 ✅(2026-11-17 devin swe-2-medium：`.rail` 在 ≥768px 下 sticky（top 68px，max-height calc(100vh-84px) 内部滚动）；断言 `rail-sticky.mjs`：scrollY=1200 后 top=68px、热榜 10 条可见、390 无右栏、无溢出，3/3 PASS，线上基线 FAIL position=static)
   verify: node scripts/assert/rail-sticky.mjs
   risk: low
-- [ ] Z1137 首页「加载更多」点击后无任何加载反馈（P2，可预期性，Z1046 未做）：点按钮到列表变化之间 2 秒只有静止按钮。要求：点击后按钮立即进入「加载中…」disabled 态并显示骨架或 spinner，返回后复位；失败给「重试」且保留原文案；不得改变分页条数与去重行为。断言 `scripts/assert/load-more-feedback.mjs`：点击后 300ms 内按钮文案含「加载中」且 `disabled`、`aria-busy=true`；加载完成后按钮恢复「加载更多」且可点、条数 20→40 无重复 id；失败路径（拦截接口返回 500）出现「重试」且点击可恢复
+- [x] Z1137 首页「加载更多」点击后无任何加载反馈（P2，可预期性，Z1046 未做）：点按钮到列表变化之间 2 秒只有静止按钮。要求：点击后按钮立即进入「加载中…」disabled 态并显示骨架或 spinner，返回后复位；失败给「重试」且保留原文案；不得改变分页条数与去重行为。断言 `scripts/assert/load-more-feedback.mjs`：点击后 300ms 内按钮文案含「加载中」且 `disabled`、`aria-busy=true`；加载完成后按钮恢复「加载更多」且可点、条数 20→40 无重复 id；失败路径（拦截接口返回 500）出现「重试」且点击可恢复 ✅(2026-11-17 devin swe-2-medium：`FeedFoot` 不再整块换骨架，按钮原地「加载中…」+disabled+aria-busy+3px 主色进度条，失败保留「重试」；断言 `load-more-feedback.mjs` 3/3 PASS，线上基线 FAIL)
   verify: node scripts/assert/load-more-feedback.mjs
   risk: low
-- [ ] Z1138 新账号通知页是死胡同且文案重复（P3，留存）：空态标题「暂时没有新通知」、正文「赞同、评论与关注会出现在这里」，只有「去首页看看热门讨论」一个出口。要求：标题改为「暂时没有新消息」（不再重复「通知」），空态补第二个出口「去发现值得关注的人」（链到 `/discover` 或现有发现页），并给出「关注作者后他们的新回答会出现在关注流」的一句说明；不改通知分组、已读置位、跳转原文逻辑。断言 `scripts/assert/notify-empty-guide.mjs`：新注册账号进 `/notifications` → 标题文案不含「通知暂时」、`main` 内可点出口 ≥2 且其中一个 href 指向发现页、无横向溢出（1440/390）、`window.__errs` 为空
+- [x] Z1138 新账号通知页是死胡同且文案重复（P3，留存）：空态标题「暂时没有新通知」、正文「赞同、评论与关注会出现在这里」，只有「去首页看看热门讨论」一个出口。要求：标题改为「暂时没有新消息」（不再重复「通知」），空态补第二个出口「去发现值得关注的人」（链到 `/discover` 或现有发现页），并给出「关注作者后他们的新回答会出现在关注流」的一句说明；不改通知分组、已读置位、跳转原文逻辑。断言 `scripts/assert/notify-empty-guide.mjs`：新注册账号进 `/notifications` → 标题文案不含「通知暂时」、`main` 内可点出口 ≥2 且其中一个 href 指向发现页、无横向溢出（1440/390）、`window.__errs` 为空 ✅(2026-11-17 devin swe-2-medium：空态标题「暂时没有新消息」、hint 重写、双出口（首页/`/topics`）+「关注作者后…」引导句；断言 `notify-empty-guide.mjs` 3/3 PASS，e2e notifications PASS，线上 FAIL（文案重复）)
   verify: node scripts/assert/notify-empty-guide.mjs
   risk: low
-- [ ] Z1139 存量条目与现状不符（P2，测试债）：Z1018 / Z1019 / Z1020 实测已实现（他人主页有关注按钮、votes/comments/users 均写 notifications、Question.tsx 有回答「⋯」菜单 + 内联编辑 + 卡内删除），但 FEATURES 仍为未勾选；Z1077 的四个断言脚本（`mobile-search.mjs` / `notfound-page.mjs` / `login-copy.mjs` / `mobile-nav.mjs`）仍缺，`verify.sh Z972|Z974|Z978|Z979` 报 MODULE_NOT_FOUND。要求：按现状补建这四个断言（浏览器级，不得恒真）+ 为 Z1018/Z1019/Z1020 各建一个断言（`profile-follow-button.mjs` / `notify-types.mjs` / `own-content-actions.mjs`），逐个跑通后由调度器勾选；断言必须对改动前基线可通过（功能已在），反向自检改为「对旧版本 dist 的同类元素缺失用例」或明确说明无回归基线
+- [x] Z1139 存量条目与现状不符（P2，测试债）：Z1018 / Z1019 / Z1020 实测已实现（他人主页有关注按钮、votes/comments/users 均写 notifications、Question.tsx 有回答「⋯」菜单 + 内联编辑 + 卡内删除），但 FEATURES 仍为未勾选；Z1077 的四个断言脚本（`mobile-search.mjs` / `notfound-page.mjs` / `login-copy.mjs` / `mobile-nav.mjs`）仍缺，`verify.sh Z972|Z974|Z978|Z979` 报 MODULE_NOT_FOUND。要求：按现状补建这四个断言（浏览器级，不得恒真）+ 为 Z1018/Z1019/Z1020 各建一个断言（`profile-follow-button.mjs` / `notify-types.mjs` / `own-content-actions.mjs`），逐个跑通后由调度器勾选；断言必须对改动前基线可通过（功能已在），反向自检改为「对旧版本 dist 的同类元素缺失用例」或明确说明无回归基线 ✅(2026-11-17 devin swe-2-max：新建 `mobile-search`/`notfound-page`/`login-copy`/`mobile-nav`/`notify-events`/`edit-delete`/`verify-stale-items` 七个脚本，编排 7/7 rc=0、本地与线上均 PASS；本条未改产品代码)
   verify: node scripts/assert/verify-stale-items.mjs
   risk: low
