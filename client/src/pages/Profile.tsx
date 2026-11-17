@@ -509,8 +509,10 @@ export function Profile() {
               {formatTime(user.created_at)} 加入
             </p>
             {badges.length > 0 && (
-              <ul className="medals profile__badges" aria-label="勋章">
-                {badges.map((b) => (
+              <div className="profile__badges">
+                <p className="profile__section-title">成就</p>
+                <ul className="medals" aria-label="勋章">
+                  {badges.map((b) => (
                   <li
                     key={b.code}
                     className="medals__pill profile__badge"
@@ -523,8 +525,9 @@ export function Profile() {
                     />
                     <span className="medals__name">{b.label || b.code}</span>
                   </li>
-                ))}
-              </ul>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
           {!authLoading && !isMe && (
