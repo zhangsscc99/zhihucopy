@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // scripts/assert/seed-persona-domain.mjs — Z1097/Z1103 回答人设与问题领域对齐断言
 //
-// 口径（Z1103 强化为全库 + 显式 author 单独要求）：
-//   对每条未删除回答判定「回答者领域 ∩ 回答所属问题的话题大类可接受域」
-//   是否非空（领域与相邻关系口径统一取自 ../persona-domains.js，与
-//   seed.js / fix-answer-authors-by-domain.js 同源）。非空比例须 = 100%。
+// 口径（Z1103 强化为全库 + 显式 author 单独要求；Z1106 判定下沉到话题级）：
+//   对每条未删除回答判定「回答者领域 ∩ 回答所属问题的话题可接受域」
+//   是否非空（话题 -> 可接受域取自 ../persona-domains.js TOPIC_DOMAINS，
+//   未覆盖话题按大类兜底并单独计数——兜底命中须为 0）。非空比例须 = 100%。
 //   - 作者领域 = PERSONA_DOMAINS(昵称去数字后缀) ∪ bio 关键词。
 //   - bio 为空的作者不参与比例计算，但单独计数且须 < 10%（防止「空 bio 全跳
 //     过」造成的恒真）。
@@ -22,7 +22,7 @@ import { createRequire } from "node:module";
 import { API, db, expect, ok, main } from "./lib.mjs";
 
 const reqScripts = createRequire(new URL("./seed-persona-domain.mjs", import.meta.url));
-const { domainsOf, acceptedDomains } = reqScripts("../persona-domains.js");
+const { domainsOf, acceptedForTopics } = reqScripts("../persona-domains.js");
 const { TOPICS, STORIES } = reqScripts("../seed.js");
 
 const topicCat = new Map(TOPICS.map((t) => [t.name, t.cat]));
@@ -47,13 +47,10 @@ function explicitOf(content) {
   return undefined;
 }
 
-function catSetOfTopicNames(names) {
-  const cats = new Set();
-  for (const n of names) {
-    const c = topicCat.get(n);
-    if (c) cats.add(c);
-  }
-  return cats;
+// Z1106：一题的可接受域 = 其话题的 TOPIC_DOMAINS 并集；
+// 未覆盖话题按大类兜底（返回 viaCat 供计数，断言要求 = 0）。
+function acceptedOfTopicNames(names) {
+  return acceptedForTopics(names, (n) => topicCat.get(n));
 }
 
 async function sampleViaApi() {
@@ -128,6 +125,7 @@ await main("seed-persona-domain", async () => {
   let fit = 0;
   let explicitN = 0;
   let explicitMisfit = 0;
+  const fallbackTopics = new Map(); // Z1106：话题未覆盖 TOPIC_DOMAINS 的兜底计数
   const misfits = [];
   const judged = [];
   for (const s of samples) {
@@ -136,13 +134,14 @@ await main("seed-persona-domain", async () => {
       emptyBio++;
       continue;
     }
-    const cats = catSetOfTopicNames(s.topicNames);
-    if (!cats.size) {
+    const acc = acceptedOfTopicNames(s.topicNames);
+    for (const n of [...acc.viaCat, ...acc.unknown])
+      fallbackTopics.set(n, (fallbackTopics.get(n) || 0) + 1);
+    if (!acc.domains.size) {
       noTopic++;
       continue;
     }
-    const okDomains = new Set();
-    for (const c of cats) for (const dm of acceptedDomains(c)) okDomains.add(dm);
+    const okDomains = acc.domains;
     const mine = domainsOf(s.nickname, s.bio);
     const hit = [...mine].some((dm) => okDomains.has(dm));
     judged.push(s);
@@ -154,21 +153,31 @@ await main("seed-persona-domain", async () => {
     else
       misfits.push(
         `#${s.answer_id} ${s.nickname}[${[...mine].join("+") || "∅"}] ` +
-          `on q#${s.qid}<${s.topicNames.join("/")}>[${[...cats].join("+")}]` +
+          `on q#${s.qid}<${s.topicNames.join("/")}>[${[...okDomains].join("+")}]` +
           (explicit === true ? " 显式author" : "")
       );
   }
 
   const ratio = judged.length ? fit / judged.length : 0;
+  const fallbackN = [...fallbackTopics.values()].reduce((a, b) => a + b, 0);
   console.log(`数据源=${src} 抽样回答=${samples.length} 判定=${judged.length}`);
   console.log(
     `bio 为空=${emptyBio} (${((emptyBio / Math.max(1, samples.length)) * 100).toFixed(1)}%) ` +
-      `无话题大类=${noTopic} 命中=${fit} 错位=${misfits.length} 命中率=${(ratio * 100).toFixed(1)}%`
+      `无话题=${noTopic} 大类兜底命中=${fallbackN} 命中=${fit} 错位=${misfits.length} 命中率=${(ratio * 100).toFixed(1)}%`
   );
+  if (fallbackN)
+    console.log(
+      `  兜底话题：${[...fallbackTopics].map(([n, c]) => `${n}×${c}`).join(" ")}`
+    );
   console.log(`显式 author 语料=${explicitN} 其中错位=${explicitMisfit}`);
   for (const m of misfits.slice(0, 10)) console.log(`  错位 ${m}`);
   if (misfits.length > 10) console.log(`  … 其余 ${misfits.length - 10} 条略`);
 
+  expect(
+    fallbackN === 0,
+    `${fallbackN} 个话题引用未覆盖 TOPIC_DOMAINS（兜底须为 0），` +
+      `请先在 scripts/persona-domains.js 补映射：${[...fallbackTopics.keys()].join("、")}`
+  );
   expect(judged.length >= MIN_SAMPLE, `可判定样本不足 ${MIN_SAMPLE}（实际 ${judged.length}）`);
   expect(
     emptyBio / samples.length < MAX_EMPTY_BIO_RATIO,

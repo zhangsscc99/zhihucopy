@@ -4,24 +4,28 @@
  *
  * 背景：旧版 seed 按 `uIdx % 8` 给用户定「擅长领域」，与 bio 人设无关，
  * 生产库出现「健身教练答 React」「HR 答前端」式错位。本脚本在不改 answer
- * 行 id 的前提下重排 answers.author_id，使「作者领域 ∩ 问题大类可接受域」
+ * 行 id 的前提下重排 answers.author_id，使「作者领域 ∩ 问题话题可接受域」
  * 非空（领域口径见 scripts/persona-domains.js）。
  *
- * 规则：
- *   - 问题大类 = 其 topics 映射到的 cat 集合（seed 同题话题同大类；取并集兜底）。
+ * 规则（Z1106 起判定下沉到话题级）：
+ *   - 问题可接受域 = 其 topics 在 TOPIC_DOMAINS 的可接受域并集
+ *     （topic 未覆盖 TOPIC_DOMAINS 直接抛错——不许退回大类口径假装没发生）。
  *   - 新作者：领域命中该题可接受域、不是提问者、不是同题其它回答的作者、
  *     未在该回答上投过票（避免自投自答）。同题多答保持不同作者。
- *   - 候选按「当前作答数升序 + id 升序」确定性地挑，把回答摊到更多人身上。
+ *   - 候选按「当前作答数升序 + id 升序」确定性地挑，把回答摊到更多人身上；
+ *     同域候选不足时打印同域候选池明细并抛错，不许静默跳过。
  *   - 只动 answers.author_id：answer_count / comment_count / comments 引用不变；
  *     写库后按 seed 同口径重算 users.salt_value / level。
  *   - 幂等：跑过的库所有作者均已同域，第二次计划为 0。
  *
  * 用法：
- *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js            # dry-run
+ *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js            # dry-run（默认）
  *   DB_PATH=/path/zhihu.db node scripts/fix-answer-authors-by-domain.js --apply
+ *   DB_PATH=/path/zhihu.db FIX_ALLOW_PROD=1 node scripts/fix-answer-authors-by-domain.js
  *
- * 生产库保护：--apply 目标为 /www/zhihucopy/data/zhihu.db 时需显式
- * FIX_ALLOW_PROD=1；写库前自动 .backup() 到 data/backups/。
+ * 写库门槛：--apply 或 FIX_ALLOW_PROD=1 任一即进入写库；写操作只允许对
+ * worktree/临时库副本执行，目标为 /www/zhihucopy/data/zhihu.db 一律拒绝。
+ * 写库前自动 .backup() 到 data/backups/。
  */
 "use strict";
 
@@ -38,18 +42,26 @@ function requireFromServer(name) {
 }
 const Database = requireFromServer("better-sqlite3");
 const { TOPICS } = require("./seed");
-const { DOMAINS, DOMAINS_BY_CAT, domainsOf } = require("./persona-domains");
+const {
+  TOPIC_DOMAINS,
+  DOMAINS_BY_CAT,
+  domainsOf,
+  acceptedForTopics,
+} = require("./persona-domains");
 
-const APPLY = process.argv.includes("--apply");
+// 写库门槛：--apply 或 FIX_ALLOW_PROD=1（Z1106：默认 dry-run，两者任一才写库）。
+const APPLY =
+  process.argv.includes("--apply") || process.env.FIX_ALLOW_PROD === "1";
 const DB_PATH = path.resolve(
   process.env.DB_PATH || path.join(__dirname, "..", "data", "zhihu.db")
 );
 const PROD_DB = "/www/zhihucopy/data/zhihu.db";
 
-if (APPLY && DB_PATH === PROD_DB && process.env.FIX_ALLOW_PROD !== "1") {
+// 生产库硬拒绝：写操作只允许对 worktree/临时库副本执行（Z1106）。
+if (APPLY && DB_PATH === PROD_DB) {
   console.error(
     `[fix-authors] 拒绝对生产库写入: ${DB_PATH}\n` +
-      `[fix-authors] 请在副本上验证；确需写生产库请显式设置 FIX_ALLOW_PROD=1`
+      `[fix-authors] 写操作只允许对 worktree/临时库副本执行，请先 cp 再修`
   );
   process.exit(1);
 }
@@ -66,23 +78,35 @@ async function main() {
     users.map((u) => [u.id, domainsOf(u.nickname, u.bio)])
   );
 
-  const qCats = new Map(); // question_id -> Set<cat>
+  // 话题覆盖检查（Z1106）：凡是 question_topics 实际用到的话题名必须
+  // 命中 TOPIC_DOMAINS；未覆盖直接抛错，不许退回大类口径。
+  const qTopics = new Map(); // question_id -> string[]
+  const usedTopicNames = new Set();
   for (const r of db
     .prepare(
       `SELECT qt.question_id, t.name FROM question_topics qt JOIN topics t ON t.id = qt.topic_id`
     )
     .all()) {
-    const cat = topicCat.get(r.name);
-    if (!cat) continue;
-    if (!qCats.has(r.question_id)) qCats.set(r.question_id, new Set());
-    qCats.get(r.question_id).add(cat);
+    usedTopicNames.add(r.name);
+    if (!qTopics.has(r.question_id)) qTopics.set(r.question_id, []);
+    qTopics.get(r.question_id).push(r.name);
+  }
+  const uncovered = [...usedTopicNames].filter(
+    (n) => !TOPIC_DOMAINS[n] && !DOMAINS_BY_CAT[topicCat.get(n) || ""]
+  );
+  const catFallback = [...usedTopicNames].filter((n) => !TOPIC_DOMAINS[n]);
+  if (catFallback.length) {
+    db.close();
+    throw new Error(
+      `[fix-authors] 话题未覆盖 TOPIC_DOMAINS：${catFallback.join("、")} ` +
+        `（含大类兜底 ${catFallback.length} 个，未知 ${uncovered.length} 个）；` +
+        `请先在 scripts/persona-domains.js 补 TOPIC_DOMAINS 映射再跑`
+    );
   }
   const acceptedOf = (qid) => {
-    const cats = qCats.get(qid);
-    if (!cats || !cats.size) return null;
-    const ok = new Set();
-    for (const c of cats) for (const d of DOMAINS_BY_CAT[c] || DOMAINS) ok.add(d);
-    return ok;
+    const names = qTopics.get(qid);
+    if (!names || !names.length) return null;
+    return acceptedForTopics(names, (n) => topicCat.get(n)).domains;
   };
   const intersects = (set, ok) => {
     for (const d of set) if (ok.has(d)) return true;
@@ -117,6 +141,7 @@ async function main() {
   // ---- 生成重排计划 ----------------------------------------------------------
   const plans = [];
   const skippedNoTopic = [];
+  const noCand = []; // {answer, qid, ok, reasons[]} —— 同域候选不足，不得静默
   for (const [qid, list] of [...byQuestion.entries()].sort((a, b) => a[0] - b[0])) {
     const ok = acceptedOf(qid);
     if (!ok) {
@@ -135,20 +160,30 @@ async function main() {
     for (const a of list) {
       if (a._keep) continue;
       const voters = votersOf.get(a.id) || new Set();
-      const cands = users
-        .filter(
-          (u) =>
-            !used.has(u.id) &&
-            !voters.has(u.id) &&
-            intersects(domainSetOf.get(u.id) || new Set(), ok)
-        )
+      const sameDomain = users.filter((u) =>
+        intersects(domainSetOf.get(u.id) || new Set(), ok)
+      );
+      const cands = sameDomain
+        .filter((u) => !used.has(u.id) && !voters.has(u.id))
         .sort(
           (x, y) =>
             (answerCount.get(x.id) || 0) - (answerCount.get(y.id) || 0) ||
             x.id - y.id
         );
       if (!cands.length) {
-        console.error(`[fix-authors] 警告：回答 #${a.id}（问题 ${qid}）没有可用候选作者，跳过`);
+        noCand.push({
+          answer: a,
+          qid,
+          ok,
+          pool: sameDomain.map((u) => ({
+            u,
+            reason: used.has(u.id)
+              ? "已被同题占用"
+              : voters.has(u.id)
+              ? "在该回答投过票"
+              : "?",
+          })),
+        });
         continue;
       }
       const pick = cands[0];
@@ -182,6 +217,29 @@ async function main() {
     );
   }
   if (plans.length > 15) console.log(`  … 其余 ${plans.length - 15} 条略`);
+
+  // 同域候选不足：打印候选池明细并抛错，不许静默跳过（Z1106）
+  if (noCand.length) {
+    console.error(`[fix-authors] ${noCand.length} 条回答无同域候选作者：`);
+    for (const n of noCand) {
+      const cur = userById.get(n.answer.author_id);
+      console.error(
+        `  回答 #${n.answer.id} q#${n.qid} 当前作者=${cur ? cur.nickname : n.answer.author_id} ` +
+          `可接受域=[${[...n.ok].join("+")}] 同域候选池=${n.pool.length}：`
+      );
+      for (const c of n.pool.slice(0, 20)) {
+        console.error(
+          `    - ${c.u.nickname}#${c.u.id}[${[...(domainSetOf.get(c.u.id) || [])].join("+") || "∅"}] ${c.reason}`
+        );
+      }
+      if (n.pool.length > 20) console.error(`    … 其余 ${n.pool.length - 20} 个略`);
+    }
+    db.close();
+    throw new Error(
+      `[fix-authors] ${noCand.length} 条回答同域候选不足，已中止（未写库）；` +
+        `请扩充同域种子作者或人工指定`
+    );
+  }
 
   if (!APPLY) {
     console.log(`[fix-authors] dry-run：将改写 ${plans.length} 条（加 --apply 生效）`);
