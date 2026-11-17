@@ -734,3 +734,15 @@
 - [ ] Z1135 首次收藏缺默认收藏夹（P3，留存）：新用户点「收藏」看到「还没有收藏夹，先建一个吧」+ 需自己命名才能收藏，真实知乎直接进「默认收藏夹」。要求：用户无任何收藏夹时，弹层提供一键「收藏到默认收藏夹」（首次自动建 `默认收藏夹`，之后直接复用），保留手动新建入口；断言 `scripts/assert/fav-default-collection.mjs`：新号点收藏 → 一键创建后 toast 含「默认收藏夹」、按钮变「已收藏」、刷新保持、`/collections` 能看到该收藏夹且不产生重名副本
   verify: node scripts/assert/fav-default-collection.mjs
   risk: low
+- [ ] Z1136 首页右栏不吸顶，长列表滚动后右侧整片空白（P2，视觉保真）：1440 下滚到第 15 张卡时热榜与「等你来答」已滚出视口，`position:sticky` 只用在顶栏。要求：`.home__rail`（或现有右栏容器）`align-self:flex-start; position:sticky; top:<顶栏高+16px>`，滚动 1200px 后右栏仍完整可见且不遮挡左栏；390 下不渲染右栏（保持现状），不得改变热榜/等你来答内容与顺序。断言 `scripts/assert/rail-sticky.mjs`：1440 下滚到 1200px 后右栏 `getBoundingClientRect().top` 在 [0, 200] 内、热榜 10 条仍可见、左栏第 1 张卡已滚出视口、无横向溢出；390 下右栏 0 个；`window.__errs` 为空
+  verify: node scripts/assert/rail-sticky.mjs
+  risk: low
+- [ ] Z1137 首页「加载更多」点击后无任何加载反馈（P2，可预期性，Z1046 未做）：点按钮到列表变化之间 2 秒只有静止按钮。要求：点击后按钮立即进入「加载中…」disabled 态并显示骨架或 spinner，返回后复位；失败给「重试」且保留原文案；不得改变分页条数与去重行为。断言 `scripts/assert/load-more-feedback.mjs`：点击后 300ms 内按钮文案含「加载中」且 `disabled`、`aria-busy=true`；加载完成后按钮恢复「加载更多」且可点、条数 20→40 无重复 id；失败路径（拦截接口返回 500）出现「重试」且点击可恢复
+  verify: node scripts/assert/load-more-feedback.mjs
+  risk: low
+- [ ] Z1138 新账号通知页是死胡同且文案重复（P3，留存）：空态标题「暂时没有新通知」、正文「赞同、评论与关注会出现在这里」，只有「去首页看看热门讨论」一个出口。要求：标题改为「暂时没有新消息」（不再重复「通知」），空态补第二个出口「去发现值得关注的人」（链到 `/discover` 或现有发现页），并给出「关注作者后他们的新回答会出现在关注流」的一句说明；不改通知分组、已读置位、跳转原文逻辑。断言 `scripts/assert/notify-empty-guide.mjs`：新注册账号进 `/notifications` → 标题文案不含「通知暂时」、`main` 内可点出口 ≥2 且其中一个 href 指向发现页、无横向溢出（1440/390）、`window.__errs` 为空
+  verify: node scripts/assert/notify-empty-guide.mjs
+  risk: low
+- [ ] Z1139 存量条目与现状不符（P2，测试债）：Z1018 / Z1019 / Z1020 实测已实现（他人主页有关注按钮、votes/comments/users 均写 notifications、Question.tsx 有回答「⋯」菜单 + 内联编辑 + 卡内删除），但 FEATURES 仍为未勾选；Z1077 的四个断言脚本（`mobile-search.mjs` / `notfound-page.mjs` / `login-copy.mjs` / `mobile-nav.mjs`）仍缺，`verify.sh Z972|Z974|Z978|Z979` 报 MODULE_NOT_FOUND。要求：按现状补建这四个断言（浏览器级，不得恒真）+ 为 Z1018/Z1019/Z1020 各建一个断言（`profile-follow-button.mjs` / `notify-types.mjs` / `own-content-actions.mjs`），逐个跑通后由调度器勾选；断言必须对改动前基线可通过（功能已在），反向自检改为「对旧版本 dist 的同类元素缺失用例」或明确说明无回归基线
+  verify: node scripts/assert/verify-stale-items.mjs
+  risk: low
