@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { get } from "../api";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
+import { FeedAuthor } from "../components/FeedAuthor";
 import { cardNav } from "../lib/cardNav";
 import type { Page, Question } from "../types";
 
@@ -128,11 +129,9 @@ export function Unanswered() {
                   <p className="feed__excerpt">{excerpt(q.detail_md)}</p>
                 )}
                 <div className="feed__meta">
-                  <Link to={`/u/${q.author.id}`} className="feed__author">
-                    {q.author.nickname}
-                  </Link>
+                  <FeedAuthor author={q.author} />
                   <span>{q.answer_count} 个回答</span>
-                  <span>{q.view_count} 次浏览</span>
+                  <span className="feed__views">{q.view_count} 次浏览</span>
                   <Link to={`/question/${q.id}`} className="feed__author">
                     写回答
                   </Link>

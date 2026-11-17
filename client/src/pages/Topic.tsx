@@ -6,6 +6,7 @@ import { useToast } from "../toast";
 import { Empty } from "../components/Layout";
 import { isContentMissing, NotFound } from "./NotFound";
 import { FeedSkeleton } from "../components/Skeleton";
+import { FeedAuthor } from "../components/FeedAuthor";
 import { cardNav } from "../lib/cardNav";
 import type { Author, Topic as TopicType } from "../types";
 
@@ -227,11 +228,9 @@ export function Topic() {
                 </Link>
                 {q.detail_md && <p className="feed__excerpt">{excerpt(q.detail_md)}</p>}
                 <div className="feed__meta">
-                  <Link to={`/u/${q.author.id}`} className="feed__author">
-                    {q.author.nickname}
-                  </Link>
+                  <FeedAuthor author={q.author} />
                   <span>{q.answer_count} 个回答</span>
-                  <span>{q.view_count} 次浏览</span>
+                  <span className="feed__views">{q.view_count} 次浏览</span>
                 </div>
               </li>
             ))}

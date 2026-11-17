@@ -450,19 +450,44 @@ textarea:focus-visible {
 }
 .feed__meta {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
   margin-top: 10px;
   font-size: 13px;
+  line-height: 1.4;
   color: var(--ink-3);
+  white-space: nowrap;
 }
 .feed__meta > * + *::before {
   content: "·";
   margin: 0 6px;
   color: var(--ink-3);
 }
+.feed__meta > span {
+  flex: none;
+}
 .feed__author {
   color: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.feed__author-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 信息流作者头像：24px 圆形，占位为浅主色底 + 主色字 */
+.feed__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 102, 255, 0.08);
+  color: var(--accent);
+  font-size: 12px;
+  flex: none;
 }
 
 /* 热榜卡：左侧排名色块 + 紧凑单行标题/摘要 + 热度，与推荐卡明确区分。
@@ -729,6 +754,10 @@ mark.hl {
 @media (max-width: 767px) {
   .feed__item {
     padding: 14px;
+  }
+  /* 窄屏元信息行让位：藏「N 次浏览」，保头像 + 昵称 + 回答数单行 */
+  .feed__meta .feed__views {
+    display: none;
   }
   .search-head {
     padding: 12px 14px;
