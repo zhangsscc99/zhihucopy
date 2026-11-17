@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
 import { useNotifications } from "../notifications";
@@ -38,9 +38,18 @@ interface NotificationList {
   items?: NotificationItem[];
   total?: number;
   unread?: number;
+  counts?: Record<string, number>;
 }
 
 const LIMIT = 50;
+
+// 分类 tab：评论/赞同按服务端 TYPE_GROUPS 口径聚合（评论含回复、赞同含 vote）。
+const TABS: { key: string; label: string; type?: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "comment", label: "评论", type: "comment,reply" },
+  { key: "agree", label: "赞同", type: "agree,vote" },
+  { key: "follow", label: "关注", type: "follow" },
+];
 
 const ACTION_TEXT: Record<string, string> = {
   agree: "赞同了你的回答",
@@ -193,14 +202,29 @@ export function Notifications() {
   const toast = useToast();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestSeq = useRef(0);
   // 进入页面自动已读只做一次（StrictMode 双跑与 reloadToken 重试都靠它挡住重复写）。
   const autoReadRef = useRef(false);
+
+  // tab 以 ?type= 为唯一事实源，浏览器前进/后退可还原选中态。
+  const tabParam = searchParams.get("type") || "all";
+  const tab = TABS.some((t) => t.key === tabParam) ? tabParam : "all";
+  const activeTab = TABS.find((t) => t.key === tab) || TABS[0];
+  const typeQuery = activeTab.type ? `&type=${activeTab.type}` : "";
+  // 全部分类下的总条数：counts 缺失时仅「全部」tab 能用 total 兜底。
+  const allTotal = counts?.all ?? (tab === "all" ? total : null);
+
+  const switchTab = (key: string) => {
+    if (key === tab) return;
+    setSearchParams(key === "all" ? {} : { type: key });
+  };
 
   useEffect(() => {
     if (authLoading || !user) {
@@ -210,12 +234,13 @@ export function Notifications() {
     const seq = ++requestSeq.current;
     setLoading(true);
     setError("");
-    get<NotificationList>(`/notifications?limit=${LIMIT}`)
+    get<NotificationList>(`/notifications?limit=${LIMIT}${typeQuery}`)
       .then((res) => {
         if (seq !== requestSeq.current) return;
         const list = res?.items ?? [];
         setItems(list);
         setTotal(res?.total ?? list.length);
+        if (res?.counts && typeof res.counts === "object") setCounts(res.counts);
         // 列表响应里的 unread 是全局未读数，同步给角标保证页内计数与角标一致。
         if (typeof res?.unread === "number") syncUnread(res.unread);
         // 列表成功加载即视为已读：把本页返回的未读项批量落库，角标随之归零。
@@ -247,12 +272,14 @@ export function Notifications() {
         if (seq !== requestSeq.current) return;
         setLoading(false);
       });
-  }, [authLoading, user, syncUnread, markReadMany, reloadToken]);
+  }, [authLoading, user, syncUnread, markReadMany, reloadToken, typeQuery]);
 
   const loadMore = () => {
     if (loadingMore) return;
     setLoadingMore(true);
-    get<NotificationList>(`/notifications?limit=${LIMIT}&offset=${items.length}`)
+    get<NotificationList>(
+      `/notifications?limit=${LIMIT}&offset=${items.length}${typeQuery}`
+    )
       .then((res) => {
         const more = res?.items ?? [];
         setItems((prev) => [
@@ -308,7 +335,7 @@ export function Notifications() {
     <>
       <header className="ntf-head">
         <h1 className="ntf-head__title">通知</h1>
-        {!loading && !error && items.length > 0 && (
+        {!loading && !error && (allTotal ?? 0) > 0 && (
           <div className="ntf-head__side">
             <span className="ntf-head__meta">
               {unread > 0 ? `${unread} 条未读` : "全部已读"} · 共 {total} 条
@@ -327,10 +354,47 @@ export function Notifications() {
         )}
       </header>
 
+      {!error && (
+        <div className="notify__tabs" role="tablist" aria-label="通知分类">
+          {TABS.map((t) => {
+            const n = counts?.[t.key];
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.key}
+                className={`notify__tab${tab === t.key ? " is-active" : ""}`}
+                onClick={() => switchTab(t.key)}
+              >
+                {t.label}
+                {typeof n === "number" && (
+                  <span className="notify__tab-count">{n}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {loading ? (
         <FeedSkeleton count={4} />
       ) : error ? (
         <ErrorBox message={error} onRetry={() => setReloadToken((n) => n + 1)} />
+      ) : items.length === 0 && tab !== "all" ? (
+        <Empty
+          title="暂无该类型通知"
+          hint={`「${activeTab.label}」分类下还没有通知`}
+          action={
+            <button
+              type="button"
+              className="btn btn--outline"
+              onClick={() => switchTab("all")}
+            >
+              看全部通知
+            </button>
+          }
+        />
       ) : items.length === 0 ? (
         <Empty
           title="暂时没有新消息"

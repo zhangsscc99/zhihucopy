@@ -108,13 +108,21 @@ function notificationRow(db, n) {
 
 // GET /notifications?type=&unread=&limit=&offset= — 本人通知列表。
 //   unread=1 → 只看未读；unread=0 → 只看已读；缺省/其他值 → 不过滤。
+//   type 支持逗号分隔多值（Z1145 分类 tab：评论=comment,reply / 赞同=agree,vote）。
+//   响应附 counts（按前端 tab 口径分组的条数），纯增量字段，旧客户端忽略即可。
+const TYPE_GROUPS = {
+  comment: ["comment", "reply"],
+  agree: ["agree", "vote"],
+  follow: ["follow"],
+};
+
 router.get("/", requireAuth, (req, res) => {
   const db = getDb();
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-  const type =
+  const types =
     typeof req.query.type === "string" && req.query.type.trim()
-      ? req.query.type.trim()
+      ? [...new Set(req.query.type.split(",").map((t) => t.trim()).filter(Boolean))]
       : null;
 
   const unreadParam =
@@ -129,9 +137,9 @@ router.get("/", requireAuth, (req, res) => {
   // actor（走查<数字>/巡检探针<拉丁>/巡检<随机串>），不按测试邮箱域/is_test/
   // 目标标题过滤 —— 普通测试号与真实用户的交互通知必须送达。
   conds.push(testNotificationResidueSql("n"));
-  if (type) {
-    conds.push("n.type = ?");
-    params.push(type);
+  if (types && types.length) {
+    conds.push(`n.type IN (${types.map(() => "?").join(",")})`);
+    params.push(...types);
   }
   if (readFilter) conds.push(readFilter);
   const where = conds.join(" AND ");
@@ -158,7 +166,35 @@ router.get("/", requireAuth, (req, res) => {
     )
     .get(req.user.id).c;
 
-  res.json({ items: rows.map((n) => notificationRow(db, n)), total, unread });
+  // tab 口径分组计数（与列表同口径剔除残留），全部 = 各组之和。
+  const byType = db
+    .prepare(
+      `SELECT n.type, COUNT(*) c FROM notifications n
+       WHERE n.user_id = ? AND ${testNotificationResidueSql("n")}
+       GROUP BY n.type`
+    )
+    .all(req.user.id);
+  const counts = { all: 0, comment: 0, agree: 0, follow: 0, other: 0 };
+  const grouped = new Set(Object.values(TYPE_GROUPS).flat());
+  for (const row of byType) {
+    counts.all += row.c;
+    let hit = false;
+    for (const [key, list] of Object.entries(TYPE_GROUPS)) {
+      if (list.includes(row.type)) {
+        counts[key] += row.c;
+        hit = true;
+        break;
+      }
+    }
+    if (!hit && !grouped.has(row.type)) counts.other += row.c;
+  }
+
+  res.json({
+    items: rows.map((n) => notificationRow(db, n)),
+    total,
+    unread,
+    counts,
+  });
 });
 
 // GET /notifications/unread-count — 未读数。
