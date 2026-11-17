@@ -1470,19 +1470,24 @@ export function Question() {
                       type="button"
                       className={`answer__vote answer__vote--up${my === 1 ? " is-active" : ""}`}
                       aria-pressed={my === 1}
+                      aria-label={my === 1 ? "取消赞同" : undefined}
+                      title={my === 1 ? "取消赞同" : undefined}
                       disabled={votePending[a.id]}
                       onClick={() => vote(a, 1)}
                     >
-                      赞同{a.vote_up > 0 ? ` ${a.vote_up}` : ""}
+                      {my === 1 ? "已赞同" : "赞同"}
+                      {a.vote_up > 0 ? ` ${a.vote_up}` : ""}
                     </button>
                     <button
                       type="button"
                       className={`answer__vote answer__vote--down${my === -1 ? " is-active" : ""}`}
                       aria-pressed={my === -1}
+                      aria-label={my === -1 ? "取消反对" : undefined}
+                      title={my === -1 ? "取消反对" : undefined}
                       disabled={votePending[a.id]}
                       onClick={() => vote(a, -1)}
                     >
-                      反对
+                      {my === -1 ? "已反对" : "反对"}
                     </button>
                     <button
                       type="button"
