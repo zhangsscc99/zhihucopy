@@ -698,3 +698,15 @@
 - [ ] Z1122 剩余 13 个零内容探针号（P2，数据卫生，Z1121 收尾）：昵称 `z985user…`/`z1028user…`/`走查员…`、邮箱 `z985.mw…@example.com` 等，13 个账号 0 问题 0 回答 0 评论，是更早期断言脚本的残留。把 `probeUserMatchSql` 的口径扩展为「昵称 GLOB `z[0-9]*user*` 或 `走查*` 或 `真人*`，且邮箱匹配 `%@example.com` / `real-%@zhihucopy.dev`」，`clean-probe-users.js` 复用同口径重跑（幂等），目标可疑昵称 ≤0.5% 且 nickname-realism 余量达标
   verify: node scripts/assert/nickname-realism.mjs
   risk: low
+
+## 第七轮待办（2026-11-17 12:55，第三十轮走查）
+
+- [ ] Z1123 个人主页徽章语义不明（P2，可读性）：`/u/27` 头部一行是「十赞 被看见 首答 首问 已关注 获赞 138 关注 5 粉丝 6」，四枚徽章无任何解释，新用户读不出「首答＝首个回答」「十赞＝收获 10 个赞同」；徽章与统计区之间也没有分隔，视觉上像同一组数字。要求：每枚徽章带 `title` 与完整文案（首个回答 / 首个提问 / 收获 10 赞 / 被关注过），徽章行与统计行之间加分隔；断言 `scripts/assert/profile-badge-labels.mjs`：主页每枚徽章 `[class*=badge]` 均有非空 `title` 且文案 ∈ 白名单、徽章区与统计区 DOM 相邻但不同容器、1440/390 无溢出、`__errs` 空
+  verify: node scripts/assert/profile-badge-labels.mjs
+  risk: med
+- [ ] Z1124 移动端信息流卡片丢热度信号（P2，信息密度）：390px 下卡片元信息只剩「3 个回答」，浏览数按 Z1113 的取舍被隐藏，移动端无法判断「这题多少人看」。改为紧凑单行「3 答 · 5973 浏览」（≥10000 用 `1.2 万浏览`），≤767px 不折行、不横向溢出，1440 保持现文案；断言 `scripts/assert/mobile-feed-meta.mjs`：390 卡片元信息含「浏览」且高度 ≤24px、1440 文案不变、双端 `scrollWidth-clientWidth=0`
+  verify: node scripts/assert/mobile-feed-meta.mjs
+  risk: low
+- [ ] Z1125 种子回答收尾同模板（P2，内容厚度）：抽查 6 条不同话题回答，5 条末段都是「记住 X 比记 Y 牢」/「别照抄参数」式收束，连读三条即出模板感。要求：`ANSWER_TAILS` 按大类各扩到 ≥6 种句式、同一问题下不同回答不得复用同一收尾；断言 `scripts/assert/answer-tail-variety.mjs`：抽样 30 条回答，末句模板重复率 ≤20%，同一 question 下无重复收尾
+  verify: node scripts/assert/answer-tail-variety.mjs
+  risk: med
