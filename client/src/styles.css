@@ -3356,3 +3356,11 @@ a.ntf__title:hover {
   color: #8590a6;
   text-align: center;
 }
+
+/* Z1143 登录页「刚才的操作」说明：有效站内 next 时表单上方一行灰字提示。 */
+.authform__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8590A6;
+}
