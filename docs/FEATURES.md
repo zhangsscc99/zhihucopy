@@ -428,7 +428,7 @@
 - [ ] Z1047 通知锚点在回答数 >50 的问题上落空且文案误报（P2，Z1038 遗留）：补页上限 5 页(50 条) 后仍找不到就显示「该回答可能已被删除」，但回答实际存在（默认序新回答恒在末尾）
   verify: node scripts/assert/anchor-deep-page.mjs
   risk: med
-- [ ] Z1048 NotFound 详情透出原始错误串（P2）：服务异常页正文显示英文 `internal` / `Failed to fetch`，需映射为中文友好文案（Z1034 遗留）
+- [x] Z1048 NotFound 详情透出原始错误串（P2）：服务异常页正文显示英文 `internal` / `Failed to fetch`，需映射为中文友好文案（Z1034 遗留） ✅ (2026-11-17 devin swe-2-medium：`NotFound.tsx` 新增 `friendlyDetail()`（failed to fetch/network→网络提示、internal/500/unexpected token→服务端提示、timeout→超时提示、含中文原样截 60 字、其余纯英文一律丢弃），渲染改用归一化后的值，`.notfound__detail` 单行省略号 13px #8590A6；新增 `assert/notfound-copy.mjs`（源码级防「定义了没用」+ 路由注入 500 断言不含英文/非中文字符、真 404 文案与两个出口仍在）；基线线上 `.notfound__detail` 透出 `internal` → FAIL 已复现）
   verify: node scripts/assert/notfound-copy.mjs
   risk: low
 - [ ] Z1049 ci-deploy 的 E2E 紧跟 pm2 restart，偶发拿到空白页（P2）：2026-11-16 部署时 `notifications.mjs` 截图整页空白、耗时 19.4s 判 PENDING，随后单独复跑 4/4 PASS——旧 hash 资源被替换的竞态，需在 e2e 前加首屏 warmup 或对首屏失败重试一次（不得放宽断言）
@@ -451,7 +451,7 @@
 - [x] Z1052 评论无「回复」入口（P2）：后端 `POST /comments` 已支持 `parent_id` 且给被回复者写 `comment` 通知，但前端评论行只有「删除」（仅自己），实测接口建二级评论成功（id 425/426）而 UI 无法触达 ✅ (2026-11-16 devin：一级未删评论行头补「回复」+ `.answer__reply-form` 内联表单（单例/自动聚焦/Esc/表单内错误），提交按钮仅「回复」字样不抢 e2e 定位；乐观挂 children 末尾 + 计数 +1 + toast；未登录跳 /login?next=)
   verify: node scripts/assert/comment-reply-ui.mjs
   risk: low
-- [ ] Z1053 通知行 `.ntf__hit` 与 `.ntf__title` 双链接命中歧义（P2）：点击覆盖层 `<a>` 被同 href 的标题 `<a>` intercept（Playwright 32 次重试失败）；整行应改单链接 `::after` 撑满
+- [x] Z1053 通知行 `.ntf__hit` 与 `.ntf__title` 双链接命中歧义（P2）：点击覆盖层 `<a>` 被同 href 的标题 `<a>` intercept（Playwright 32 次重试失败）；整行应改单链接 `::after` 撑满 ✅ (2026-11-17 devin swe-2-medium：通知行删掉 `.ntf__hit` 覆盖层 + `.ntf__title` 两个链接，改为 DOM 末尾单个 `a.ntf__hit`（`position:absolute; inset:0`, z-index 1）+ 昵称/标题改纯文本，hover `#f6f6f6`、`:focus-visible` 2px 主色 outline；新增 `assert/ntf-hit-layer.mjs`（每行 a 数 ===1、覆盖层宽度差 ≤2px、row.click 2s 内跳转且正文 >200、1440+390 双端 errs=0）；基线线上 `第 0 行含 2 个 <a>` → FAIL 已复现。**连带修 e2e 契约：`probe-round15.mjs` 与 `assert/notify-comment-anchor.mjs` 的 `a.ntf__title` 选择器同步改 `a.ntf__hit`（Z1062 车道，probe-round15 连跑 3/3 PASS）**）
   verify: node scripts/assert/ntf-hit-layer.mjs
   risk: low
 - [ ] Z1054 cleanup-artifacts 多会话 API 模式第二会话恒 401（P2，测试基建）：本轮 3 次复现 `[api] session#2 HTTP 401 请先登录`，产物靠 session#1 兜底删净；应先删产物后删用户，或每会话独立鉴权
@@ -590,7 +590,7 @@
 - [x] Z1095 通知文案「与你互动了」过于含糊（P3，文案）：通知页 7 条里 3 条是「XXX · 与你互动了」，看不出对方是回答了你的问题、还是评论/邀请了。真知乎会写「回答了你的问题」「在回答中提到了你」。需按 type 细分文案，并同步 e2e/assert 里的文案断言 ✅ (2026-11-17 devin swe-2-medium：根因=`reply`(26 条)/`moderation`(7 条) 无映射；`Notifications.tsx` ACTION_TEXT 补「回复了你的评论」「处理了你的回答」+ `replied`/`moderated` 内联 SVG（沿用 1.7 stroke 规格），`server/routes/notifications.js` 的 EVENT_LABELS 同口径补两条；新增 `assert/notification-copy.mjs`（选有 reply 的种子号，API 每个 event_label 非空白名单内、两视口行文案无「互动」、含一行「回复了你的评论」、__errs/溢出守卫）PASS；基线副本 FAIL「通知 #59 (type=reply) event_label 为空」；无既有断言依赖旧兜底文案)
   verify: node scripts/assert/notification-copy.mjs
   risk: low
-- [ ] Z1096 关注流「有新回答」提示（P2，社交回路）：现在关注流只能靠手动刷新；建议在「关注」tab 上加「N 条新回答」pill，基于 `answers.created_at > 上次访问时间` 计算，点击后插入并清零
+- [x] Z1096 关注流「有新回答」提示（P2，社交回路）：现在关注流只能靠手动刷新；建议在「关注」tab 上加「N 条新回答」pill，基于 `answers.created_at > 上次访问时间` 计算，点击后插入并清零 ✅ (2026-11-17 devin swe-2-high：`/feed/following?since=` 增 `new_count`（单条 SQL，作者关注 ∪ 话题关注，走 `testQuestionSql`/`testCommentSql` 口径，排除自己与已删），`Home.tsx` 按 uid 记 `zhihu_following_seen_*` 作 since、`new_count>0` 渲染 `.new-pill`（主色细边框 28px/13px），点击清零并重拉首屏；新增 `assert/following-new-answers.mjs`（pill 出现/点击消失/置顶新答/零态无文案，浏览器级）；基线线上 `new_count: undefined` → FAIL 已复现，修后 3/3 PASS）
   verify: node scripts/assert/following-new-answers.mjs
   risk: med
 
@@ -667,7 +667,7 @@
 
 ## 第二十七轮收尾待办（下一轮优先）
 
-- [ ] Z1116 热门技术词召回过窄（P2，内容厚度）：线上 `?q=React` 仅 2 条问题、`useEffect` 2 条（Z1110 已确认是库内命中少而非召回 bug）。需按现有 seed story 结构补 10–15 条 React/useEffect/TypeScript/FTS 检索相关真实问题（标题+补充说明+2–3 回答，作者同域），使 `React`/`useEffect`/`TypeScript` 各 ≥5 条问题命中，且推荐流大类配额不回归
+- [x] Z1116 热门技术词召回过窄（P2，内容厚度）：线上 `?q=React` 仅 2 条问题、`useEffect` 2 条（Z1110 已确认是库内命中少而非召回 bug）。需按现有 seed story 结构补 10–15 条 React/useEffect/TypeScript/FTS 检索相关真实问题（标题+补充说明+2–3 回答，作者同域），使 `React`/`useEffect`/`TypeScript` 各 ≥5 条问题命中，且推荐流大类配额不回归 ✅ (2026-11-17 devin swe-2-high：`scripts/seed-data/code.js` 追加 15 条 story（语料 111→126，React 4 / useEffect 5 / TypeScript 4 / 全文检索 2，均 3 回答、收尾各异无模板尾）；新增 `scripts/append-stories.js`（默认 dry-run，`--apply` 前 `.backup()`，生产需 `APPEND_ALLOW_PROD=1`，作者只在种子域 `@zhihucopy.dev` 人设池里按话题可接受域挑，按标题判重幂等，写后 SQL 聚合回填计数）+ `scripts/assert/search-stock.mjs`（三词各 ≥5 题命中、标题含词 ≥60%、推荐流 ≥15 条且 ≥3 大类、浏览器无溢出/errs=0）；**生产库已 apply：新增 q#552–566 / 45 回答**（备份 `data/backups/zhihu-20261117-1115-append-stories.db`），线上 React 11 / useEffect 7 / TypeScript 6 命中，基线线上 2 条 → FAIL 已复现）
   verify: node scripts/assert/search-stock.mjs
   risk: med
 - [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：报告噪声掩盖真实回归，下一轮作为主车道清账
