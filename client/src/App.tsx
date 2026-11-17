@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { HotRail } from "./components/HotRail";
+import { UnansweredRail } from "./components/UnansweredRail";
 import { Home } from "./pages/Home";
 import { Question } from "./pages/Question";
 import { Ask } from "./pages/Ask";
@@ -31,7 +32,14 @@ function Search() {
 
 export function App() {
   return (
-    <Layout rail={<HotRail />}>
+    <Layout
+      rail={
+        <>
+          <HotRail />
+          <UnansweredRail />
+        </>
+      }
+    >
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<Search />} />
