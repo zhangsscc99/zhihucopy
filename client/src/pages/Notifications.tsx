@@ -152,13 +152,28 @@ function NotificationRow({
   const actor = n.actor;
   const action = n.event_label || ACTION_TEXT[n.type] || "与你互动了";
   const to = linkFor(n);
-  const qto = questionLinkFor(n);
   const title = n.payload?.question_title;
   const excerpt = n.excerpt || n.payload?.excerpt || n.payload?.answer_excerpt;
   const kind = n.event || "other";
 
   return (
     <li className={`ntf__item${n.is_read ? "" : " ntf__item--unread"}`}>
+      <span className="ntf__icon" aria-hidden="true">
+        <TypeIcon kind={kind} />
+      </span>
+      <div className="ntf__main">
+        <p className="ntf__line">
+          <span className="ntf__name">{actor?.nickname || "用户"}</span>
+          <span className="ntf__action">{` · ${action}`}</span>
+        </p>
+        {title && <span className="ntf__title">{title}</span>}
+        <div className="ntf__foot">
+          {excerpt ? <p className="ntf__excerpt">{excerpt}</p> : null}
+          <time className="ntf__time" dateTime={n.created_at}>
+            {formatTime(n.created_at)}
+          </time>
+        </div>
+      </div>
       {to && (
         <Link
           to={to}
@@ -167,35 +182,6 @@ function NotificationRow({
           onClick={() => onRead(n)}
         />
       )}
-      <span className="ntf__icon" aria-hidden="true">
-        <TypeIcon kind={kind} />
-      </span>
-      <div className="ntf__main">
-        <p className="ntf__line">
-          {actor ? (
-            <Link to={`/u/${actor.id}`} className="ntf__name">
-              {actor.nickname}
-            </Link>
-          ) : (
-            <span className="ntf__name">用户</span>
-          )}
-          <span className="ntf__action">{` · ${action}`}</span>
-        </p>
-        {title &&
-          (qto ? (
-            <Link to={qto} className="ntf__title" onClick={() => onRead(n)}>
-              {title}
-            </Link>
-          ) : (
-            <span className="ntf__title">{title}</span>
-          ))}
-        <div className="ntf__foot">
-          {excerpt ? <p className="ntf__excerpt">{excerpt}</p> : null}
-          <time className="ntf__time" dateTime={n.created_at}>
-            {formatTime(n.created_at)}
-          </time>
-        </div>
-      </div>
     </li>
   );
 }

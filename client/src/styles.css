@@ -3176,3 +3176,26 @@ a.ntf__title:hover {
     padding: 12px 14px;
   }
 }
+
+/* ---------- 通知行单链接命中层（Z1053） ---------- */
+/* 每行仅一个 <a.ntf__hit>，作为 DOM 末尾的绝对定位覆盖层撑满整行；
+   昵称/标题均为普通文本，避免双链接命中歧义与重复 Tab 焦点。 */
+.ntf__item .ntf__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  border-radius: var(--radius);
+}
+/* 覆盖层在 DOM 末尾且 z-index:1，压过 position:relative 的昵称/标题文本，
+   行内任意位置点击都落在同一链接上。 */
+.ntf__item:hover {
+  background: #f6f6f6;
+}
+.ntf__hit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ntf__item--unread:hover {
+  background: #e4eefb;
+}
