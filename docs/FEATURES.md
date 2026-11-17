@@ -242,7 +242,7 @@
 - [ ] Z981 清理测试作者在真实内容下的回答/评论（`巡检c41o` 之类混入 `/question/1`），并重算 questions.answer_count 保持一致
   verify: node scripts/assert/answer-count-consistency.mjs
   risk: med
-- [ ] Z982 种子内容扩充：真实问题仅 60 条、搜索「代码质量」只 1 条命中，按现有 seed-data 结构补到 100+ 真实问题（标题+补充说明+3 回答，不得重复）
+- [x] Z982 种子内容扩充：真实问题仅 60 条、搜索「代码质量」只 1 条命中，按现有 seed-data 结构补到 100+ 真实问题（标题+补充说明+3 回答，不得重复） ✅ (2026-11-17 devin：seed-data 60→111 story（code+14/work+9/psy+9/life+4/sci+4/edu+4/health+4/money+5，标题-补充说明-回答语义对应、真人昵称、detail 180-420 字、回答 200-800 字）；seed.js N_QUESTIONS 跟随 STORIES.length、TIER_PLAN hot12/warm20/cool40 + 非 cold 回答上限 5（≥5 答 24 题）、附加话题只取同大类（跨类 0）、badges 按运行时 BADGES 全列写入（5 定义 icon 非空、user_badges 无效 code 0）、handled reports 补 handled_at；新增 seed-volume.mjs（DB 6 + API 3，2/2 PASS，未 seed 基线 FAIL 4 项）。生产库已 seed：问题 60→111、回答 303、话题最小 7 题；线上首屏 30 卡全有摘要)
   verify: node scripts/assert/seed-volume.mjs
   risk: med
 
@@ -548,6 +548,18 @@
 
 ## 第二十一轮待办（2026-11-17 02:4x，来源 docs/PRODUCT-REVIEW.md 第十九轮线上走查）
 
-- [ ] Z1082 首屏假内容与自动化残留（P1，内容洁净度/真实感）：① 无补充说明的问题在信息流卡片上直接渲染占位文案「暂无补充说明」，真知乎此处应直接进入元信息；② 推荐流第一位是「质检小七 / 路人乙qa」的 0 关注 1 句回答；③ `/question/339` 评论区残留「走查9434 / 走查评论D：测试提交路径」；④ 通知页 6 条里 2 条「巡检探针banv」。`content-filter` 现有规则不认「走查<数字>」「走查评论…」「巡检探针」形态。需补标题/正文/昵称三类规则（JS 与 SQL 同口径）、清理生产库残留，并让卡片在无补充说明时不渲染占位；顺带给评论 `textarea` 补 `aria-label="写下你的评论"`（现在只有 placeholder）
+- [x] Z1082 首屏假内容与自动化残留（P1，内容洁净度/真实感）：① 无补充说明的问题在信息流卡片上直接渲染占位文案「暂无补充说明」，真知乎此处应直接进入元信息；② 推荐流第一位是「质检小七 / 路人乙qa」的 0 关注 1 句回答；③ `/question/339` 评论区残留「走查9434 / 走查评论D：测试提交路径」；④ 通知页 6 条里 2 条「巡检探针banv」。`content-filter` 现有规则不认「走查<数字>」「走查评论…」「巡检探针」形态。需补标题/正文/昵称三类规则（JS 与 SQL 同口径）、清理生产库残留，并让卡片在无补充说明时不渲染占位；顺带给评论 `textarea` 补 `aria-label="写下你的评论"`（现在只有 placeholder） ✅ (2026-11-17 devin：Home.tsx 普通卡/热榜卡无摘要时不再渲染「暂无补充说明」占位（间距由 .feed__meta 保持）、styles.css 删空规则；content-filter 增昵称 `^走查[0-9]+$`/`^巡检探针[A-Za-z0-9]*$`、正文与标题 `^走查评论<tag>[：:]`（标签 0-4 位，JS 与 SQL GLOB 同口径，反例「代码走查/走查一下这段 diff/走查会议记录/巡检报告怎么写」不命中）；notifications 路由接入 testNotificationSql；cleanup-test-content.js 增残留评论/通知删除与 dry-run；评论 textarea 补 aria-label；新增 feed-clean-first-screen.mjs（占位 0 + 四接口无残留 + 评论/通知页扫描 + 规则正反例，3/3 连跑）。生产库已按新规则清理：1 问题/4 评论/8 通知/14 测试号；线上复验首卡恢复「标题→作者→回答数→浏览」、评论区无残留、溢出 0)
   verify: node scripts/assert/feed-clean-first-screen.mjs
+  risk: med ✅ (2026-11-17 devin：seed-data 60→111 个 story（code+14/work+9/psy+9/life+4/sci+4/edu+4/health+4/money+5，标题-补充说明-回答语义对应、作者真人昵称、detail 180-420 字、回答 200-800 字）；`seed.js` 的 N_QUESTIONS 改为跟随 STORIES.length、TIER_PLAN 调 hot12/warm20/cool40 且非 cold 回答上限 5（≥5 答问题 24 个）、附加话题只取同大类（跨类绑定 0）、badges 目录按运行时 BADGES 全列写入（5 个定义 icon 全非空、user_badges 无效 code 0）、handled reports 补 handled_at；新增 seed-volume.mjs（DB 6 项 + API 3 项，2/2 连跑 PASS，未 seed 基线 FAIL 4 项）。生产库已 seed：问题 60→111、回答 303、≥5 答 24 题、话题最小 7 题；线上首屏 30 卡全部有摘要，各页无白屏)
+
+
+## 第二十一轮收尾观察（待办）
+- [ ] Z1085 个人主页看不到自己写的内容（P1，产品自见性 + 断言契约）：`GET /users/:id` 的 `stats.answers` 与 `/answers?author=` 共用 `AUTHOR_ANSWERS_SQL`，对作者与访客同口径套 `testQuestionSql`；因此测试号（@test.dev）+`[e2e]` 标题造出的回答在**自己的主页**上显示 0 回答、空态文案「TA 还没有写过回答」，`scripts/e2e/profile.mjs` 的链接断言 8s 超时（部署门禁里 PENDING）。实测同一脚本在「seed 前生产库副本」上同样 FAIL，属既有契约缺口、非本轮改动引入。产品口径应为「看自己的主页能看到自己写的内容」（viewer === author 时放行 is_test/测试标题过滤），断言随之改为「本人主页可见刚发的回答，访客视角仍不可见」
+  verify: node scripts/assert/profile-self-visibility.mjs
   risk: med
+- [ ] Z1086 「走查评论」规则标签区间过宽（P3，误杀风险）：`server/content-filter.js` 的 `^走查评论[A-Za-z0-9]{0,4}[：:]` 允许 0 位标签，而 clean 脚本 `--apply` 是物理删除；建议收窄为 `^走查评论[A-Z]{1,3}[：:]`（JS 与 SQL 枚举同步），并把手写「走查评论：」开头的真实标题加入反例集
+  verify: node scripts/assert/feed-clean-first-screen.mjs
+  risk: low
+- [ ] Z1087 种子回答收尾句模板化（P3，内容真实感）：423 条回答里 32 条（8%）以「最后一句：…」收尾，psy/health/sci 另有「首先是…其次是…第三是」罗列；建议续写时换收尾句式
+  verify: node scripts/assert/seed-tone-variety.mjs
+  risk: low
