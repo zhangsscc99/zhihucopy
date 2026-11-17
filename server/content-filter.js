@@ -334,17 +334,47 @@ function userMatchSql(userAlias = "u", opts = {}) {
   return `(${conds.join(" OR ")})`;
 }
 
-// 「真人…」断言探针号的清理口径（Z1121）：follows/questions/notifications 等
-// 断言脚本故意注册真实形态账号（昵称 真人+≥6 位小写字母数字随机串、邮箱
-// real-*@zhihucopy.dev）以绕过公共过滤 —— userMatchSql 判不中属刻意设计，
-// 公共出口需要它们可见（见 server/test/content-filter.test.js）。
+// 断言探针号的清理口径（Z1121 起，Z1122 扩展）：断言/巡检脚本故意注册真实
+// 形态账号以绕过公共过滤 —— userMatchSql 判不中属刻意设计，公共出口需要
+// 它们可见（见 server/test/content-filter.test.js）。
 // 本条件仅供物理删除口径（artifact-cleanup / cleanup-artifacts / clean-probe-users）
 // 判定「可删」，绝不许并进 userMatchSql —— 否则断言运行时目标账号被公共过滤吞掉。
-// 种子人设号（userN@zhihucopy.dev / persona 池昵称）永不命中这两条。
-function probeUserMatchSql(uAlias = "u") {
+// 与关系两条件同时满足才命中（Z1122 收窄）：
+//   昵称形态：z<数字>…user…（z985user*/z1028user*）、走查*（走查员…）、真人*
+//   邮箱形态：*@example.com 或 real-*@zhihucopy.dev
+// 只命中单侧的一律不算探针：被 fix-nicknames 改过名的 real-* 账号（昵称已是
+// 正常中文名）与 @example.com 普通号都被 AND 拦下；种子人设号
+// （userN@zhihucopy.dev / persona 池昵称）两侧都不命中，仍被保护。
+function probeNickMatchSql(uAlias = "u") {
   const u = uAlias;
-  return `(${u}.nickname GLOB '真人${globRun(6)}*'
+  return `(${u}.nickname GLOB 'z[0-9]*user*'
+    OR ${u}.nickname GLOB '走查*'
+    OR ${u}.nickname GLOB '真人*')`;
+}
+
+function probeEmailMatchSql(uAlias = "u") {
+  const u = uAlias;
+  return `(${u}.email LIKE '%@example.com' ESCAPE '\\'
     OR ${u}.email LIKE 'real-%@zhihucopy.dev' ESCAPE '\\')`;
+}
+
+function probeUserMatchSql(uAlias = "u") {
+  return `(${probeNickMatchSql(uAlias)} AND ${probeEmailMatchSql(uAlias)})`;
+}
+
+// JS 侧镜像（与上面 SQL 同口径，供清理脚本逐条打印跳过原因）。
+function isProbeNickname(nickname) {
+  const v = String(nickname || "");
+  return /^z[0-9][\s\S]*user/.test(v) || v.startsWith("走查") || v.startsWith("真人");
+}
+
+function isProbeEmail(email) {
+  const v = String(email || "").toLowerCase();
+  return v.endsWith("@example.com") || /^real-[^@]*@zhihucopy\.dev$/.test(v);
+}
+
+function isProbeUser(u) {
+  return isProbeNickname(u && u.nickname) && isProbeEmail(u && u.email);
 }
 
 // 问题是测试产物的正向条件：标题匹配；传了 userAlias 时作者匹配也算。
@@ -451,7 +481,12 @@ module.exports = {
   isTestBody,
   titleMatchSql,
   userMatchSql,
+  probeNickMatchSql,
+  probeEmailMatchSql,
   probeUserMatchSql,
+  isProbeNickname,
+  isProbeEmail,
+  isProbeUser,
   questionMatchSql,
   bodyMatchSql,
   commentMatchSql,

@@ -53,6 +53,22 @@ function countFollowers(db, userId) {
     .get(userId).c;
 }
 
+// GET /users?limit=&offset= — 公开用户列表（排除测试账号，口径同其它公共出口）。
+// 供断言/巡检批量核对昵称真实性；上限 200，默认 50。
+router.get("/", (req, res) => {
+  const db = getDb();
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+  const items = db
+    .prepare(
+      `SELECT u.id, u.nickname, u.avatar_url, u.bio, u.created_at
+       FROM users u WHERE ${testUserSql("u")}
+       ORDER BY u.id LIMIT ? OFFSET ?`
+    )
+    .all(limit, offset);
+  res.json({ items });
+});
+
 router.get("/:id", (req, res) => {
   const db = getDb();
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-// scripts/clean-probe-users.js — 物理删除「真人…」断言探针账号（Z1121）。
+// scripts/clean-probe-users.js — 物理删除断言探针账号（Z1121 起，Z1122 扩展口径）。
 //
 // 背景：scripts/assert/ 下 follows/questions/notifications/search-page 等脚本
-// 注册「真人<随机串>」昵称 + real-*@zhihucopy.dev 邮箱的真实形态探针号，
-// 跑完没被自清理财掉（cleanup 的 u: 守卫把它们当种子域保护），堆了 54 个、
-// 把 nickname-realism 断言压到 FAIL。本脚本按三条件交集定点删除：
-//   1) nickname GLOB '真人*'
-//   2) email LIKE 'real-%@zhihucopy.dev'
+// 注册「真人<随机串>」+ real-*@zhihucopy.dev 的真实形态探针号，更早期的
+// 巡检脚本留下 z985user*/z1028user*/走查员* + *@example.com 残留，跑完没被
+// 自清理财掉（cleanup 的 u: 守卫把它们当种子域/普通号保护），把
+// nickname-realism 断言压向临界。本脚本按三条件交集定点删除：
+//   1) nickname 命中 probeNickMatchSql：GLOB 'z[0-9]*user*' / '走查*' / '真人*'
+//   2) email 命中 probeEmailMatchSql：LIKE '%@example.com' / 'real-%@zhihucopy.dev'
 //   3) 该账号在 questions/answers/comments/votes（含 question_votes）上全为 0
-// 任一不满足 → 跳过并打印原因（如被 fix-nicknames 改过名的探针号、或
-// 已产生真实内容的账号一律不动）。
+// 1)∧2) 是 content-filter.js 的 probeUserMatchSql（与关系，本脚本直接复用，
+// 不另写一份 SQL）；任一不满足 → 跳过并打印原因（被 fix-nicknames 改过名的
+// real-* 账号、@example.com 普通号、已产生内容的账号一律不动）。
 //
 // 用法:
 //   node scripts/clean-probe-users.js [--db <path>]            # dry-run
@@ -35,6 +37,13 @@ const Database = require(require.resolve("better-sqlite3", {
 }));
 const { resolveWriteMode } = require("./prod-write-gate.js");
 const {
+  probeNickMatchSql,
+  probeEmailMatchSql,
+  probeUserMatchSql,
+  isProbeNickname,
+  isProbeEmail,
+} = require("../server/content-filter.js");
+const {
   initDelTables,
   cascadeFromDelUsers,
   deleteMarked,
@@ -44,8 +53,9 @@ const {
 
 function usage(rc = 0) {
   console.log(`用法: node scripts/clean-probe-users.js [--db <path>|--db=<path>] [--apply] [--prod] [--dry-run]
-  默认 dry-run。删除条件（同时满足）：nickname GLOB '真人*'、
-  email LIKE 'real-%@zhihucopy.dev'、q/a/c/votes 全为 0。
+  默认 dry-run。删除条件（同时满足）：昵称 GLOB 'z[0-9]*user*'/'走查*'/'真人*'、
+  邮箱 LIKE '%@example.com'/'real-%@zhihucopy.dev'（probeUserMatchSql）、
+  q/a/c/votes 全为 0。
   生产库写需 --apply --prod ZH_ALLOW_PROD_WRITE=1（prod-write-gate）。`);
   process.exit(rc);
 }
@@ -83,8 +93,8 @@ function stamp(d = new Date()) {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 
-const NICK_COND = "u.nickname GLOB '真人*'";
-const EMAIL_COND = "u.email LIKE 'real-%@zhihucopy.dev' ESCAPE '\\'";
+const NICK_COND = probeNickMatchSql("u");
+const EMAIL_COND = probeEmailMatchSql("u");
 
 // 账号在公开内容上全为 0（votes/question_votes 缺一表按 0 计）。
 function contentCounts(db, uid) {
@@ -149,12 +159,15 @@ async function main() {
   const keep = []; // {row, ids}
   const skipped = [];
   for (const u of candidates) {
-    const nickOk = u.nickname.startsWith("真人");
-    const emailOk = /^real-[^@]+@zhihucopy\.dev$/i.test(u.email || "");
+    const nickOk = isProbeNickname(u.nickname);
+    const emailOk = isProbeEmail(u.email);
     if (!nickOk || !emailOk) {
       skipped.push(
         `u:${u.id}（${u.nickname} <${u.email}>）跳过 —— ` +
-          [!nickOk && "昵称非 真人*", !emailOk && "邮箱非 real-*@zhihucopy.dev"]
+          [
+            !nickOk && "昵称非探针形态（z[0-9]*user*/走查*/真人*）",
+            !emailOk && "邮箱非探针形态（*@example.com/real-*@zhihucopy.dev）",
+          ]
             .filter(Boolean)
             .join("；")
       );
@@ -232,9 +245,9 @@ async function main() {
   console.log("[apply] 已删除/更新行数（按表）:");
   for (const [k, v] of Object.entries(stats)) if (v) console.log(`  ${k}: ${v}`);
   const left = db
-    .prepare(`SELECT COUNT(*) c FROM users u WHERE ${NICK_COND} AND ${EMAIL_COND}`)
+    .prepare(`SELECT COUNT(*) c FROM users u WHERE ${probeUserMatchSql("u")}`)
     .get().c;
-  console.log(`[apply] 完成；剩余命中「真人* + real-*」账号 ${left}`);
+  console.log(`[apply] 完成；剩余命中探针口径账号 ${left}`);
   db.close();
 }
 

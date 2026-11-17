@@ -8,8 +8,9 @@
 
 const { questionMatchSql, userMatchSql, probeUserMatchSql } = require("./content-filter");
 
-// u: 可删判定 = 测试形态口径 + 探针号口径（Z1121：「真人…/real-*@zhihucopy.dev」
-// 断言探针号是真实形态，userMatchSql 判不中，但属测试产物、可删）。
+// u: 可删判定 = 测试形态口径 + 探针号口径（Z1121/Z1122：探针号是真实形态，
+// userMatchSql 判不中，但属测试产物、可删；口径见 content-filter
+// probeUserMatchSql —— 昵称/邮箱双侧与关系命中才算）。
 // 种子人设账号两口径都不命中，仍被保护。
 const deletableUserSql = (u, opts) => `(${userMatchSql(u, opts)} OR ${probeUserMatchSql(u)})`;
 
