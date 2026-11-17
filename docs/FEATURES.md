@@ -614,6 +614,18 @@
 
 ## 第二十三轮收尾观察（待办）
 
-- [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
+- [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题；可放独立模块 `scripts/seed-data/unanswered.js` + 幂等补库脚本，避免与 seed.js 主体冲突），默认 dry-run，`SEED_ALLOW_PROD=1` 才写生产库；同时补 `scripts/assert/unanswered-stock.mjs`（DB ≥8 条零回答 + API `tab=unanswered` ≥5 条 + 1440 右栏 `.rail-block` = 2 块且第二块含「等你来答」+ 390 不渲染 + __errs 空 + 无溢出）
   verify: node scripts/assert/unanswered-stock.mjs
   risk: med
+
+## 第二十四轮走查待办（2026-11-17 06:5x，来源 docs/PRODUCT-REVIEW.md 第二十二轮）
+
+- [ ] Z1103 种子语料「显式 author」绕过领域校验（P1，内容真实感）：`/question/6`（React useEffect）第一条回答作者「温故52 — 统计出身，现在做增长」，而 `scripts/persona-domains.js` 里 `温故: ["data","sci"]`，本不该答 code 类问题；`scripts/seed-data/*.js` 中硬编码 `author` 的语料不走同域校验，`seed-persona-domain.mjs` 抽样也只覆盖随机派单的回答。需：seed 阶段对显式 author 做同域校验（不符则改派同域作者或抛错）、写幂等修正脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库，同步 `answers`/`answer_revisions`）、断言改全库口径（作者领域 ∩ 问题话题大类 ≠ ∅ 比例 100%，显式 author 单独计数且错位 0）
+  verify: node scripts/assert/seed-persona-domain.mjs
+  risk: high
+- [ ] Z1104 表单 label 未与 input 关联（P2，可访问性）：`/register` 与 `/login` 的 `<label>昵称/邮箱/密码</label>` 的 `for` 为空且 input 无 `id`，点标签不聚焦、读屏读不出字段名。需给每个字段 id + label htmlFor（或 aria-label），并补 `scripts/assert/a11y-form-labels.mjs`（Playwright `getByLabel('昵称'|'邮箱'|'密码')` 均能定位到唯一输入框；点 label 后 `document.activeElement` 为对应 input；1440/390 各一遍；__errs 空）
+  verify: node scripts/assert/a11y-form-labels.mjs
+  risk: low
+- [ ] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 再列同一份 Top10（1440 屏上同一排名出现两次）。需在热榜 tab 隐藏右栏热榜块、改渲染「等你来答」（复用 UnansweredRail），保留 390 隐藏策略；断言 `?tab=hot` 1440 下右栏不含热榜块、主列表首卡与右栏内容不重复
+  verify: node scripts/assert/rail-dedupe-hot.mjs
+  risk: low
