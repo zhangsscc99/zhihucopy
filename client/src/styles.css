@@ -1018,6 +1018,18 @@ mark.hl {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 作者行右侧关注按钮占宽时，昵称/简介列可收缩截断，避免横向溢出。 */
+.answer__author-text {
+  min-width: 0;
+}
+.answer__author .answer__name {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .answer__body {
   font-size: 15px;
   line-height: 1.7;
@@ -1294,6 +1306,33 @@ mark.hl {
 .answer__fav-create:disabled {
   color: var(--ink-3);
   cursor: not-allowed;
+}
+/* 回答作者行右侧「+ 关注」小号线框按钮；已关注态灰字可再点取消。 */
+.answer__follow {
+  margin-left: auto;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.answer__follow:hover:not(:disabled) {
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.answer__follow--on,
+.answer__follow--on:hover:not(:disabled) {
+  color: var(--ink-3);
+  border-color: var(--line);
+}
+.answer__follow:disabled {
+  cursor: default;
 }
 .answer__more {
   position: relative;
