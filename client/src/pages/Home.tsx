@@ -46,10 +46,15 @@ function heatLabel(score: number) {
   return `${Math.round(score)} 热度`;
 }
 
+// 推荐 tab 走 /feed/recommended（Z1114 起服务端做话题大类配额重排，响应含
+// diversity 诊断字段；items 契约与 /questions 列表一致）。热榜仍用
+// /questions?tab=hot，/questions?tab=new 行为保持不变。
 const feedQuery = (tab: Tab, page: number) =>
   tab === "following"
     ? `/feed/following?page=${page}&limit=${PAGE_SIZE}`
-    : `/questions?tab=${tab === "hot" ? "hot" : "new"}&page=${page}&limit=${PAGE_SIZE}`;
+    : tab === "recommended"
+      ? `/feed/recommended?page=${page}&limit=${PAGE_SIZE}`
+      : `/questions?tab=hot&page=${page}&limit=${PAGE_SIZE}`;
 
 // 搜索结果分类 scope：URL ?type= 决定，未知/缺失一律落回「问题」。
 type SearchScope = "question" | "answer" | "user";
