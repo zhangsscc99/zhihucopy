@@ -484,7 +484,6 @@ textarea:focus-visible {
 }
 .feed__meta > span {
   flex: none;
-  white-space: nowrap;
 }
 .feed__answers-short,
 .feed__views-short {
@@ -496,13 +495,12 @@ textarea:focus-visible {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  max-width: 40%;
-  flex: none;
 }
 .feed__author-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 }
 /* 信息流作者头像：24px 圆形，占位为浅主色底 + 主色字 */
 .feed__avatar {
@@ -789,6 +787,13 @@ mark.hl {
   .feed__meta .feed__answers-short,
   .feed__meta .feed__views-short {
     display: inline;
+  }
+  /* 窄屏长昵称保护：只约束信息流卡片内的作者位（Profile/Unanswered 上复用
+     .feed__author 的纯文本节点不在 .feed__item 里，不受影响）。24px 头像 +
+     6px gap 在 40% 内，省略发生在 .feed__author-name 文本节点上。 */
+  .feed__item .feed__author {
+    flex: none;
+    max-width: 40%;
   }
   .search-head {
     padding: 12px 14px;
