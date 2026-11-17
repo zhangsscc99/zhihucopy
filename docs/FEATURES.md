@@ -640,7 +640,6 @@
 - [x] Z1109 toast 单实例（P2，操作可预期）：同一次操作渲染两条相同 toast（「注册成功，欢迎来到知乎（仿）」×2、「评论已发布」×2、「该邮箱已注册」×2，`[role=status]` 内各两份），视觉叠影且读屏重复播报。改为同一 key 的消息只保留一条（新消息替换旧同位消息）✅ (2026-11-17 devin：根因=活体区域挂在 `.toast-stack` 容器上，每条 toast 被容器+子项重复暴露；toast.tsx 把 role=status/aria-live 下放到每条 .toast（容器改纯布局 .notify-stack），push 按 (text,kind) 去重替换 + 上限 3 条；toast-single.mjs 基线 FAIL 节点数=2，修后 A/B/C 全 PASS)
   verify: node scripts/assert/toast-single.mjs
   risk: low
-- [ ] Z1110 搜索召回偏窄（P3，内容厚度）：`/search?q=React` 只返回问题 2 / 回答 6，`useEffect` 只 2 条，站内 JS/React 相关讨论明显更多；疑似 FTS5 只索引标题或查询分词过严。断言 `scripts/assert/search-recall.mjs`：对 React / useEffect / 数据库 / 职场 四个词，`GET /search` 的 question 命中数 ≥ 库内标题含该词的问题数，且回答命中数 > 0
+- [x] Z1110 搜索召回偏窄疑点复核（P3，检索口径）：线上 `/search?q=React` 仅「相关结果 · 2 条」（问题 2 / 回答 6 / 用户 0），`useEffect` 2 条。只读核对：questions title/detail LIKE '%React%'=2、answers content LIKE=6、answer_fts 303/303 行与 answers 全量对齐——**接口命中与库内 LIKE 计数一致，不是召回 bug**（库内 React 字面命中本就少，且命中分散在回答 tab）；真正的问题是 question scope 未排除 `is_collapsed`。断言 `scripts/assert/search-recall.mjs`：四词（React/useEffect/数据库/职场）counts.question ≥ 只读 LIKE 基线、answer>0、React/react/REACT 三态一致、type=answer total 与 counts.answer 自洽 ✅ (2026-11-17 devin：qWhere 补 `q.is_collapsed = 0`；search-recall.mjs 四词全 PASS；search-page/search-scope/search-guard 回归 PASS)
   verify: node scripts/assert/search-recall.mjs
   risk: low
-
