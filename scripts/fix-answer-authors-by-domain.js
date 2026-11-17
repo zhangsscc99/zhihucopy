@@ -90,7 +90,7 @@ async function main() {
   };
 
   const questions = new Map(
-    db.prepare("SELECT id, author_id FROM questions").all().map((q) => [q.id, q])
+    db.prepare("SELECT id, author_id, title FROM questions").all().map((q) => [q.id, q])
   );
   const answers = db
     .prepare(
@@ -155,6 +155,7 @@ async function main() {
       plans.push({
         answer_id: a.id,
         qid,
+        title: (questions.get(qid) || {}).title || "",
         from: a.author_id,
         to: pick.id,
       });
@@ -176,7 +177,9 @@ async function main() {
     return u ? `${u.nickname}(${ds})` : `#${uid}(${ds})`;
   };
   for (const p of plans.slice(0, 15)) {
-    console.log(`  回答 #${p.answer_id} q#${p.qid}: ${fmt(p.from)} -> ${fmt(p.to)}`);
+    console.log(
+      `  回答 #${p.answer_id} q#${p.qid} 「${p.title.slice(0, 30)}」: ${fmt(p.from)} -> ${fmt(p.to)}`
+    );
   }
   if (plans.length > 15) console.log(`  … 其余 ${plans.length - 15} 条略`);
 

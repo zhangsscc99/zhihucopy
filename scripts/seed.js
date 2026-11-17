@@ -33,9 +33,10 @@
  *   TIER_PLAN.<tier>.restUp   其余回答的 up 票数区间
  *   TIER_PLAN.<tier>.comments 每题评论数区间（跨该题各回答按票数加权分配）
  *
- * 回答作者人设（Z1097）：随机派作者时只在「作者领域 ∩ 问题大类可接受域」
- * 里挑（见 scripts/persona-domains.js），语料显式指定的 author 除外——
- * 那是按口吻写定的。领域表缺人设定义会在加载期直接抛错。
+ * 回答作者人设（Z1097+Z1103）：作者只在「作者领域 ∩ 问题大类可接受域」
+ * 里挑（见 scripts/persona-domains.js）。语料显式指定的 author 走同一套
+ * 校验：不符即改派给同域作者（打印改派记录），确实没有同域作者可派时
+ * 抛错并打印 detail。领域表缺人设定义会在加载期直接抛错。
  * ---------------------------------------------------------------------------
  */
 
@@ -646,8 +647,9 @@ function main() {
       const q = questionPlan[qi];
       const cat = q.cat;
       const nAns = Math.min(q.story.answers.length, TIER_PLAN[q.tier].answers);
-      // 作者不重复且不是提问者；story 显式指定作者（昵称）时优先用指定者
-      // （显式作者是语料里按口吻写定的，不再做领域过滤）。
+      // 作者不重复且不是提问者；story 显式指定作者（昵称）时优先用指定者，
+      // 但显式作者同样要过领域校验（Z1103）：不符则改派给 preferred 池里
+      // 的同域作者，没有同域作者可派时抛错。
       // 随机部分只在该问题大类可接受的领域里挑（Z1097），不够才退回全体。
       const preferred = userIds
         .map((id, idx) => ({ id, idx }))
@@ -656,13 +658,40 @@ function main() {
       const pool = shuffle(preferred.length >= nAns ? preferred : fallback);
       const authors = [];
       let poolPos = 0;
+      // 显式 author 错位时的同域改派：与随机派单同一套做法——
+      // shuffle 后的 preferred 池顺序取用（不静默接受错位作者）。
+      const reassignPool = shuffle(preferred);
+      let reassignPos = 0;
+      const pickSameDomain = () => {
+        while (reassignPos < reassignPool.length) {
+          const u = reassignPool[reassignPos++];
+          if (!authors.includes(u.id)) return u.id;
+        }
+        return null;
+      };
       for (let k = 0; k < nAns; k++) {
         let uid = null;
         const want = q.story.answers[k].author;
         if (want) {
           const wi = NICK_INDEX.get(want);
           if (wi !== undefined && wi < N_USERS && wi !== q.authorIdx && !authors.includes(userIds[wi])) {
-            uid = userIds[wi];
+            if (fitsCat(wi, cat)) {
+              uid = userIds[wi];
+            } else {
+              uid = pickSameDomain();
+              if (uid === null) {
+                throw new Error(
+                  `seed-data/${cat}.js: 「${q.story.title.slice(0, 24)}…」第 ${k + 1} 条回答 ` +
+                    `显式作者「${want}」领域不符（${[...domainSetOf(wi)].join("+") || "∅"} ∩ ${cat} 可接受域 = ∅）` +
+                    `且没有可改派的同域作者`
+                );
+              }
+              console.log(
+                `[seed] 「${q.story.title.slice(0, 24)}…」第 ${k + 1} 条回答：` +
+                  `显式作者「${want}」领域不符 ${cat}，改派同域作者`
+              );
+              bump("answers_reassigned");
+            }
           }
         }
         while (uid === null && poolPos < pool.length) {

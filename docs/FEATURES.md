@@ -617,3 +617,6 @@
 - [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
   verify: node scripts/assert/unanswered-stock.mjs
   risk: med
+- [x] Z1103 种子语料「显式 author」绕过人设领域校验（P1，内容真实感）：`scripts/seed-data/*.js` 硬编码 `author:` 的 243 条语料不参与 `domainsOf()/acceptedDomains()` 同域校验（其中 10 条错位，落库 5 条——如苏晚/运营答 Code Review、程一/创业答接私活代码题）；`assert/seed-persona-domain.mjs` 只抽样随机派单导致盲区。需让显式 author 走同一套校验（不符改派同域作者、无候选抛错）、断言改全库口径且显式 author 错位单列要求为 0 ✅ (2026-11-17 devin：seed 显式 author 不符即改派同域并打印；断言 db 全库 100% 命中 + 显式错位单列=0，基线 FAIL 98.3%/5 条；fix-authors dry-run 输出补标题，生产库已 0 错位)
+  verify: node scripts/assert/seed-persona-domain.mjs
+  risk: high
