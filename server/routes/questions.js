@@ -101,6 +101,31 @@ const ANSWER_SELECT = `
   JOIN users u ON u.id = a.author_id
   JOIN questions q ON q.id = a.question_id`;
 
+// 回答作者行「+ 关注」：返回 authorIds 中已被 viewer 关注的 id 集合。
+// 一次 IN 查询喂整页（与 collectedAnswerIds 同一思路，无 N+1）。
+function followedUserIds(db, viewerId, authorIds) {
+  const ids = [...new Set(authorIds)].filter((x) => Number.isInteger(x));
+  if (!viewerId || !ids.length) return new Set();
+  return new Set(
+    db
+      .prepare(
+        `SELECT target_id AS id FROM follows
+         WHERE follower_id = ? AND target_type = 'user'
+           AND target_id IN (${ids.map(() => "?").join(",")})`
+      )
+      .all(viewerId, ...ids)
+      .map((r) => r.id)
+  );
+}
+
+// 给 answerRow 输出补 is_collected；登录态再回填 author.is_following
+// （口径与 GET /users/:id 一致：匿名请求不输出该字段）。
+function answerItem(a, collected, followedAuthors) {
+  const row = { ...answerRow(a), is_collected: collected.has(a.id) };
+  if (followedAuthors) row.author.is_following = followedAuthors.has(a.author_id);
+  return row;
+}
+
 // ?author= 列表的附加过滤（在 testQuestionSql 之上）；users.js stats.questions 复用。
 const AUTHOR_QUESTIONS_WHERE = "q.author_id = ?";
 
@@ -267,14 +292,17 @@ router.get("/:id", (req, res) => {
     req.user && req.user.id,
     [...answerRows, ...myAnswerRows].map((a) => a.id)
   );
-  const answers = answerRows.map((a) => ({
-    ...answerRow(a),
-    is_collected: collected.has(a.id),
-  }));
-  const my_answers = myAnswerRows.map((a) => ({
-    ...answerRow(a),
-    is_collected: collected.has(a.id),
-  }));
+  const followedAuthors = req.user
+    ? followedUserIds(
+        db,
+        req.user.id,
+        [...answerRows, ...myAnswerRows].map((a) => a.author_id)
+      )
+    : null;
+  const answers = answerRows.map((a) => answerItem(a, collected, followedAuthors));
+  const my_answers = myAnswerRows.map((a) =>
+    answerItem(a, collected, followedAuthors)
+  );
 
   const followed = req.user
     ? !!db
@@ -315,10 +343,16 @@ router.get("/:id/answers", (req, res) => {
     req.user && req.user.id,
     answerRows.map((a) => a.id)
   );
-  const items = answerRows.map((a) => ({
-    ...answerRow(a),
-    is_collected: collected.has(a.id),
-  }));
+  const followedAuthors = req.user
+    ? followedUserIds(
+        db,
+        req.user.id,
+        answerRows.map((a) => a.author_id)
+      )
+    : null;
+  const items = answerRows.map((a) =>
+    answerItem(a, collected, followedAuthors)
+  );
   const total = db
     .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0")
     .get(req.params.id).c;

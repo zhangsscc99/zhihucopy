@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { del, get, patch, post } from "../api";
+import { del, followUser, get, patch, post, unfollowUser } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, Spinner } from "../components/Layout";
@@ -96,7 +96,9 @@ export function Question() {
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const loginNext = `/login?next=${encodeURIComponent(location.pathname)}`;
+  const loginNext = `/login?next=${encodeURIComponent(
+    location.pathname + location.search
+  )}`;
 
   const [question, setQuestion] = useState<QuestionType | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -130,6 +132,12 @@ export function Question() {
 
   const [following, setFollowing] = useState<boolean | null>(null);
   const [followPending, setFollowPending] = useState(false);
+  // 回答作者行「+ 关注」：按作者 id 记本地覆盖态（同一作者多张卡联动）；
+  // 初始值来自 answer.author.is_following（登录态由列表接口批量回带）。
+  const [authorFollows, setAuthorFollows] = useState<Record<number, boolean>>({});
+  const [authorFollowPending, setAuthorFollowPending] = useState<
+    Record<number, boolean>
+  >({});
   const [votes, setVotes] = useState<Record<number, number>>({});
   const [votePending, setVotePending] = useState<Record<number, boolean>>({});
   const [openComments, setOpenComments] = useState<Record<number, boolean>>({});
@@ -505,6 +513,36 @@ export function Question() {
       toast((e as Error).message, "error");
     } finally {
       setFollowPending(false);
+    }
+  };
+
+  // 登录身份切换（登出/换号）时清掉按旧身份记的作者关注覆盖态，
+  // 让按钮回落到服务端 is_following 口径。
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    setAuthorFollows({});
+    setAuthorFollowPending({});
+  }, [userId]);
+
+  const authorFollowed = (a: Answer) =>
+    authorFollows[a.author.id] ?? Boolean(a.author.is_following);
+
+  const toggleAuthorFollow = async (a: Answer) => {
+    if (!user) return needLogin();
+    const uid = a.author.id;
+    if (uid === user.id || authorFollowPending[uid]) return;
+    setAuthorFollowPending((p) => ({ ...p, [uid]: true }));
+    const was = authorFollowed(a);
+    setAuthorFollows((m) => ({ ...m, [uid]: !was }));
+    try {
+      const r = was ? await unfollowUser(uid) : await followUser(uid);
+      setAuthorFollows((m) => ({ ...m, [uid]: r.following }));
+      toast(r.following ? "已关注" : "已取消关注");
+    } catch (e) {
+      setAuthorFollows((m) => ({ ...m, [uid]: was }));
+      toast((e as Error).message, "error");
+    } finally {
+      setAuthorFollowPending((p) => ({ ...p, [uid]: false }));
     }
   };
 
@@ -1082,6 +1120,20 @@ export function Question() {
                       </Link>
                       {a.author.bio && <p className="answer__bio">{a.author.bio}</p>}
                     </div>
+                    {(!user || a.author.id !== user.id) && (
+                      <button
+                        type="button"
+                        className={`answer__follow${
+                          authorFollowed(a) ? " answer__follow--on" : ""
+                        }`}
+                        disabled={authorFollowPending[a.author.id]}
+                        aria-pressed={authorFollowed(a)}
+                        title={authorFollowed(a) ? "取消关注" : undefined}
+                        onClick={() => void toggleAuthorFollow(a)}
+                      >
+                        {authorFollowed(a) ? "已关注" : "+ 关注"}
+                      </button>
+                    )}
                     {user && a.author.id === user.id && (
                       <div className="answer__more">
                         <button

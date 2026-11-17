@@ -23,6 +23,8 @@ export interface Author {
   nickname: string;
   avatar_url: string;
   bio?: string;
+  // 仅登录请求在回答列表回带：当前用户是否已关注该作者。
+  is_following?: boolean;
 }
 
 export interface Topic {
