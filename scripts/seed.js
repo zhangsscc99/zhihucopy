@@ -50,6 +50,7 @@ function requireFromServer(name) {
 }
 const bcrypt = requireFromServer("bcryptjs");
 const { getDb } = require("../server/db");
+const { BADGES } = require("../server/badges");
 
 // ---------------------------------------------------------------------------
 // 随机数：固定种子 -> 内容可复现（便于对比两次执行的结果）
@@ -482,9 +483,8 @@ function main() {
       // 1-3 个话题：主话题 + 同类话题
       insQT.run(qid, topic.id);
       let extra = ri(3); // 0..2
-      const sameCat = topicIds.filter((t) => t.cat === cat && t.id !== topic.id);
-      const others = topicIds.filter((t) => t.cat !== cat);
-      const candidates = shuffle([...sameCat, ...others]);
+      // 附加话题只取同大类，避免跨类误标（Z982 修复）
+      const candidates = shuffle(topicIds.filter((t) => t.cat === cat && t.id !== topic.id));
       let picked = 0;
       for (const t of candidates) {
         if (picked >= extra) break;
@@ -660,8 +660,8 @@ function main() {
 
     // ---------------- reports / mod_logs（会改 is_collapsed / is_deleted） ----------------
     const insReport = db.prepare(
-      `INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, status, handled_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, status, handled_by, handled_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     const insModLog = db.prepare(
       "INSERT INTO mod_logs (admin_id, action, target_type, target_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?)"
@@ -685,6 +685,7 @@ function main() {
         "内容与问题无关，且有明显引流嫌疑。" ,
         status,
         handled,
+        status === "handled" ? t : null,
         t
       );
       bump("reports");
@@ -881,28 +882,19 @@ function main() {
     ).run();
 
     // ---------------- badges ----------------
-    // Z1013 起 badges 是定义表、user_badges 存授予记录。先补种子用到的定义
-    // （server/badges.js 运行时只保证它自己那五个 code），再写授予。
+    // Z1013 起 badges 是定义表、user_badges 存授予记录。定义直接复用
+    // server/badges.js 的 BADGES（含 icon_svg/rule），授予也只写这些 code，
+    // 保证 catalog 与运行时一致、icon_svg 非空。
     const insBadgeDef = db.prepare(
-      "INSERT OR IGNORE INTO badges (code, name, description) VALUES (?, ?, ?)"
+      "INSERT OR IGNORE INTO badges (code, name, description, icon_svg, rule) VALUES (?, ?, ?, ?, ?)"
     );
-    const SEED_BADGE_DEFS = [
-      ["first_answer", "首答", "写下了第一个回答"],
-      ["answers_3", "三答", "累计发布了 3 个回答"],
-      ["answers_8", "勤答", "累计发布了 8 个回答"],
-      ["votes_10", "十赞", "回答累计获得 10 次赞同"],
-      ["votes_30", "三十赞", "回答累计获得 30 次赞同"],
-      ["popular_answer", "热答", "单个回答获得 12 次赞同"],
-      ["first_question", "首问", "提出了第一个问题"],
-      ["steward", "站长", "站点管理员"],
-    ];
-    for (const [code, name, desc] of SEED_BADGE_DEFS) insBadgeDef.run(code, name, desc);
+    for (const b of BADGES) insBadgeDef.run(b.code, b.name, b.description, b.icon_svg, b.event);
     const insBadge = db.prepare(
       "INSERT OR IGNORE INTO user_badges (user_id, badge_code, granted_at) VALUES (?, ?, ?)"
     );
     const perUserAnswers = db
       .prepare(
-        `SELECT author_id, COUNT(*) c, SUM(vote_up) up, MAX(vote_up) top
+        `SELECT author_id, COUNT(*) c, SUM(vote_up) up
          FROM answers WHERE is_deleted = 0 GROUP BY author_id`
       )
       .all();
@@ -913,19 +905,19 @@ function main() {
         bump("badges");
       };
       if (row.c >= 1) grant("first_answer");
-      if (row.c >= 3) grant("answers_3");
-      if (row.c >= 8) grant("answers_8");
-      if ((row.up || 0) >= 10) grant("votes_10");
-      if ((row.up || 0) >= 30) grant("votes_30");
-      if ((row.top || 0) >= 12) grant("popular_answer");
+      if (row.c >= 5) grant("answer_5");
+      if ((row.up || 0) >= 10) grant("upvote_10");
     }
     const qAuthors = db.prepare("SELECT author_id, COUNT(*) c FROM questions GROUP BY author_id").all();
     for (const row of qAuthors) {
       insBadge.run(row.author_id, "first_question", fmtTs(at(0.5)));
       bump("badges");
     }
-    if (adminId) {
-      insBadge.run(adminId, "steward", fmtTs(at(0.95)));
+    const followed = db
+      .prepare("SELECT DISTINCT target_id uid FROM follows WHERE target_type = 'user'")
+      .all();
+    for (const row of followed) {
+      insBadge.run(row.uid, "first_follower", fmtTs(at(0.7)));
       bump("badges");
     }
 

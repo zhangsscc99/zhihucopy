@@ -9,15 +9,15 @@
 //   b. title 重复组数 === 0
 //   c. detail_md 重复组数 === 0
 //   d. 「>=5 条有效回答的问题数」 >= 20
-//   e. bio 与 avatar_url 均非空的用户 >= 20
-//   f. 每个话题下问题数 >= 4（允许 1 个话题例外）
+//   e. bio 或 avatar_url 为空的用户数 === 0
+//   f. 每个话题下问题数 >= 4
 // API 级（GET /questions?limit=30，需设置 API_BASE）:
 //   返回 30 条中 excerpt/detail 非空比例 >= 0.95，且无「暂无补充说明」占位。
 
 import { createRequire } from "node:module";
 
 const DB_PATH = process.env.DB_PATH || "/www/zhihucopy/data/zhihu.db";
-const API_BASE = (process.env.API_BASE || "").replace(/\/+$/, "");
+const API_BASE = (process.env.API_BASE || "http://127.0.0.1:3030/zhihucopy/api").replace(/\/+$/, "");
 
 const requireFromServer = createRequire(
   new URL("../../server/package.json", import.meta.url)
@@ -59,14 +59,14 @@ const deepQ = db
   .get().c;
 check(">=5 回答的问题数>=20", deepQ >= 20, `deep_questions=${deepQ}`);
 
-const profiled = db
+const unprofiled = db
   .prepare(
     `SELECT COUNT(*) c FROM users
-     WHERE bio IS NOT NULL AND TRIM(bio) <> ''
-       AND avatar_url IS NOT NULL AND TRIM(avatar_url) <> ''`
+     WHERE bio IS NULL OR TRIM(bio) = ''
+        OR avatar_url IS NULL OR TRIM(avatar_url) = ''`
   )
   .get().c;
-check("bio+avatar 非空用户>=20", profiled >= 20, `profiled_users=${profiled}`);
+check("bio/avatar 为空用户数===0", unprofiled === 0, `unprofiled_users=${unprofiled}`);
 
 const sparseTopics = db
   .prepare(
@@ -77,8 +77,8 @@ const sparseTopics = db
   .all();
 const under4 = sparseTopics.filter((r) => r.c < 4);
 check(
-  "话题问题数>=4（允许1个例外）",
-  under4.length <= 1,
+  "话题问题数>=4",
+  under4.length === 0,
   `under4=${under4.length}` +
     (under4.length ? ` [${under4.map((r) => `${r.name}:${r.c}`).join(",")}]` : "")
 );
@@ -86,11 +86,16 @@ check(
 db.close();
 
 // ---------- API 级 ----------
-if (API_BASE) {
-  const res = await fetch(`${API_BASE}/questions?limit=30`);
-  if (!res.ok) {
+{
+  let res = null;
+  try {
+    res = await fetch(`${API_BASE}/questions?limit=30`);
+  } catch (e) {
+    check("API GET /questions", false, `无法连接 ${API_BASE}: ${e.message}（请先启动实例或设置 API_BASE）`);
+  }
+  if (res && !res.ok) {
     check("API GET /questions", false, `status=${res.status}`);
-  } else {
+  } else if (res) {
     const data = await res.json().catch(() => ({}));
     const items = data.items || [];
     check("API 返回 30 条", items.length === 30, `items=${items.length}`);
@@ -106,8 +111,6 @@ if (API_BASE) {
     const placeholders = items.filter((q) => text(q).includes("暂无补充说明")).length;
     check("无「暂无补充说明」占位", placeholders === 0, `placeholders=${placeholders}`);
   }
-} else {
-  console.log("  [SKIP] API 级检查（未设置 API_BASE）");
 }
 
 if (failures.length) {

@@ -150,4 +150,4 @@ function listFor(userId) {
     .all(userId);
 }
 
-module.exports = { grantFor, listFor };
+module.exports = { grantFor, listFor, BADGES };
