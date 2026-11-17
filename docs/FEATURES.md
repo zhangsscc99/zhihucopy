@@ -676,18 +676,20 @@
 
 ## 第二十八轮走查新增（2026-11-17 10:46 UTC，来源 docs/PRODUCT-REVIEW.md 第二十八轮）
 
-- [ ] Z1117 个人主页头部措辞与重复计数（P2，可读性）：`/u/:id` 头部一行读下来是「被关注 关注 回答 1 提问 0 获赞 52 关注 6 粉丝 7 回答 1 提问 0」——「被关注（粉丝数）」与「关注（按钮）」并排易混，且「回答/提问」在统计区与 tab 区各出现一次。要求：粉丝标签改「粉丝」、关注按钮保持「关注/已关注」两态、统计区去掉与 tab 重复的「回答/提问」只留「获赞/关注/粉丝」；断言锁「头部不再出现『被关注』字样」且「统计区计数恰好 3 个」、关注按钮点击后两态切换且刷新保持
+- [x] Z1117 个人主页头部措辞与重复计数（P2，可读性）：`/u/:id` 头部一行读下来是「被关注 关注 回答 1 提问 0 获赞 52 关注 6 粉丝 7 回答 1 提问 0」——「被关注（粉丝数）」与「关注（按钮）」并排易混，且「回答/提问」在统计区与 tab 区各出现一次。要求：粉丝标签改「粉丝」、关注按钮保持「关注/已关注」两态、统计区去掉与 tab 重复的「回答/提问」只留「获赞/关注/粉丝」；断言锁「头部不再出现『被关注』字样」且「统计区计数恰好 3 个」、关注按钮点击后两态切换且刷新保持 ✅ (2026-11-17 devin swe-2-medium：`Profile.tsx` 统计区删掉与 tab 重复的「回答/提问」，只留 获赞/关注/粉丝；`server/badges.js` 把 `first_follower` 徽章名「被关注」改「被看见」并改 upsert（老库启动即刷新）；新增 `assert/profile-header-clarity.mjs`（1440/390、统计区恰好 3 格、main 无「被关注」、关注按钮两态切换+刷新保持、__errs/溢出守卫）；反向自检线上基线 FAIL「统计区计数 5 个」，修后 PASS；server test 38/38)
   verify: node scripts/assert/profile-header-clarity.mjs
   risk: low
-- [ ] Z1118 推荐流空壳题占比（P2，内容厚度）：干净会话首屏 20 卡里 2 张 `0 个回答`（林晚风、陆离），点进去是空态页。要求推荐排序对 `answer_count = 0` 降权（不排除，只是不占首屏），首屏空壳 ≤1 条，且不破坏 Z1114 的大类配额（tech_ratio ≤0.5、非技术大类 ≥4）；断言同时锁「首屏 0 回答卡 ≤1」与既有 diversity 字段
+- [x] Z1118 推荐流空壳题占比（P2，内容厚度，已由 Z1120 合并实现）：干净会话首屏 20 卡里 2 张 `0 个回答`（林晚风、陆离），点进去是空态页。要求推荐排序对 `answer_count = 0` 降权（不排除，只是不占首屏），首屏空壳 ≤1 条，且不破坏 Z1114 的大类配额（tech_ratio ≤0.5、非技术大类 ≥4）；断言同时锁「首屏 0 回答卡 ≤1」与既有 diversity 字段
   verify: node scripts/assert/feed-answer-floor.mjs
   risk: med
 
 ## 第二十九轮走查新增（2026-11-17 11:45 UTC，来源 docs/PRODUCT-REVIEW.md 第二十九轮）
 
-- [ ] Z1119 删自己的评论留下「该评论已删除」占位（P2，体验）：answer#18 的 27 条评论里 6 行是空占位，夹在真人回复中间像数据没清干净。要求：自己删除成功的评论立即整行移除（不渲染占位）；他人删除/被折叠的占位合并成一行「N 条评论已删除」且仍可展开/不可展开一致；断言 `scripts/assert/comment-delete-placeholder.mjs`：登录种子号在自己评论上点删除并确认后，`main` 文本不再出现该条正文、该 target 下「该评论已删除」行数不因本次删除而 +1、可见评论条目数 -1，刷新后状态保持；同时锁「他人删除占位 ≤1 行」
+- [x] Z1119 删自己的评论留下「该评论已删除」占位（P2，体验）：answer#18 的 27 条评论里 6 行是空占位，夹在真人回复中间像数据没清干净。要求：自己删除成功的评论立即整行移除（不渲染占位）；他人删除/被折叠的占位合并成一行「N 条评论已删除」且仍可展开/不可展开一致；断言 `scripts/assert/comment-delete-placeholder.mjs`：登录种子号在自己评论上点删除并确认后，`main` 文本不再出现该条正文、该 target 下「该评论已删除」行数不因本次删除而 +1、可见评论条目数 -1，刷新后状态保持；同时锁「他人删除占位 ≤1 行」 ✅ (2026-11-17 devin swe-2-medium：`Question.tsx` 已删除/折叠评论无存活子回复时不再单独占行，列表末尾合并成一行「N 条评论已删除」（自己删的整行 `dropComment` 摘除、不计入 N，仍带存活子回复的保留占位行）；`styles.css` 加 `.answer__comment-merged`（#8590A6 小字同左缩进）；`server/routes/comments.js` 列表回带 `author_id`/`is_collapsed`（不改表结构）；新增 `assert/comment-delete-placeholder.mjs`（自己删→整行消失+计数-1+刷新保持、他人删占位 ≤1 行）；反向自检未修基线 FAIL，修后 PASS；comment-count / parity 回归 PASS，server test 38/38)
   verify: node scripts/assert/comment-delete-placeholder.mjs
   risk: low
-- [ ] Z1120 推荐流空壳题占首屏 35%（P1，内容厚度，Z1118 复核升级）：干净会话 `/feed/recommended?limit=20` 返回 7 条 `answer_count=0` 且集中在首屏前 10 位，点进去全是空态。要求排序对 `answer_count=0` 降权（不排除，留给「等你来答」），首屏 20 条内空壳 ≤1，且不破 Z1114 配额（tech_ratio ≤0.5、非技术大类 ≥4、同 topic 连续 ≤2）；断言 `scripts/assert/feed-answer-floor.mjs`：API 复算首屏 0 回答条数 ≤1、diversity 字段与复算一致、两次请求同序；浏览器级 1440/390 首屏 `.feed__item` 中「0 个回答」卡 ≤1、`__errs` 空、无横向溢出
+- [x] Z1120 推荐流空壳题占首屏 35%（P1，内容厚度，Z1118 复核升级）：干净会话 `/feed/recommended?limit=20` 返回 7 条 `answer_count=0` 且集中在首屏前 10 位，点进去全是空态。要求排序对 `answer_count=0` 降权（不排除，留给「等你来答」），首屏 20 条内空壳 ≤1，且不破 Z1114 配额（tech_ratio ≤0.5、非技术大类 ≥4、同 topic 连续 ≤2）；断言 `scripts/assert/feed-answer-floor.mjs`：API 复算首屏 0 回答条数 ≤1、diversity 字段与复算一致、两次请求同序；浏览器级 1440/390 首屏 `.feed__item` 中「0 个回答」卡 ≤1、`__errs` 空、无横向溢出 ✅ (2026-11-17 devin swe-2-high：`server/feed-diversity.js` 排序加空壳让位（首窗内 `answer_count===0` 最后放行且 `ZERO_CAP=1`，relax 0–2 全跳过、relax 3 仅放行 ≤1 条、relax 4 兜底不少返回；保底槽位优先非空壳），`summarizeDiversity` 补 `zero_answer_in_page`，`routes/feed.js` 候选注入 `zero`；新增 `assert/feed-answer-floor.mjs`（API 复算空壳 ≤1 + diversity 复算 + 两页仍能取到 10 条空壳 + 两次请求同序 + 1440/390 浏览器级）；反向自检线上基线 FAIL（空壳 7），修后首屏空壳 7→0、tech_ratio 0.30、非技术大类 7，feed-diversity 回归 PASS，server test 38/38)
   verify: node scripts/assert/feed-answer-floor.mjs
+  risk: med
+- [ ] Z1121 断言脚本残留 54 个「真人nmw…」探针账号（P1，数据卫生，Z1115 回归）：生产库 54 个昵称 `真人[a-z0-9]{6,}` / 邮箱 `real-*@zhihucopy.dev` 的账号，0 问题 0 回答 0 评论（仅 27 条关注边），是 `assert/follows|questions|notifications|search-page|follow-user|feed-following` 等脚本注册后未清理的产物；`nickname-realism` 因此 8.6% > 2% FAIL。要求：① 新增 `scripts/clean-probe-users.js`（默认 dry-run，`--apply` 前 `.backup()`，生产需 `ZH_ALLOW_PROD_WRITE=1`），只删「昵称匹配 `真人%` + 邮箱匹配 `real-%@zhihucopy.dev` + 0 内容」的账号，先清其 follows/votes/通知边，幂等；② 修 `scripts/cleanup-artifacts.mjs` 守卫：`real-*@zhihucopy.dev` 与 `真人…` 昵称判为测试产物（当前被当成种子域保护），让上述断言自带清理不再留痕；③ 生产库执行清理并复跑断言。verify: node scripts/assert/nickname-realism.mjs
   risk: med
