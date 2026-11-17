@@ -16,8 +16,10 @@ interface CommentNode {
   parent_id: number | null;
   created_at: string;
   is_deleted: boolean;
+  is_collapsed?: boolean;
   content: string | null;
   placeholder?: string;
+  author_id?: number | null;
   author: { id: number; nickname: string; avatar_url: string } | null;
   children?: CommentNode[];
 }
@@ -54,12 +56,15 @@ const answerExcerpt = (md: string, n = 80) => {
   return text.length > n ? `${text.slice(0, n)}…` : text;
 };
 
+// 已删除或被折叠的评论统一按「gone」处理：正文不渲染。
+const isGoneComment = (c: CommentNode) => Boolean(c.is_deleted || c.is_collapsed);
+
 // 从两级评论树里摘掉被删评论：无存活子回复的整条移除；仍有存活子回复的
 // 降级为「该评论已删除」占位（与刷新后服务端返回的软删形态一致，保住子回复）。
 const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
   list.flatMap((c) => {
     if (c.id === id) {
-      const alive = (c.children ?? []).filter((k) => !k.is_deleted);
+      const alive = (c.children ?? []).filter((k) => !isGoneComment(k));
       if (!alive.length) return [];
       return [
         {
@@ -75,26 +80,41 @@ const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
     if (c.children?.some((k) => k.id === id)) {
       const children = c.children.filter((k) => k.id !== id);
       // 占位行仅剩已删除子回复时连占位一起摘走，否则留下孤行。
-      if (c.is_deleted && !children.some((k) => !k.is_deleted)) return [];
+      if (isGoneComment(c) && !children.some((k) => !isGoneComment(k))) return [];
       return [{ ...c, children }];
     }
     return [c];
   });
 
-// 渲染行展开：已删除且没有存活子回复的评论整条不渲染（不再留「该评论已删除」
-// 占位）；已删除但仍有存活子回复的保留占位行，否则子回复会成孤儿。
+// 渲染行展开：已删除/被折叠且没有存活子回复的评论不单独占行（由列表末尾
+// 「N 条评论已删除」合并行交代）；仍有存活子回复的保留占位行，否则子回复
+// 会成孤儿。
 const flattenVisibleComments = (list: CommentNode[]): CommentNode[] =>
   list.flatMap((c) => {
-    const aliveChildren = (c.children ?? []).filter((k) => !k.is_deleted);
-    if (c.is_deleted && !aliveChildren.length) return [];
+    const aliveChildren = (c.children ?? []).filter((k) => !isGoneComment(k));
+    if (isGoneComment(c) && !aliveChildren.length) return [];
     return [c, ...aliveChildren];
   });
 
-// 评论计数口径 = 可见且未删除的评论数（与服务端 comment_count 一致）：
-// 「该评论已删除」占位行仍渲染但不计入；收起/展开两态共用同一数值。
+// 「N 条评论已删除」合并行的 N：因删除/折叠而不再单独占行的条数（无存活
+// 子回复的那些）。自己删除的评论本地已整条摘除、刷新后也按 author_id 排除，
+// 不计入；仍带存活子回复的占位行有自己的行位，也不计入。
+const mergedDeletedCount = (
+  list: CommentNode[],
+  selfId: number | null
+): number =>
+  list.reduce((n, c) => {
+    const hasAliveChild = (c.children ?? []).some((k) => !isGoneComment(k));
+    const hidden =
+      isGoneComment(c) && !hasAliveChild && c.author_id !== selfId ? 1 : 0;
+    return n + hidden + mergedDeletedCount(c.children ?? [], selfId);
+  }, 0);
+
+// 评论计数口径 = 可见且未删除/未折叠的评论数（与服务端 comment_count 一致）：
+// 「该评论已删除」占位行与合并行仍渲染但不计入；收起/展开两态共用同一数值。
 const visibleCommentCount = (list: CommentNode[]): number =>
   list.reduce(
-    (n, c) => n + (c.is_deleted ? 0 : 1) + visibleCommentCount(c.children ?? []),
+    (n, c) => n + (isGoneComment(c) ? 0 : 1) + visibleCommentCount(c.children ?? []),
     0
   );
 
@@ -1111,6 +1131,9 @@ export function Question() {
               const commentRows = Array.isArray(cs)
                 ? flattenVisibleComments(cs)
                 : [];
+              const mergedCount = Array.isArray(cs)
+                ? mergedDeletedCount(cs, user?.id ?? null)
+                : 0;
               return (
                 <li
                   key={a.id}
@@ -1358,7 +1381,7 @@ export function Question() {
                         </p>
                       ) : (
                         <>
-                          {commentRows.length === 0 ? (
+                          {commentRows.length === 0 && mergedCount === 0 ? (
                             <p className="answer__comment-empty">还没有评论，来说两句吧</p>
                           ) : (
                             <ul className="answer__comment-list">
@@ -1368,9 +1391,9 @@ export function Question() {
                                     ? c.author.nickname
                                     : "已注销用户";
                                   // 回复只挂一级未删评论（后端只支持两级）；删除仍限本人。
-                                  const canReply = c.parent_id == null && !c.is_deleted;
+                                  const canReply = c.parent_id == null && !isGoneComment(c);
                                   const canDelete = Boolean(
-                                    user && c.author && c.author.id === user.id && !c.is_deleted
+                                    user && c.author && c.author.id === user.id && !isGoneComment(c)
                                   );
                                   return (
                                   <li
@@ -1440,10 +1463,10 @@ export function Question() {
                                     </div>
                                     <p
                                       className={`answer__comment-body${
-                                        c.is_deleted ? " answer__comment-body--deleted" : ""
+                                        isGoneComment(c) ? " answer__comment-body--deleted" : ""
                                       }`}
                                     >
-                                      {c.is_deleted ? c.placeholder ?? "该评论已删除" : c.content}
+                                      {isGoneComment(c) ? c.placeholder ?? "该评论已删除" : c.content}
                                     </p>
                                     {canReply && (
                                       // 稳定存在的挂载槽：收起态「回复」按钮的 aria-controls
@@ -1496,6 +1519,14 @@ export function Question() {
                                   </li>
                                   );
                                 })}
+                              {mergedCount > 0 && (
+                                <li
+                                  className="answer__comment-merged"
+                                  aria-label={`${mergedCount} 条评论已删除`}
+                                >
+                                  {mergedCount} 条评论已删除
+                                </li>
+                              )}
                             </ul>
                           )}
                           {user ? (

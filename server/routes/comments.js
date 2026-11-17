@@ -41,8 +41,12 @@ function commentRow(c, replyCount) {
       parent_id: c.parent_id,
       created_at: c.created_at,
       is_deleted: true,
+      is_collapsed: Boolean(c.is_collapsed),
       content: null,
       placeholder: DELETED_PLACEHOLDER,
+      // 只回传作者 id（不含昵称/头像）：前端据此把「我自己删的」排除出
+      // 「N 条评论已删除」合并行。
+      author_id: c.author_id,
       author: null,
       reply_count: replyCount,
     };
@@ -52,7 +56,9 @@ function commentRow(c, replyCount) {
     parent_id: c.parent_id,
     created_at: c.created_at,
     is_deleted: false,
+    is_collapsed: Boolean(c.is_collapsed),
     content: c.content,
+    author_id: c.author_id,
     author: {
       id: c.author_id,
       nickname: c.author_nickname,

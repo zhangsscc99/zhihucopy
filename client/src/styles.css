@@ -1556,6 +1556,11 @@ mark.hl {
 .answer__comment-body--deleted {
   color: var(--ink-3);
 }
+.answer__comment-merged {
+  padding: 8px 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
 .answer__comment-empty {
   margin: 2px 0 8px;
   color: var(--ink-3);
