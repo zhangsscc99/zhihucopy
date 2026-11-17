@@ -3589,3 +3589,64 @@ a.ntf__title:hover {
   font-size: 12px;
   color: var(--ink-3);
 }
+/* ---------- 通知页分类 tab（Z1145） ---------- */
+
+.notify__tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.notify__tab {
+  position: relative;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notify__tab:hover {
+  color: var(--ink);
+}
+.notify__tab.is-active {
+  color: var(--accent);
+  font-weight: 500;
+}
+.notify__tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+.notify__tab-count {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.notify__tab.is-active .notify__tab-count {
+  color: var(--accent);
+}
+@media (max-width: 767px) {
+  .notify__tab {
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+  .notify__tab.is-active::after {
+    left: 10px;
+    right: 10px;
+  }
+}
