@@ -6,7 +6,13 @@ import { useToast } from "../toast";
 import { Card } from "../components/ui";
 import { Empty, ErrorBox, Spinner } from "../components/Layout";
 import { isContentMissing, NotFound } from "./NotFound";
-import type { Answer, Page, ProfileData, Question } from "../types";
+import type {
+  Answer,
+  Page,
+  ProfileData,
+  ProfileHighlights,
+  Question,
+} from "../types";
 import { formatTime } from "../lib/time";
 
 type TabKey = "answers" | "questions";
@@ -120,43 +126,152 @@ function QuestionItem({ q }: { q: Question }) {
   );
 }
 
+// 0 回答空态的原始文案（无关注/赞同轨迹可展示时兜底；Z1111 前形态）。
+function EmptyAnswers({ isMe }: { isMe: boolean }) {
+  return isMe ? (
+    <Empty
+      title="还没有回答"
+      hint="挑一个你感兴趣的问题，写下第一条回答。"
+      action={
+        <div className="empty__actions">
+          <Link to="/unanswered" className="btn btn--primary">
+            写回答
+          </Link>
+          <Link to="/ask" className="btn btn--outline">
+            去提问
+          </Link>
+        </div>
+      }
+    />
+  ) : (
+    <Empty
+      title="还没有回答"
+      hint="TA 还没有写过回答，先去别处逛逛。"
+      action={
+        <div className="empty__actions">
+          <Link to="?tab=questions" className="btn btn--primary">
+            浏览 TA 的提问
+          </Link>
+          <Link to="/" className="btn btn--outline">
+            去逛逛推荐
+          </Link>
+        </div>
+      }
+    />
+  );
+}
+
+// 空态的下一步出口，与 EmptyAnswers 的 action 同源（有轨迹块时保留在页尾）。
+function EmptyActions({ isMe }: { isMe: boolean }) {
+  return (
+    <div className="phl__actions">
+      {isMe ? (
+        <>
+          <Link to="/unanswered" className="btn btn--primary">
+            写回答
+          </Link>
+          <Link to="/ask" className="btn btn--outline">
+            去提问
+          </Link>
+        </>
+      ) : (
+        <>
+          <Link to="?tab=questions" className="btn btn--primary">
+            浏览 TA 的提问
+          </Link>
+          <Link to="/" className="btn btn--outline">
+            去逛逛推荐
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Z1111 空态补厚度：0 回答时改展示页主的关注/赞同轨迹（一次 /highlights 请求）。
+// 轨迹为空或接口失败时回落 EmptyAnswers 原文案；有轨迹则不出现「还没有回答」
+// —— 该文案只允许在没有任何可展示内容时出现。
+function ProfileAnswersEmpty({ userId, isMe }: { userId: number; isMe: boolean }) {
+  const [hl, setHl] = useState<ProfileHighlights | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    setHl(null);
+    setFailed(false);
+    get<ProfileHighlights>(`/users/${userId}/highlights?limit=5`)
+      .then((d) => {
+        if (!dead) setHl(d);
+      })
+      .catch(() => {
+        if (!dead) setFailed(true);
+      });
+    return () => {
+      dead = true;
+    };
+  }, [userId]);
+
+  if (!hl && !failed) return <Spinner />;
+  const followed = hl?.followed_questions ?? [];
+  const upvoted = hl?.upvoted_answers ?? [];
+  if (followed.length === 0 && upvoted.length === 0)
+    return <EmptyAnswers isMe={isMe} />;
+  return (
+    <div className="phl">
+      {followed.length > 0 && (
+        <section className="phl__sec">
+          <h2 className="phl__title">TA 最近关注的问题</h2>
+          <ul className="plist">
+            {followed.map((q) => (
+              <li key={q.id} className="plist__item">
+                <Link to={`/question/${q.id}`} className="plist__link">
+                  <span className="feed__title">{q.title}</span>
+                  <span className="feed__meta">
+                    <span>{q.answer_count} 个回答</span>
+                    {q.topics.map((t) => (
+                      <span key={t.id}>{t.name}</span>
+                    ))}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {upvoted.length > 0 && (
+        <section className="phl__sec">
+          <h2 className="phl__title">TA 最近赞同的回答</h2>
+          <ul className="plist">
+            {upvoted.map((a) => (
+              <li key={a.answer_id} className="plist__item">
+                <Link
+                  to={`/question/${a.question_id}#answer-${a.answer_id}`}
+                  className="plist__link"
+                >
+                  <span className="feed__title">{a.question_title}</span>
+                  {a.snippet && <p className="feed__excerpt">{a.snippet}</p>}
+                  <span className="feed__meta">
+                    <span className="feed__author">{a.author.nickname}</span>
+                    <span>{a.vote_up} 赞同</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <EmptyActions isMe={isMe} />
+    </div>
+  );
+}
+
 function ProfileAnswers({ userId, isMe }: { userId: number; isMe: boolean }) {
   const list = useAuthorList<Answer>(`/answers?author=${userId}`);
   if (list.loading) return <Spinner />;
   if (list.error && list.items.length === 0)
     return <ErrorBox message={list.error} onRetry={list.retry} />;
   if (list.items.length === 0)
-    return isMe ? (
-      <Empty
-        title="还没有回答"
-        hint="挑一个你感兴趣的问题，写下第一条回答。"
-        action={
-          <div className="empty__actions">
-            <Link to="/unanswered" className="btn btn--primary">
-              写回答
-            </Link>
-            <Link to="/ask" className="btn btn--outline">
-              去提问
-            </Link>
-          </div>
-        }
-      />
-    ) : (
-      <Empty
-        title="还没有回答"
-        hint="TA 还没有写过回答，先去别处逛逛。"
-        action={
-          <div className="empty__actions">
-            <Link to="?tab=questions" className="btn btn--primary">
-              浏览 TA 的提问
-            </Link>
-            <Link to="/" className="btn btn--outline">
-              去逛逛推荐
-            </Link>
-          </div>
-        }
-      />
-    );
+    return <ProfileAnswersEmpty userId={userId} isMe={isMe} />;
   return (
     <>
       <ul className="plist">

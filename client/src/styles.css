@@ -2648,6 +2648,23 @@ a.ntf__title:hover {
   color: var(--ink-3);
 }
 
+/* 0 回答主页的空态补块（Z1111）：页主关注/赞同轨迹，卡内分节标题 + 复用 .plist 行 */
+.phl__title {
+  margin: 0;
+  padding: 16px 20px 4px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.phl__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+}
+
 /* ---------- 通知 ---------- */
 
 .notify-stack {
