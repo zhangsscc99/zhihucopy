@@ -316,6 +316,8 @@ const {
   REPLIES,
   GENERIC_WHITELIST,
   anchoredTexts,
+  replyTexts,
+  pickQuote,
   validate: validateCommentCorpus,
 } = require("./seed-data/comments");
 {
@@ -389,10 +391,23 @@ function pickTail(cat, content) {
   return pool[i];
 }
 
-// Z1147：同一 answer 下文案不重复、全站同一句占用率 <15%。
+// Z1147/Z1152：同一 answer 下文案不重复、全站同一句占用率 ≤8%、同一句
+// 出现在 ≤3 个不同 question 下。
 // 一级评论优先取「关键词命中回答正文」的领域锚定句，锚定集为空退通用池；
-// 二级回复走 REPLIES。候选内取全站已用次数最少的一句（确定性打散后取最小）。
+// 二级回复走 REPLIES（k 需命中父评论文本，k=[] 兜底限量）。
+// 候选内取全站已用次数最少的一句（确定性打散后取最小）。
 const commentUse = new Map(); // text -> 全站写入次数
+const commentQuestionUse = new Map(); // text -> Set<question_id>（Z1152 跨题复用计数）
+const COMMENT_CROSS_Q_CAP = 3; // 同一句最多落在 3 个不同 question 下
+const crossQOK = (t, qid) => {
+  const s = commentQuestionUse.get(t);
+  return !s || s.size < COMMENT_CROSS_Q_CAP || s.has(qid);
+};
+const noteCommentText = (t, qid) => {
+  commentUse.set(t, (commentUse.get(t) || 0) + 1);
+  if (!commentQuestionUse.has(t)) commentQuestionUse.set(t, new Set());
+  commentQuestionUse.get(t).add(qid);
+};
 const leastUsed = (cands) => {
   let best = null;
   let bestN = Infinity;
@@ -406,30 +421,49 @@ const leastUsed = (cands) => {
   return best;
 };
 const pickCommentText = (a, used, useCap) => {
-  // 候选顺序：关键词命中正文的锚定句优先；本大类兜底句(k=[])并入通用池
-  // 一起按最少使用取 —— 兜底池只有一两条时若独占一层会被反复命中。
+  // 候选顺序：关键词命中正文的锚定句 → 引述兜底句（从正文摘片段，天然
+  // 实指且不耗跨题额度）→ 本大类兜底句(k=[])+通用池 → 回复池。引述句排
+  // 在通用池前面：语料池在 8% 占用/≤3 跨题双上限下会被耗尽，若兜底走
+  // 通用句，新库里实指占比会跌到断言线以下。
   const anchored = anchoredTexts(a.cat, a.content, { includeFallback: false });
   const catFallback = (DOMAIN_COMMENTS[a.cat] || [])
     .filter((e) => e.k.length === 0)
     .map((e) => e.t);
-  for (const pool of [anchored, catFallback.concat(COMMENTS)]) {
-    const t = leastUsed(
-      pool.filter((x) => !used.has(x) && (commentUse.get(x) || 0) < useCap)
-    );
-    if (t) return t;
-  }
+  const ok = (x) =>
+    !used.has(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, a.qid);
+  const t0 = leastUsed(anchored.filter(ok));
+  if (t0) return t0;
+  const qt = pickQuote(a.content, used, a.aid, ok);
+  if (qt) return qt;
+  const t1 = leastUsed(catFallback.concat(COMMENTS).filter(ok));
+  if (t1) return t1;
   // 兜底：同 answer 去重仍优先；实在挑不出（理论上不发生）才允许撞占用上限。
+  const replyAll = REPLIES.map((e) => e.t);
   return (
     leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
-    leastUsed(REPLIES.filter((x) => !used.has(x))) ||
+    leastUsed(replyAll.filter((x) => !used.has(x))) ||
     COMMENTS[ri(COMMENTS.length)]
   );
 };
-const pickReplyText = (used, useCap) =>
-  leastUsed(REPLIES.filter((x) => !used.has(x) && (commentUse.get(x) || 0) < useCap)) ||
-  leastUsed(REPLIES.filter((x) => !used.has(x))) ||
-  leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
-  REPLIES[ri(REPLIES.length)];
+const pickReplyText = (parentText, used, useCap, qid, content) => {
+  // 回复要挂在父评论的实指上：先挑 k 命中父评论文本的，再并入 k=[] 兜底；
+  // 都占满时引述回答正文兜底（实指成立且不耗跨题额度）。
+  const { matched, fallback } = replyTexts(parentText);
+  const ok = (x) =>
+    !used.has(x) && (commentUse.get(x) || 0) < useCap && crossQOK(x, qid);
+  for (const pool of [matched, matched.concat(fallback)]) {
+    const t = leastUsed(pool.filter(ok));
+    if (t) return t;
+  }
+  const qt = content ? pickQuote(content, used, 7919, ok) : null;
+  if (qt) return qt;
+  const all = matched.concat(fallback);
+  return (
+    leastUsed(all.filter((x) => !used.has(x))) ||
+    leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
+    all[ri(all.length)]
+  );
+};
 
 
 // ---------------------------------------------------------------------------
@@ -810,8 +844,8 @@ function main() {
         commentQueue.push(list[pickIdx]);
       }
     }
-    // 全站同一句占用率上限 15%（Z1147）：候选里只挑低于上限的句。
-    const commentUseCap = Math.max(2, Math.floor(commentQueue.length * 0.15));
+    // 全站同一句占用率上限 8%（Z1152，原 15%）：候选里只挑低于上限的句。
+    const commentUseCap = Math.max(2, Math.floor(commentQueue.length * 0.08));
     // Z1151：每个回答的评论总数先聚合，时间在 [回答+5min, NOW-10min]
     // 内按序号散布 —— 替代旧「回答+30min+随机9天封顶」的同秒塌缩写法。
     const commentTotal = new Map();
@@ -823,18 +857,17 @@ function main() {
       const usedTexts = commentTexts.get(a.aid) || new Set();
       const author = userIds[ri(N_USERS)];
       const isReply = existing.length > 0 && g() < 0.34;
-      let parentId = null;
+      let parent = null;
       let parentT = null;
       if (isReply) {
         const parents = existing.filter((c) => c.parentId === null);
         if (parents.length) {
-          const p = parents[ri(parents.length)];
-          parentId = p.id;
-          parentT = p.t;
+          parent = parents[ri(parents.length)];
+          parentT = parent.t;
         }
       }
-      const text = parentId
-        ? pickReplyText(usedTexts, commentUseCap)
+      const text = parent
+        ? pickReplyText(parent.text, usedTexts, commentUseCap, a.qid, a.content)
         : pickCommentText(a, usedTexts, commentUseCap);
       const prevT = existing.length ? existing[existing.length - 1].t : null;
       const t = commentTime(
@@ -844,13 +877,13 @@ function main() {
         prevT,
         parentT
       );
-      const info = insComment.run(a.aid, author, parentId, text, fmtTs(t));
+      const info = insComment.run(a.aid, author, parent ? parent.id : null, text, fmtTs(t));
       const cid = Number(info.lastInsertRowid);
-      existing.push({ id: cid, parentId, t });
+      existing.push({ id: cid, parentId: parent ? parent.id : null, text, t });
       commentTimes.set(a.aid, existing);
       usedTexts.add(text);
       commentTexts.set(a.aid, usedTexts);
-      commentUse.set(text, (commentUse.get(text) || 0) + 1);
+      noteCommentText(text, a.qid);
       bump("comments");
     }
     // 少量软删除样本
