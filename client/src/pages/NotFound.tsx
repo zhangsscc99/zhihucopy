@@ -19,6 +19,20 @@ const COPY = {
   },
 } as const;
 
+// 调用方传入的 detail 多为英文原始错误串（e.message），在此归一化为中文人话。
+// 已含中文的串原样透出（截 60 字）；识别不了的纯英文串一律丢弃，不给用户看。
+export function friendlyDetail(raw?: string): string | undefined {
+  const s = (raw || "").trim();
+  if (!s) return undefined;
+  if (/failed to fetch|networkerror|load failed/i.test(s))
+    return "网络连接不稳定，请检查网络后重试。";
+  if (/timeout|aborted/i.test(s)) return "请求超时，稍后再试。";
+  if (/internal|500|unexpected token|syntaxerror/i.test(s))
+    return "服务端出了点问题，我们正在处理。";
+  if (/[一-鿿]/.test(s)) return s.slice(0, 60);
+  return undefined;
+}
+
 export function NotFound({
   kind = "missing",
   detail,
@@ -29,12 +43,13 @@ export function NotFound({
   onRetry?: () => void;
 }) {
   const copy = COPY[kind];
+  const friendly = friendlyDetail(detail);
   return (
     <div className="notfound">
       {copy.code && <p className="notfound__code">{copy.code}</p>}
       <p className="notfound__title">{copy.title}</p>
       <p className="notfound__hint">{copy.hint}</p>
-      {detail && <p className="notfound__detail">{detail}</p>}
+      {friendly && <p className="notfound__detail">{friendly}</p>}
       <div className="notfound__actions">
         <Link to="/" className="btn btn--primary">
           回到首页
