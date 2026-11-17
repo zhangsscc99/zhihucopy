@@ -1360,6 +1360,10 @@ mark.hl {
   outline: none;
   border-color: var(--accent);
 }
+.answer__fav-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
 .answer__fav-create {
   font: inherit;
   font-size: 13px;

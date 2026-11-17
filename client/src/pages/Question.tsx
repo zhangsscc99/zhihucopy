@@ -189,6 +189,7 @@ export function Question() {
   const [collections, setCollections] = useState<CollectionItem[] | null>(null);
   const [favNewName, setFavNewName] = useState("");
   const [favBusy, setFavBusy] = useState(false);
+  const favTriggerRef = useRef<HTMLElement | null>(null);
   const [uncollecting, setUncollecting] = useState<Record<number, boolean>>({});
 
   // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
@@ -440,6 +441,44 @@ export function Question() {
       document.removeEventListener("keydown", onKey);
     };
   }, [menuFor]);
+
+  // 收藏弹层：点 .answer__fav 容器外或 Esc 收起（触发按钮在容器内，
+  // 其 onClick 的 toggle 行为优先，不与此冲突）。
+  useEffect(() => {
+    if (favFor === null) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".answer__fav")) setFavFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFavFor(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [favFor]);
+
+  // 打开时把焦点移进弹层第一个可聚焦元素（收藏夹列表异步到达，
+  // 加载态无可聚焦项，故随 collections 重试；焦点已在层内则不动）。
+  useEffect(() => {
+    if (favFor === null) return;
+    const menu = document.querySelector(".answer__fav-menu");
+    if (!menu || menu.contains(document.activeElement)) return;
+    menu
+      .querySelector<HTMLElement>("button:not([disabled]), input:not([disabled])")
+      ?.focus();
+  }, [favFor, collections]);
+
+  // 弹层关闭后焦点还回触发按钮。
+  const prevFavRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevFavRef.current !== null && favFor === null) {
+      favTriggerRef.current?.focus();
+    }
+    prevFavRef.current = favFor;
+  }, [favFor]);
 
   // 刚发布的回答：本地置顶后滚动定位 + 短暂高亮
   useEffect(() => {
@@ -792,8 +831,9 @@ export function Question() {
   const setAnswerCollected = (answerId: number, val: boolean) =>
     setAnswers((xs) => xs.map((x) => (x.id === answerId ? { ...x, is_collected: val } : x)));
 
-  const toggleFav = async (answerId: number) => {
+  const toggleFav = async (answerId: number, trigger?: HTMLElement) => {
     if (!user) return needLogin();
+    if (trigger) favTriggerRef.current = trigger;
     if (favFor === answerId) {
       setFavFor(null);
       return;
@@ -1283,7 +1323,11 @@ export function Question() {
                         }`}
                         aria-pressed={Boolean(a.is_collected)}
                         disabled={uncollecting[a.id]}
-                        onClick={() => (a.is_collected ? uncollect(a.id) : toggleFav(a.id))}
+                        onClick={(e) =>
+                          a.is_collected
+                            ? uncollect(a.id)
+                            : toggleFav(a.id, e.currentTarget)
+                        }
                       >
                         {a.is_collected ? "已收藏" : "收藏"}
                       </button>
