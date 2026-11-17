@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { del, followUser, get, patch, post, unfollowUser } from "../api";
+import { ApiError, del, followUser, get, patch, post, unfollowUser } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Empty, Spinner } from "../components/Layout";
@@ -143,7 +143,7 @@ const displayCommentCount = (
 
 export function Question() {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -808,6 +808,13 @@ export function Question() {
         )
       );
     } catch (e) {
+      // 会话陈旧（页面残留 user 态但 token 已失效/被清）时服务端回 401：
+      // 先按当前 token 重放校验清掉残留 user（否则登录页会因 user 非空
+      // 被 <Navigate to={dest}> 弹回原页），再走与未登录一致的回跳路径。
+      if (e instanceof ApiError && e.status === 401) {
+        void refresh();
+        return needLogin();
+      }
       toast((e as Error).message, "error");
     } finally {
       setVotePending((v) => ({ ...v, [a.id]: false }));
