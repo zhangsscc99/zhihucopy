@@ -400,6 +400,15 @@ textarea:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px;
+  cursor: pointer;
+}
+/* 整卡可点（Z1090）：hover 边框加深一档（无阴影/位移），卡片自身聚焦给焦点环 */
+.feed__item:hover {
+  border-color: var(--ink-3);
+}
+.feed__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 /* 话题胶囊：元信息行之后，灰底圆角小字（.tag） */
 .feed__topics {

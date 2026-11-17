@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { get } from "../api";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
+import { cardNav } from "../lib/cardNav";
 import type { Page, Topic } from "../types";
 
 const PAGE_SIZE = 20;
 
 export function Topics() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Topic[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -99,7 +101,12 @@ export function Topics() {
         <>
           <ul className="feed">
             {items.map((t) => (
-              <li key={t.id} className="feed__item topic-item">
+              <li
+                key={t.id}
+                className="feed__item topic-item"
+                aria-label={t.name}
+                {...cardNav(navigate, `/topic/${t.slug || t.id}`)}
+              >
                 <Link to={`/topic/${t.slug || t.id}`} className="topic-item__name">
                   {t.name}
                 </Link>

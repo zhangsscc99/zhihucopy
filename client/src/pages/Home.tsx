@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { Empty, ErrorBox } from "../components/Layout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { FeedSkeleton } from "../components/Skeleton";
+import { cardNav } from "../lib/cardNav";
 import { saveRecentSearch } from "../lib/searchHistory";
 import { searchHref } from "../lib/searchHref";
 import { formatTime } from "../lib/time";
@@ -99,8 +100,13 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
 
 function FeedCard({ q, kw }: { q: Question; kw: string }) {
   const ex = excerpt(q.detail_md);
+  const navigate = useNavigate();
   return (
-    <li className="feed__item">
+    <li
+      className="feed__item"
+      aria-label={q.title}
+      {...cardNav(navigate, `/question/${q.id}`)}
+    >
       <Link to={`/question/${q.id}`} className="feed__title">
         <Highlight text={q.title} kw={kw} />
       </Link>
@@ -132,8 +138,13 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
 
 // 回答结果卡（type=answer）：所属问题标题链到 #answer-:id 锚点，两行命中摘要高亮。
 function AnswerResultCard({ a, kw }: { a: AnswerResult; kw: string }) {
+  const navigate = useNavigate();
   return (
-    <li className="feed__item">
+    <li
+      className="feed__item"
+      aria-label={a.question_title}
+      {...cardNav(navigate, `/question/${a.question_id}#answer-${a.id}`)}
+    >
       <Link
         to={`/question/${a.question_id}#answer-${a.id}`}
         className="feed__title"
@@ -199,6 +210,7 @@ function UserResultRow({ u, kw }: { u: UserResult; kw: string }) {
 // 元信息行带热度分；rank_delta>0 时热度旁跟上升级标记。
 function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
   const ex = excerpt(q.detail_md);
+  const navigate = useNavigate();
   const rankCls =
     rank === 1
       ? "feed__rank feed__rank--top1"
@@ -208,7 +220,11 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
           ? "feed__rank feed__rank--top10"
           : "feed__rank";
   return (
-    <li className="feed__item">
+    <li
+      className="feed__item"
+      aria-label={q.title}
+      {...cardNav(navigate, `/question/${q.id}`)}
+    >
       <div className="feed__hotline">
         <span className={rankCls} aria-label={`热榜第 ${rank} 名`}>
           {rank}
