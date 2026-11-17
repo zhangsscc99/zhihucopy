@@ -401,8 +401,9 @@ textarea:focus-visible {
   border-radius: var(--radius);
   padding: 16px 18px;
 }
+/* 话题胶囊：元信息行之后，灰底圆角小字（.tag） */
 .feed__topics {
-  margin-bottom: 8px;
+  margin: 10px 0 0;
 }
 .feed__topics .tag:hover {
   background: var(--line);

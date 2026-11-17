@@ -101,16 +101,6 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
   const ex = excerpt(q.detail_md);
   return (
     <li className="feed__item">
-      {/* 搜索接口返回 topics；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
-      {q.topics?.length ? (
-        <div className="feed__topics">
-          {q.topics.map((t) => (
-            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
-              <Highlight text={t.name} kw={q.matched === "topic" ? kw : ""} />
-            </Link>
-          ))}
-        </div>
-      ) : null}
       <Link to={`/question/${q.id}`} className="feed__title">
         <Highlight text={q.title} kw={kw} />
       </Link>
@@ -128,6 +118,16 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         <span>{q.answer_count} 个回答</span>
         <span>{q.view_count} 次浏览</span>
       </div>
+      {/* 话题胶囊跟在元信息之后；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
+      {q.topics?.length ? (
+        <div className="feed__topics">
+          {q.topics.map((t) => (
+            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+              <Highlight text={t.name} kw={q.matched === "topic" ? kw : ""} />
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -211,15 +211,6 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
           : "feed__rank";
   return (
     <li className="feed__item">
-      {q.topics?.length ? (
-        <div className="feed__topics">
-          {q.topics.map((t) => (
-            <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
-              {t.name}
-            </Link>
-          ))}
-        </div>
-      ) : null}
       <div className="feed__hotline">
         <span className={rankCls} aria-label={`热榜第 ${rank} 名`}>
           {rank}
@@ -257,6 +248,15 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
             <span>{q.answer_count} 个回答</span>
             <span>{q.view_count} 次浏览</span>
           </div>
+          {q.topics?.length ? (
+            <div className="feed__topics">
+              {q.topics.map((t) => (
+                <Link key={t.id} to={`/topic/${t.slug || t.id}`} className="tag">
+                  {t.name}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </li>

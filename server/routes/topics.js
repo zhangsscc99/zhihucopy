@@ -3,6 +3,7 @@ const { getDb } = require("../db");
 const { parsePage, pageResult } = require("../util");
 const { requireAuth } = require("../auth");
 const { testQuestionSql } = require("../content-filter");
+const { topicsForQuestions } = require("./questions");
 
 const router = express.Router();
 
@@ -30,6 +31,7 @@ function questionRow(q) {
     follower_count: q.follower_count,
     view_count: q.view_count,
     author: { id: q.author_id, nickname: q.author_nickname, avatar_url: q.author_avatar },
+    topics: q.topics || [],
   };
 }
 
@@ -83,7 +85,7 @@ router.get("/:key", (req, res) => {
       ? "q.created_at DESC"
       : "(q.answer_count * 3 + q.follower_count * 2 + q.view_count) DESC, q.created_at DESC";
 
-  const items = db
+  const rows = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
@@ -91,8 +93,12 @@ router.get("/:key", (req, res) => {
        WHERE qt.topic_id = ? AND ${testQuestionSql("q", "u")}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
-    .all(t.id, limit, offset)
-    .map(questionRow);
+    .all(t.id, limit, offset);
+  // 话题页问题流同样带话题胶囊：与 /questions 列表同一批量口径，无 N+1。
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  const items = rows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM question_topics qt

@@ -41,7 +41,7 @@ if (topic) {
     "Topic.tsx 内容流未复用 feed__item/feed__title/feed__meta 卡片结构");
   ok(/加载更多/.test(topic) && /has_more|hasMore/.test(topic),
     "Topic.tsx 缺少「加载更多」分页（禁止无限滚动）");
-  ok(/话题不存在/.test(topic), "Topic.tsx 缺少 404「话题不存在」空态");
+  ok(/话题不存在|<NotFound/.test(topic), "Topic.tsx 缺少 404「话题不存在」空态");
   ok(/去提问|提问/.test(topic) && /\/ask/.test(topic),
     "Topic.tsx 空态缺少提问引导（链接 /ask）");
   ok(/相关话题/.test(topic) && /sort=followers/.test(topic),

@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
-const { questionRow, HOT_SCORE_SQL } = require("./questions");
+const { questionRow, topicsForQuestions, HOT_SCORE_SQL } = require("./questions");
 const { testQuestionSql } = require("../content-filter");
 
 const router = express.Router();
@@ -57,7 +57,7 @@ router.get("/following", requireAuth, (req, res) => {
   const db = getDb();
   const uid = req.user.id;
 
-  const items = db
+  const rows = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS}, MAX(c.ts) AS activity_ts
        FROM (${FOLLOWING_CANDIDATES}) c
@@ -68,8 +68,11 @@ router.get("/following", requireAuth, (req, res) => {
        ORDER BY activity_ts DESC, c.qid DESC
        LIMIT ? OFFSET ?`
     )
-    .all(uid, uid, uid, uid, limit, offset)
-    .map(questionRow);
+    .all(uid, uid, uid, uid, limit, offset);
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  const items = rows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
 
   const total = db
     .prepare(
@@ -92,15 +95,18 @@ router.get("/following", requireAuth, (req, res) => {
 router.get("/recommended", (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
-  const items = db
+  const rows = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${testQuestionSql("q", "u")}
        ORDER BY q.created_at DESC, q.id DESC LIMIT ? OFFSET ?`
     )
-    .all(limit, offset)
-    .map(questionRow);
+    .all(limit, offset);
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  const items = rows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
@@ -112,7 +118,8 @@ router.get("/recommended", (req, res) => {
 
 // GET /feed/hot — 热榜 Top20（与 /questions?tab=hot 同一段 HOT_SCORE_SQL，热度分随行返回）。
 router.get("/hot", (_req, res) => {
-  const items = getDb()
+  const db = getDb();
+  const rows = db
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS}, ${HOT_SCORE_SQL} AS hot_score FROM questions q
        JOIN users u ON u.id = q.author_id
@@ -120,8 +127,11 @@ router.get("/hot", (_req, res) => {
        ORDER BY ${HOT_SCORE_SQL} DESC, q.created_at DESC
        LIMIT 20`
     )
-    .all()
-    .map(questionRow);
+    .all();
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
+  const items = rows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
   res.json({ items });
 });
 
