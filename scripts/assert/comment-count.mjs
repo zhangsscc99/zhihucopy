@@ -1,11 +1,14 @@
 // Z1029 — 评论计数常显（浏览器级断言）。
 // Z1066 — 计数口径统一为「可见且未删除的评论数」（= 服务端 comment_count）。
+// Z975  — 展开态按钮必须含当前评论数（「收起评论（N）」），且「N 条评论」
+//         计数节点全页 ≤1（不得另起独立节点重复播报）。
 //
 // 契约：
 //   收起态「N 条评论」与展开态「收起评论（N）」的 N 严格相等，且 N ===
 //   非删除可见行数（不含「该评论已删除」占位行）；已删除但仍有存活子
 //   回复的评论照常渲染占位行（无存活子回复的整条不渲染，Z1101）。
 //   发布 +1、删除 -1 即时回写，两态同步。
+//   任意状态下，页面上文本含「数字+条评论」的叶子节点数 ≤1。
 //
 // 场景里刻意埋一条「发后即删 + 存活子回复」的占位行：渲染行数 = 4，
 // 非删除可见行数 = 3。旧口径（展开态回显渲染行数）会 N=4 vs 收起态 3
@@ -44,6 +47,19 @@ async function injectErrs(page) {
 }
 
 const pageErrs = (page) => page.evaluate(() => window.__errs || []);
+
+// 全页「数字+条评论」叶子节点数：父级命中但子级也命中时只计最深一层，
+// 用于锁死「计数节点 ≤1，不得重复挂独立节点」。
+const countCommentCountNodes = (page) =>
+  page.evaluate(() => {
+    const re = /\d+\s*条评论/;
+    const els = [...document.querySelectorAll("body *")];
+    return els.filter(
+      (el) =>
+        re.test(el.textContent || "") &&
+        ![...el.children].some((c) => re.test(c.textContent || ""))
+    ).length;
+  });
 
 const RE_CLOSED = /^(\d+) 条评论$/;
 const RE_OPEN = /^收起评论（(\d+)）$/;
@@ -103,6 +119,10 @@ run("comment-count", async ({ browser }) => {
   const mClosed = RE_CLOSED.exec(closedText);
   expect(mClosed && Number(mClosed[1]) === 3, `收起态文案异常：「${closedText}」期望 3 条评论`);
 
+  // [Z975] 收起态恰有 1 个「N 条评论」叶子节点（即按钮本身）。
+  const closedCountNodes = await countCommentCountNodes(page);
+  expect(closedCountNodes === 1, `收起态「N 条评论」计数节点数=${closedCountNodes}，期望恰为 1`);
+
   // ---- 通用守卫：页面非白屏 ----
   const bodyLen = await page.evaluate(() => document.body.innerText.length);
   expect(bodyLen > 200, `页面内容过少：innerText=${bodyLen}`);
@@ -123,6 +143,11 @@ run("comment-count", async ({ browser }) => {
   await ans.locator("li.answer__comment").first().waitFor();
   let st = await readOpenCount();
   expect(st.n !== null, `展开后计数消失：「${st.text}」不匹配 收起评论（N）`);
+  // [Z975] 展开态按钮文本必须正向含当前评论数（未修基线「收起评论」不含数字 → FAIL）。
+  expect(st.text.includes(`（${st.visible}）`), `展开后按钮未带当前评论数：「${st.text}」期望含（${st.visible}）`);
+  // [Z975] 展开态不得另挂第二个「N 条评论」计数节点（屏幕阅读器重复播报）。
+  const openCountNodes = await countCommentCountNodes(page);
+  expect(openCountNodes <= 1, `展开态「N 条评论」计数节点数=${openCountNodes}，期望 ≤1`);
   expect(st.rows === 4, `展开后渲染行数=${st.rows}，期望 4（含删除占位）`);
   expect(st.n === st.visible && st.n === 3, `展开后 N=${st.n} 可见=${st.visible}，期望均为 3（不含删除占位）`);
 
@@ -151,6 +176,8 @@ run("comment-count", async ({ browser }) => {
   const mAgain = RE_CLOSED.exec(closedAgain);
   expect(mAgain !== null, `收起后文案异常：「${closedAgain}」不匹配 N 条评论`);
   expect(Number(mAgain[1]) === openN && openN === 3, `收起后 N=${mAgain[1]}，期望与展开态一致 =3`);
+  const closedAgainNodes = await countCommentCountNodes(page);
+  expect(closedAgainNodes === 1, `收起后「N 条评论」计数节点数=${closedAgainNodes}，期望恰为 1`);
 
   // ---- 重载页面（排序切换等价路径）后两态仍一致 ----
   await page.reload();
@@ -167,6 +194,8 @@ run("comment-count", async ({ browser }) => {
   expect(openText2 === "收起评论（3）", `重载后展开态文案异常：「${openText2}」期望恰为「收起评论（3）」`);
   const mOpen2 = RE_OPEN.exec(openText2);
   expect(mOpen2 && Number(mOpen2[1]) === 3, `重载后展开态文案异常：「${openText2}」期望 收起评论（3）`);
+  const openReloadNodes = await countCommentCountNodes(page);
+  expect(openReloadNodes <= 1, `重载展开态「N 条评论」计数节点数=${openReloadNodes}，期望 ≤1`);
 
   const errs = await pageErrs(page);
   expect(errs.length === 0, `计数流程出现页面错误：${errs.join(" | ")}`);
