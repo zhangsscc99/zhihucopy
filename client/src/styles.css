@@ -1493,6 +1493,23 @@ mark.hl {
 .answer__comment--child {
   margin-left: 22px;
 }
+/* Z1159 — 刚发布的评论：浅蓝底淡出高亮（约 1.2s），配合滚入视口。 */
+.answer__comment--flash {
+  animation: comment-flash 1.2s ease-out;
+}
+@keyframes comment-flash {
+  0% {
+    background: #eaf2ff;
+  }
+  100% {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .answer__comment--flash {
+    animation: none;
+  }
+}
 .answer__comment-head {
   display: flex;
   align-items: baseline;

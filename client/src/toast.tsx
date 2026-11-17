@@ -63,7 +63,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div className="notify-stack">
+      <div className="notify-stack toast-stack">
         {items.map((t) => (
           <div key={t.id} role="status" aria-live="polite" className={`toast toast--${t.kind}`}>
             {t.text}
