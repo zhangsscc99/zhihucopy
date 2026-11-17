@@ -108,9 +108,7 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         <p className="feed__excerpt">
           <Highlight text={ex} kw={kw} />
         </p>
-      ) : (
-        <p className="feed__excerpt feed__excerpt--empty">暂无补充说明</p>
-      )}
+      ) : null}
       <div className="feed__meta">
         <Link to={`/u/${q.author?.id}`} className="feed__author">
           {q.author?.nickname}
@@ -226,11 +224,7 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
             <p className="feed__excerpt feed__excerpt--hot">
               {ex}
             </p>
-          ) : (
-            <p className="feed__excerpt feed__excerpt--hot feed__excerpt--empty">
-              暂无补充说明
-            </p>
-          )}
+          ) : null}
           <div className="feed__meta">
             <Link to={`/u/${q.author?.id}`} className="feed__author">
               {q.author?.nickname}

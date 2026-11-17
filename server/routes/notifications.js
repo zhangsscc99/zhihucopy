@@ -2,6 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { badRequest } = require("../util");
 const { requireAuth } = require("../auth");
+const { testNotificationSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -122,6 +123,9 @@ router.get("/", requireAuth, (req, res) => {
 
   const conds = ["n.user_id = ?"];
   const params = [req.user.id];
+  // 自动化残留通知（测试账号 actor 或指向测试问题/回答）不进列表与 total，
+  // 与公共流的过滤口径一致（Z1082：巡检探针banv 等残留通知）。
+  conds.push(testNotificationSql("n"));
   if (type) {
     conds.push("n.type = ?");
     params.push(type);
@@ -140,14 +144,14 @@ router.get("/", requireAuth, (req, res) => {
     )
     .all(...params, limit, offset);
 
-  // total 跟随筛选条件；unread 恒为本人全部未读数（导航角标语义）。
+  // total 跟随筛选条件；unread 与列表同口径（已剔除自动化残留通知）。
   const total = db
     .prepare(`SELECT COUNT(*) c FROM notifications n WHERE ${where}`)
     .get(...params).c;
   const unread = db
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0`
+       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
     )
     .get(req.user.id).c;
 
@@ -159,7 +163,7 @@ router.get("/unread-count", requireAuth, (req, res) => {
   const count = getDb()
     .prepare(
       `SELECT COUNT(*) c FROM notifications n
-       WHERE n.user_id = ? AND n.is_read = 0`
+       WHERE n.user_id = ? AND n.is_read = 0 AND ${testNotificationSql("n")}`
     )
     .get(req.user.id).c;
   res.json({ count });

@@ -435,10 +435,6 @@ textarea:focus-visible {
   line-clamp: 2;
   overflow: hidden;
 }
-/* 摘要为空时的占位行：用既有灰阶 --ink-3，不新增颜色。 */
-.feed__excerpt--empty {
-  color: var(--ink-3);
-}
 .feed__meta {
   display: flex;
   align-items: baseline;
