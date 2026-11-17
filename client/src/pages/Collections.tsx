@@ -41,7 +41,11 @@ function CollectionLoginGate() {
       title="登录后查看你的收藏"
       hint="收藏的回答会按收藏夹整理在这里"
       action={
-        <Link to="/login?next=/collections" className="btn btn--outline">
+        <Link
+          to="/login?next=/collections"
+          state={{ returnTo: "/collections", pushed: true }}
+          className="btn btn--outline"
+        >
           去登录
         </Link>
       }
