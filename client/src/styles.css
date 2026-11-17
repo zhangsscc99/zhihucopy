@@ -1220,6 +1220,8 @@ mark.hl {
   align-items: center;
   gap: 16px;
   margin-top: 14px;
+  /* 收藏弹层的定位上下文：锚到整行动右缘，窄视口下不会顶出左右边界。 */
+  position: relative;
 }
 .answer__vote {
   font: inherit;
@@ -1283,18 +1285,23 @@ mark.hl {
   color: var(--ink-3);
 }
 .answer__fav {
-  position: relative;
+  /* 定位上下文在 .answer__actions 上（弹层右对齐整行）。 */
 }
 .answer__fav-menu {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  /* 右对齐容器：窄视口下左对齐会把弹层顶出右边界（390px 横向溢出）。 */
+  right: 0;
   z-index: 10;
   min-width: 200px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 6px 0;
+}
+/* 加载态兜底聚焦容器自身（tabIndex=-1），程序聚焦不画焦点环。 */
+.answer__fav-menu:focus {
+  outline: none;
 }
 .answer__fav-item {
   display: flex;

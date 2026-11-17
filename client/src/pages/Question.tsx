@@ -190,6 +190,12 @@ export function Question() {
   const [favNewName, setFavNewName] = useState("");
   const [favBusy, setFavBusy] = useState(false);
   const favTriggerRef = useRef<HTMLElement | null>(null);
+  // 关层来源：outside 不回焦（别抢用户点到别处的焦点），其余来源回焦触发按钮。
+  const favCloseRef = useRef<"esc" | "outside" | "toggle" | "inside" | null>(null);
+  const closeFavMenu = (reason: "esc" | "outside" | "toggle" | "inside") => {
+    favCloseRef.current = reason;
+    setFavFor(null);
+  };
   const [uncollecting, setUncollecting] = useState<Record<number, boolean>>({});
 
   // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
@@ -446,16 +452,16 @@ export function Question() {
   // 其 onClick 的 toggle 行为优先，不与此冲突）。
   useEffect(() => {
     if (favFor === null) return;
-    const onDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(".answer__fav")) setFavFor(null);
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest(".answer__fav")) closeFavMenu("outside");
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFavFor(null);
+      if (e.key === "Escape") closeFavMenu("esc");
     };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown, { passive: true });
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [favFor]);
@@ -464,17 +470,20 @@ export function Question() {
   // 加载态无可聚焦项，故随 collections 重试；焦点已在层内则不动）。
   useEffect(() => {
     if (favFor === null) return;
-    const menu = document.querySelector(".answer__fav-menu");
+    const menu = document.querySelector<HTMLElement>(".answer__fav-menu");
     if (!menu || menu.contains(document.activeElement)) return;
-    menu
-      .querySelector<HTMLElement>("button:not([disabled]), input:not([disabled])")
-      ?.focus();
+    // 兜底：层内暂无可聚焦元素（加载中/接口失败）时聚焦容器本身。
+    (menu.querySelector<HTMLElement>("button:not([disabled]), input:not([disabled])") ?? menu).focus();
   }, [favFor, collections]);
 
   // 弹层关闭后焦点还回触发按钮。
   const prevFavRef = useRef<number | null>(null);
   useEffect(() => {
-    if (prevFavRef.current !== null && favFor === null) {
+    if (
+      prevFavRef.current !== null &&
+      favFor === null &&
+      favCloseRef.current !== "outside"
+    ) {
       favTriggerRef.current?.focus();
     }
     prevFavRef.current = favFor;
@@ -835,7 +844,7 @@ export function Question() {
     if (!user) return needLogin();
     if (trigger) favTriggerRef.current = trigger;
     if (favFor === answerId) {
-      setFavFor(null);
+      closeFavMenu("toggle");
       return;
     }
     setFavFor(answerId);
@@ -870,7 +879,7 @@ export function Question() {
       );
       setAnswerCollected(answerId, was ? d.collected : true);
       toast(was ? "已取消收藏" : `已收藏到「${c.name}」`);
-      if (!was) setFavFor(null);
+      if (!was) closeFavMenu("inside");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -894,7 +903,7 @@ export function Question() {
       ]);
       setAnswerCollected(answerId, true);
       setFavNewName("");
-      setFavFor(null);
+      closeFavMenu("inside");
       toast(`已收藏到「${collection.name}」`);
     } catch (e) {
       toast((e as Error).message, "error");
@@ -1322,6 +1331,8 @@ export function Question() {
                           a.is_collected ? " answer__action--collected" : ""
                         }`}
                         aria-pressed={Boolean(a.is_collected)}
+                        aria-haspopup="true"
+                        aria-expanded={favFor === a.id}
                         disabled={uncollecting[a.id]}
                         onClick={(e) =>
                           a.is_collected
@@ -1332,7 +1343,7 @@ export function Question() {
                         {a.is_collected ? "已收藏" : "收藏"}
                       </button>
                       {favFor === a.id && (
-                        <div className="answer__fav-menu" role="menu">
+                        <div className="answer__fav-menu" role="menu" tabIndex={-1}>
                           {collections === null ? (
                             <p className="answer__fav-empty">加载中…</p>
                           ) : (
@@ -1349,6 +1360,7 @@ export function Question() {
                                   className={`answer__fav-item${
                                     c.has_item ? " answer__fav-item--on" : ""
                                   }`}
+                                  role="menuitem"
                                   disabled={favBusy}
                                   onClick={() => collect(c, a.id)}
                                 >
