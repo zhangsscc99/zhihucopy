@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
 
 export function Login() {
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
@@ -21,13 +21,16 @@ export function Login() {
     try {
       await login(email, password);
       toast("欢迎回来");
-      navigate(dest);
+      navigate(dest, { replace: true });
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
       setBusy(false);
     }
   };
+
+  if (loading) return null;
+  if (user) return <Navigate to={dest} replace />;
 
   return (
     <div className="authpage">
