@@ -3356,3 +3356,149 @@ a.ntf__title:hover {
   color: #8590a6;
   text-align: center;
 }
+
+/* ---------- Z1141 「邀请回答」弹层 ---------- */
+/* 遮罩整屏居中承载弹层；z-index 低于 toast 栈（50），「已邀请 N 人」浮在层上。 */
+.invite__mask {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.invite {
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.invite__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+}
+.invite__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.invite__close {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.invite__close:hover {
+  color: var(--ink);
+}
+.invite__close:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.invite__search {
+  font: inherit;
+  font-size: 14px;
+  margin: 0 16px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+}
+.invite__search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.invite__search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+.invite__list {
+  flex: 1;
+  min-height: 96px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 0 16px 12px;
+}
+.invite__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.invite__row:last-child {
+  border-bottom: none;
+}
+.invite__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+}
+.invite__who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.invite__nick {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invite__bio {
+  font-size: 13px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 右侧动作：描边小按钮，主色文字；「已邀请」disabled 灰边灰字。 */
+.invite__btn {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.invite__btn:hover:not(:disabled) {
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.invite__btn:disabled {
+  color: var(--ink-3);
+  border-color: var(--line);
+  cursor: default;
+}
+.invite__empty {
+  margin: 0;
+  padding: 26px 0;
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: center;
+}

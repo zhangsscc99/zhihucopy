@@ -31,6 +31,14 @@ interface CollectionItem {
   has_item?: number;
 }
 
+// 邀请弹层候选用户：/search?type=user 的行形态（只取弹层要用的四个字段）。
+interface InviteUser {
+  id: number;
+  nickname: string;
+  avatar_url: string;
+  bio: string;
+}
+
 const firstChar = (s: string) => Array.from(s.trim())[0] ?? "";
 
 type AnswerSort = "default" | "newest";
@@ -197,6 +205,19 @@ export function Question() {
     setFavFor(null);
   };
   const [uncollecting, setUncollecting] = useState<Record<number, boolean>>({});
+
+  // 「邀请回答」弹层（Z1141）：搜索候选、已邀请集合（含服务端回读）、
+  // 本弹层累计邀请数（toast「已邀请 N 人」的 N）。
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteTerm, setInviteTerm] = useState("");
+  const [inviteResults, setInviteResults] = useState<InviteUser[] | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [invitedIds, setInvitedIds] = useState<Set<number>>(new Set());
+  const [invitedCount, setInvitedCount] = useState(0);
+  const [inviteBusy, setInviteBusy] = useState<Record<number, boolean>>({});
+  const inviteTriggerRef = useRef<HTMLElement | null>(null);
+  const inviteSearchSeq = useRef(0);
 
   // 回答分页：detail 首屏 5 条视为第 0 页，之后走 /questions/:id/answers 分页接口
   const [sort, setSort] = useState<AnswerSort>(() => readSort(location.search));
@@ -489,6 +510,67 @@ export function Question() {
     prevFavRef.current = favFor;
   }, [favFor]);
 
+  // 邀请弹层：Esc 关闭 + 背景滚动锁定（关层即还原）。外部点击走遮罩自身的
+  // onMouseDown，不挂 document 监听，listener 随弹层卸载清理。
+  useEffect(() => {
+    if (!inviteOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInviteOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [inviteOpen]);
+
+  // 打开时焦点进搜索框；关闭后焦点还回「邀请回答」触发按钮。
+  const prevInviteRef = useRef(false);
+  useEffect(() => {
+    if (inviteOpen) {
+      document.querySelector<HTMLElement>(".invite__search")?.focus();
+    } else if (prevInviteRef.current) {
+      inviteTriggerRef.current?.focus();
+    }
+    prevInviteRef.current = inviteOpen;
+  }, [inviteOpen]);
+
+  // 候选搜索防抖 300ms：输入 ≥1 字才发请求；seq 守卫丢弃过期响应。
+  // 数据源复用 /search?type=user（服务端已按 testUserSql 排除测试账号）。
+  useEffect(() => {
+    if (!inviteOpen) return;
+    const term = inviteTerm.trim();
+    if (!term) {
+      setInviteResults(null);
+      setInviteError("");
+      setInviteLoading(false);
+      return;
+    }
+    const seq = ++inviteSearchSeq.current;
+    setInviteLoading(true);
+    const timer = window.setTimeout(() => {
+      get<Page<InviteUser>>(
+        `/search?q=${encodeURIComponent(term)}&type=user&limit=20`
+      )
+        .then((d) => {
+          if (seq !== inviteSearchSeq.current) return;
+          setInviteResults(d.items);
+          setInviteError("");
+        })
+        .catch((e: Error) => {
+          if (seq !== inviteSearchSeq.current) return;
+          setInviteResults([]);
+          setInviteError(e.message || "搜索失败，请重试");
+        })
+        .finally(() => {
+          if (seq === inviteSearchSeq.current) setInviteLoading(false);
+        });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [inviteTerm, inviteOpen]);
+
   // 刚发布的回答：本地置顶后滚动定位 + 短暂高亮
   useEffect(() => {
     if (newId === null) return;
@@ -644,13 +726,42 @@ export function Question() {
     editorRef.current?.focus();
   };
 
-  const invite = async () => {
-    const url = `${window.location.origin}/zhihucopy/question/${id}`;
+  // 「邀请回答」：未登录走站内登录跳转惯例；登录后开弹层并回读本问题
+  // 已发出的邀请（刷新/重开弹层时「已邀请」态由服务端口径恢复）。
+  const openInvite = (trigger: HTMLElement) => {
+    if (!user) return needLogin();
+    inviteTriggerRef.current = trigger;
+    setInviteTerm("");
+    setInviteResults(null);
+    setInviteError("");
+    setInviteLoading(false);
+    setInviteBusy({});
+    setInvitedCount(0);
+    setInvitedIds(new Set());
+    setInviteOpen(true);
+    get<{ invitee_ids: number[] }>(`/invites?question_id=${id}`)
+      .then((d) => setInvitedIds(new Set(d.invitee_ids)))
+      .catch(() => setInvitedIds(new Set()));
+  };
+
+  // 发出邀请：成功后该行变「已邀请」disabled，toast 报本弹层累计人数。
+  // 失败给 error toast，按钮回落可点（inviteBusy 复位）。
+  const inviteUser = async (u: InviteUser) => {
+    if (inviteBusy[u.id] || invitedIds.has(u.id)) return;
+    setInviteBusy((b) => ({ ...b, [u.id]: true }));
     try {
-      await navigator.clipboard.writeText(url);
-      toast("链接已复制，发给你想邀请的人吧");
-    } catch {
-      toast(url);
+      const d = await post<{ ok: boolean; invited_count: number; already: boolean }>(
+        "/invites",
+        { question_id: Number(id), invitee_id: u.id }
+      );
+      setInvitedIds((s) => new Set(s).add(u.id));
+      const next = d.already ? invitedCount : invitedCount + 1;
+      setInvitedCount(next);
+      toast(`已邀请 ${next} 人`);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setInviteBusy((b) => ({ ...b, [u.id]: false }));
     }
   };
 
@@ -1089,7 +1200,13 @@ export function Question() {
           {followed ? "已关注" : "关注问题"}
         </Button>
         <Button onClick={writeAnswer}>写回答</Button>
-        <button type="button" className="question__invite" onClick={invite}>
+        <button
+          type="button"
+          className="question__invite"
+          aria-haspopup="dialog"
+          aria-expanded={inviteOpen}
+          onClick={(e) => openInvite(e.currentTarget)}
+        >
           邀请回答
         </button>
       </div>
@@ -1747,6 +1864,93 @@ export function Question() {
           </p>
         )}
       </section>
+
+      {inviteOpen && (
+        <div
+          className="invite__mask"
+          onMouseDown={(e) => {
+            // preventDefault 拦住 mousedown 默认的焦点转移——关层后焦点统一由
+            // 打开/关闭 effect 还给「邀请回答」触发按钮，不被这次点击抢走。
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+              setInviteOpen(false);
+            }
+          }}
+        >
+          <div
+            className="invite"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-dialog-title"
+          >
+            <div className="invite__head">
+              <h2 className="invite__title" id="invite-dialog-title">
+                邀请回答
+              </h2>
+              <button
+                type="button"
+                className="invite__close"
+                aria-label="关闭"
+                onClick={() => setInviteOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <input
+              type="text"
+              className="invite__search"
+              aria-label="搜索用户"
+              placeholder="搜索知友昵称"
+              maxLength={30}
+              value={inviteTerm}
+              onChange={(e) => setInviteTerm(e.target.value)}
+            />
+            <div className="invite__list">
+              {!inviteTerm.trim() ? (
+                <p className="invite__empty">输入昵称搜索可邀请的知友</p>
+              ) : inviteLoading ? (
+                <p className="invite__empty">搜索中…</p>
+              ) : inviteError ? (
+                <p className="invite__empty" role="alert">
+                  {inviteError}
+                </p>
+              ) : inviteResults === null ? null : inviteResults.length === 0 ? (
+                <p className="invite__empty">暂无匹配用户</p>
+              ) : (
+                inviteResults.map((u) => (
+                  <div className="invite__row" key={u.id}>
+                    <span className="avatar invite__avatar" aria-hidden="true">
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="" loading="lazy" />
+                      ) : (
+                        u.nickname.slice(0, 1)
+                      )}
+                    </span>
+                    <span className="invite__who">
+                      <span className="invite__nick">{u.nickname}</span>
+                      <span className="invite__bio">
+                        {u.bio || "这位知友还没有写简介"}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="invite__btn"
+                      disabled={invitedIds.has(u.id) || Boolean(inviteBusy[u.id])}
+                      onClick={() => inviteUser(u)}
+                    >
+                      {invitedIds.has(u.id)
+                        ? "已邀请"
+                        : inviteBusy[u.id]
+                          ? "邀请中…"
+                          : "邀请"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
