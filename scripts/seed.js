@@ -56,12 +56,14 @@ function requireFromServer(name) {
 const bcrypt = requireFromServer("bcryptjs");
 const { getDb } = require("../server/db");
 const { BADGES } = require("../server/badges");
-// Z1097：种子用户人设领域（昵称->领域集合、大类->可接受域），
-// 回答作者只在「作者领域 ∩ 问题大类可接受域」里挑，杜绝健身教练答 React。
+// Z1097：种子用户人设领域（昵称->领域集合、话题/大类->可接受域），
+// 回答作者只在「作者领域 ∩ 问题话题可接受域」里挑，杜绝健身教练答 React。
 const {
   PERSONA_DOMAINS,
+  TOPIC_DOMAINS,
   DOMAINS_BY_CAT,
   domainsOf,
+  authorFitsTopic,
 } = require("./persona-domains");
 
 // ---------------------------------------------------------------------------
@@ -227,6 +229,12 @@ const { stories: STORIES } = require("./seed-data");
 for (const [nick] of USERS) {
   if (!PERSONA_DOMAINS[nick]) {
     throw new Error(`persona-domains: 种子用户「${nick}」缺领域定义`);
+  }
+}
+// Z1106：每个话题必须进 TOPIC_DOMAINS，否则派作者退回大类口径（假绿根因）。
+for (const t of TOPICS) {
+  if (!TOPIC_DOMAINS[t.name]) {
+    throw new Error(`persona-domains: 话题「${t.name}」缺 TOPIC_DOMAINS 定义`);
   }
 }
 
@@ -560,16 +568,15 @@ function main() {
       bump("topics");
     }
     // Z1097：用户领域 = PERSONA_DOMAINS(昵称) ∪ bio 关键词（见 persona-domains.js）。
-    // clone 用户继承原型的领域，回答作者只在其中与问题大类相交的人里挑。
+    // clone 用户继承原型的领域，回答作者只在其中与问题话题域相交的人里挑。
     const domainSetOf = (uIdx) => {
       const [nick, bio] = USERS[uIdx % USERS.length];
       return domainsOf(nick, bio);
     };
-    const fitsCat = (uIdx, cat) => {
-      const ok = DOMAINS_BY_CAT[cat];
-      if (!ok) return true;
-      for (const d of domainSetOf(uIdx)) if (ok.includes(d)) return true;
-      return false;
+    // Z1106：判定下沉到话题级（topicName 命中 TOPIC_DOMAINS），cat 仅作兜底。
+    const fitsCat = (uIdx, cat, topicName) => {
+      const [nick, bio] = USERS[uIdx % USERS.length];
+      return authorFitsTopic(nick, bio, topicName, cat);
     };
 
     // ---------------- questions ----------------
@@ -625,7 +632,7 @@ function main() {
       }
       bump("question_topics");
       questionPlan[i] = {
-        qid, cat, authorIdx, topicId: topic.id, story, tier,
+        qid, cat, authorIdx, topicId: topic.id, topicName: topic.name, story, tier,
         createdMs, viewTarget: rr(tp.views),
       };
     }
@@ -653,7 +660,7 @@ function main() {
       // 随机部分只在该问题大类可接受的领域里挑（Z1097），不够才退回全体。
       const preferred = userIds
         .map((id, idx) => ({ id, idx }))
-        .filter((u) => fitsCat(u.idx, cat) && u.idx !== q.authorIdx);
+        .filter((u) => fitsCat(u.idx, cat, q.topicName) && u.idx !== q.authorIdx);
       const fallback = userIds.map((id, idx) => ({ id, idx })).filter((u) => u.idx !== q.authorIdx);
       const pool = shuffle(preferred.length >= nAns ? preferred : fallback);
       const authors = [];
@@ -675,7 +682,7 @@ function main() {
         if (want) {
           const wi = NICK_INDEX.get(want);
           if (wi !== undefined && wi < N_USERS && wi !== q.authorIdx && !authors.includes(userIds[wi])) {
-            if (fitsCat(wi, cat)) {
+            if (fitsCat(wi, cat, q.topicName)) {
               uid = userIds[wi];
             } else {
               uid = pickSameDomain();

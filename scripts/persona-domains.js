@@ -11,10 +11,17 @@
  *   PERSONA_DOMAINS   昵称 -> 领域数组（权威表，覆盖 USERS 里全部种子人设；
  *                     昵称后的数字序号是 clone 后缀，查表前剥掉）
  *   BIO_DOMAIN_RULES  bio 关键词 -> 领域，给非种子用户兜底
- *   DOMAINS_BY_CAT    问题大类 -> 可接受的作者领域（同域 + 相邻域）
+ *   TOPIC_DOMAINS     话题名 -> 可接受的作者领域（Z1106：判定下沉到话题级）
+ *   DOMAINS_BY_CAT    问题大类 -> 可接受的作者领域（话题未覆盖时的兜底；
+ *                     断言要求兜底命中数 = 0，覆盖不全直接抛错）
  *
  * 判定一律用「领域集合」：一个人可以跨界（白露 = 妈妈 + 设计师），
- * 命中条件是「作者领域集合 ∩ 该大类可接受域」非空。
+ * 命中条件是「作者领域集合 ∩ 该题话题可接受域」非空。
+ *
+ * Z1106 背景：旧口径只看大类，code 可接受域含 data，于是「统计出身做增长
+ * 的温故52 在 /question/6 教 React useEffect」被判命中（假绿）。话题级口径
+ * 把 React/JavaScript/前端类话题的可接受域收紧到 frontend（最多一个真正
+ * 相邻域，绝不含 data），数据库类才允许 data。
  */
 "use strict";
 
@@ -80,11 +87,39 @@ const BIO_DOMAIN_RULES = [
   [/会计|算账|理财|支付|风控|本金|记账/, "money"],
 ];
 
-// 问题大类 -> 可接受的作者领域。同域在前，相邻域在后；
-// 相邻关系取「真实社区里会出现的跨界」（HR 谈心理、会计算账式答生活、
-// 统计背景答学习方法），但不放到「健身教练答 React」那种程度。
+// 话题名 -> 可接受的作者领域（Z1106 新增，判定主口径）。
+// 覆盖 seed.js TOPICS 全部 20 个话题，须与生产库 topics 表保持一致；
+// 新加话题时必须同步本表，否则断言按「兜底比例 > 0」抛错。
+// 原则：前端类话题绝不含 data；Python/数据库允许 data（数据处理本就是
+// Python 主场，DBA/数仓都是真实人设）；其余按语义归域，逐条注释。
+const TOPIC_DOMAINS = {
+  编程: ["frontend", "backend"], // 通用编程手艺：前后端工程师都算同行
+  JavaScript: ["frontend", "backend"], // Node.js 让后端算相邻域；绝不含 data
+  Python: ["backend", "data"], // 脚本+数据处理双主场：后端与数据分析都算同域
+  前端开发: ["frontend"], // 纯前端域，不给相邻域
+  数据库: ["backend", "data"], // 数据库类可含 data（DBA/数仓真实存在）
+  职场: ["work", "money", "data", "backend"], // 职场通识：运营/财务/分析师/工程师都会谈
+  职业规划: ["work", "money", "data", "backend"], // 转型路径：从业者视角都可谈
+  面试: ["work", "money", "data", "backend", "frontend"], // HR 面 + 技术面（前端岗常见）
+  生活: ["life", "work", "money", "psy"], // 过日子经验：生活/职场/算账/心理都能谈
+  家居收纳: ["life", "work", "psy"], // 收纳是生活主场；工位整理、秩序感也算相邻
+  科学: ["sci", "data", "health", "psy"], // 研究方法与证据：科研/数据/医学/心理都沾边
+  统计学: ["data", "sci"], // 统计是数据人设主场，科研人同域
+  心理学: ["psy", "edu", "life", "work", "health"], // 情绪动机：心理/教育/生活/医护视角
+  情绪管理: ["psy", "edu", "life", "work", "health"], // 同心理学
+  人际关系: ["psy", "edu", "life", "work"], // 沟通边界：心理/教育/生活/职场
+  教育: ["edu", "psy", "life", "work", "sci", "data"], // 教学成长：老师/心理/家长/统计方法派
+  学习方法: ["edu", "psy", "life", "work", "sci", "data"], // 自学路径：教育+认知+统计背景都可谈
+  健康: ["health", "sci", "life", "psy"], // 身体维护：医护/科研/生活/心理
+  睡眠: ["health", "sci", "life", "psy"], // 节律与作息：同健康
+  理财: ["money", "work", "data", "backend"], // 记账配置：会计/职场/数据/风控工程师
+};
+
+// 问题大类 -> 可接受的作者领域。Z1106 起仅作「话题未覆盖时」的兜底，
+// 断言要求兜底命中数 = 0（实际判定走 TOPIC_DOMAINS）。
+// code 兜底已剔除 data（Z1106 假绿根因：温故[data,sci] 答 React 被判命中）。
 const DOMAINS_BY_CAT = {
-  code: ["frontend", "backend", "data"],
+  code: ["frontend", "backend"],
   work: ["work", "money", "data", "backend"],
   life: ["life", "work", "money", "psy"],
   sci: ["sci", "data", "health", "psy"],
@@ -116,14 +151,55 @@ function domainsOf(nickname, bio) {
   return out;
 }
 
-function acceptedDomains(cat) {
-  return new Set(DOMAINS_BY_CAT[cat] || DOMAINS);
+// 优先话题级：key 命中 TOPIC_DOMAINS（话题名）用话题域；
+// 否则按大类兜底；都不认识返回全域（= 不可判定，调用方须另行计数）。
+function acceptedDomains(key) {
+  if (key && TOPIC_DOMAINS[key]) return new Set(TOPIC_DOMAINS[key]);
+  if (key && DOMAINS_BY_CAT[key]) return new Set(DOMAINS_BY_CAT[key]);
+  return new Set(DOMAINS);
 }
 
-// 该作者写这个大类的问题是否「人设成立」。
+function topicCovered(name) {
+  return Object.prototype.hasOwnProperty.call(TOPIC_DOMAINS, name);
+}
+
+// 一道题的可接受域 = 其全部话题的可接受域并集。
+// 话题在 TOPIC_DOMAINS 里走话题级；未覆盖的按大类兜底（viaCat 记录，
+// 断言要求 viaCat 为空）；话题与大类都不认识进 unknown。
+// catOf(name) -> 大类，由调用方提供（seed.TOPICS / DB topics 映射）。
+function acceptedForTopics(topicNames, catOf) {
+  const out = { domains: new Set(), viaTopic: [], viaCat: [], unknown: [] };
+  for (const n of topicNames || []) {
+    if (TOPIC_DOMAINS[n]) {
+      for (const d of TOPIC_DOMAINS[n]) out.domains.add(d);
+      out.viaTopic.push(n);
+      continue;
+    }
+    const cat = catOf ? catOf(n) : null;
+    if (cat && DOMAINS_BY_CAT[cat]) {
+      for (const d of DOMAINS_BY_CAT[cat]) out.domains.add(d);
+      out.viaCat.push(n);
+    } else {
+      out.unknown.push(n);
+    }
+  }
+  return out;
+}
+
+// 该作者写这个大类的问题是否「人设成立」（大类兜底口径）。
 function authorFitsCat(nickname, bio, cat) {
   const mine = domainsOf(nickname, bio);
   const ok = acceptedDomains(cat);
+  for (const d of mine) if (ok.has(d)) return true;
+  return false;
+}
+
+// 话题级口径：优先 TOPIC_DOMAINS[topicName]，未覆盖回退 cat。
+function authorFitsTopic(nickname, bio, topicName, cat) {
+  const mine = domainsOf(nickname, bio);
+  const ok = topicName && TOPIC_DOMAINS[topicName]
+    ? new Set(TOPIC_DOMAINS[topicName])
+    : acceptedDomains(cat);
   for (const d of mine) if (ok.has(d)) return true;
   return false;
 }
@@ -132,10 +208,14 @@ module.exports = {
   DOMAINS,
   PERSONA_DOMAINS,
   BIO_DOMAIN_RULES,
+  TOPIC_DOMAINS,
   DOMAINS_BY_CAT,
   baseNickname,
   bioDomains,
   domainsOf,
   acceptedDomains,
+  topicCovered,
+  acceptedForTopics,
   authorFitsCat,
+  authorFitsTopic,
 };
