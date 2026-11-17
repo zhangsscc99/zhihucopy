@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
 
 export function Register() {
-  const { register } = useAuth();
+  const { user, loading, register } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
@@ -22,13 +22,16 @@ export function Register() {
     try {
       await register(email, password, nickname);
       toast("注册成功，欢迎来到知乎（仿）");
-      navigate(dest);
+      navigate(dest, { replace: true });
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
       setBusy(false);
     }
   };
+
+  if (loading) return null;
+  if (user) return <Navigate to={dest} replace />;
 
   return (
     <div className="authpage">
