@@ -617,3 +617,5 @@
 - [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
   verify: node scripts/assert/unanswered-stock.mjs
   risk: med
+
+- [x] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`/?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 又列同一批 Top10，1440×900 同一排名出现两次。hot tab 下右栏不再渲染热榜块，改渲染「等你来答」（UnansweredRail），未答库存为 0 时兜底「你可能感兴趣的话题」块而非留空白；非 hot tab 保持热榜块 + 等你来答；390px 右栏依旧不渲染、热榜 tab aria-selected 不回归 ✅ (2026-11-17 devin：App.tsx 抽 Rail 组件按 pathname+?tab 切换，UnansweredRail 空库存时复用 /topics 接口渲染话题兜底块（沿用 rail-block--unanswered 移动端隐藏）；新增 assert/rail-dedupe-hot.mjs——hot 页右栏无热榜块且首卡与右栏链接不重复、默认首页热榜块仍在、390 右栏隐藏无溢出、__errs 空；基线 FAIL「右栏仍含热榜区块」，修后 3/3 PASS；rail-second-block.mjs 回归 PASS)
