@@ -682,3 +682,12 @@
 - [ ] Z1118 推荐流空壳题占比（P2，内容厚度）：干净会话首屏 20 卡里 2 张 `0 个回答`（林晚风、陆离），点进去是空态页。要求推荐排序对 `answer_count = 0` 降权（不排除，只是不占首屏），首屏空壳 ≤1 条，且不破坏 Z1114 的大类配额（tech_ratio ≤0.5、非技术大类 ≥4）；断言同时锁「首屏 0 回答卡 ≤1」与既有 diversity 字段
   verify: node scripts/assert/feed-answer-floor.mjs
   risk: med
+
+## 第二十九轮走查新增（2026-11-17 11:45 UTC，来源 docs/PRODUCT-REVIEW.md 第二十九轮）
+
+- [ ] Z1119 删自己的评论留下「该评论已删除」占位（P2，体验）：answer#18 的 27 条评论里 6 行是空占位，夹在真人回复中间像数据没清干净。要求：自己删除成功的评论立即整行移除（不渲染占位）；他人删除/被折叠的占位合并成一行「N 条评论已删除」且仍可展开/不可展开一致；断言 `scripts/assert/comment-delete-placeholder.mjs`：登录种子号在自己评论上点删除并确认后，`main` 文本不再出现该条正文、该 target 下「该评论已删除」行数不因本次删除而 +1、可见评论条目数 -1，刷新后状态保持；同时锁「他人删除占位 ≤1 行」
+  verify: node scripts/assert/comment-delete-placeholder.mjs
+  risk: low
+- [ ] Z1120 推荐流空壳题占首屏 35%（P1，内容厚度，Z1118 复核升级）：干净会话 `/feed/recommended?limit=20` 返回 7 条 `answer_count=0` 且集中在首屏前 10 位，点进去全是空态。要求排序对 `answer_count=0` 降权（不排除，留给「等你来答」），首屏 20 条内空壳 ≤1，且不破 Z1114 配额（tech_ratio ≤0.5、非技术大类 ≥4、同 topic 连续 ≤2）；断言 `scripts/assert/feed-answer-floor.mjs`：API 复算首屏 0 回答条数 ≤1、diversity 字段与复算一致、两次请求同序；浏览器级 1440/390 首屏 `.feed__item` 中「0 个回答」卡 ≤1、`__errs` 空、无横向溢出
+  verify: node scripts/assert/feed-answer-floor.mjs
+  risk: med
