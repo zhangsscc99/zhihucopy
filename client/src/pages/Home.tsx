@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { get } from "../api";
 import { useAuth } from "../auth";
 import { Empty, ErrorBox } from "../components/Layout";
+import { FeedAuthor } from "../components/FeedAuthor";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { FeedSkeleton } from "../components/Skeleton";
 import { cardNav } from "../lib/cardNav";
@@ -116,11 +117,9 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         </p>
       ) : null}
       <div className="feed__meta">
-        <Link to={`/u/${q.author?.id}`} className="feed__author">
-          {q.author?.nickname}
-        </Link>
+        <FeedAuthor author={q.author} />
         <span>{q.answer_count} 个回答</span>
-        <span>{q.view_count} 次浏览</span>
+        <span className="feed__views">{q.view_count} 次浏览</span>
       </div>
       {/* 话题胶囊跟在元信息之后；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
       {q.topics?.length ? (
@@ -157,9 +156,7 @@ function AnswerResultCard({ a, kw }: { a: AnswerResult; kw: string }) {
         </p>
       )}
       <div className="feed__meta">
-        <Link to={`/u/${a.author?.id}`} className="feed__author">
-          {a.author?.nickname}
-        </Link>
+        <FeedAuthor author={a.author} />
         <span>赞同 {a.vote_up}</span>
         <span>{formatTime(a.created_at || "")}</span>
       </div>
@@ -242,9 +239,7 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
             </p>
           ) : null}
           <div className="feed__meta">
-            <Link to={`/u/${q.author?.id}`} className="feed__author">
-              {q.author?.nickname}
-            </Link>
+            <FeedAuthor author={q.author} />
             {typeof q.hot_score === "number" && (
               <span className="feed__heat">
                 {heatLabel(q.hot_score)}
@@ -256,7 +251,7 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
               </span>
             )}
             <span>{q.answer_count} 个回答</span>
-            <span>{q.view_count} 次浏览</span>
+            <span className="feed__views">{q.view_count} 次浏览</span>
           </div>
           {q.topics?.length ? (
             <div className="feed__topics">
