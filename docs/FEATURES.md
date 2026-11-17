@@ -626,6 +626,6 @@
 - [x] Z1104 登录/注册表单 label 未与 input 关联（P2，a11y）：`/register`、`/login` 的 `<label>` 无 `for`、`<input>` 无 `id`，点标签不聚焦、读屏读不出字段名；且 `.field:focus { outline:none }` 压掉全局 `input:focus-visible` 焦点环 ✅ (2026-11-17 devin：Register/Login 每个 input 补稳定 id（reg-*/login-*）+ label htmlFor；styles.css 补 `.field:focus-visible` 2px 主色轮廓；新增 a11y-form-labels.mjs（getByLabel 唯一定位 + 点 label 聚焦 + Tab 焦点环 + 双视口溢出/errs 守卫）PASS，基线 FAIL；auth.mjs、a11y.mjs 回归全绿)
   verify: node scripts/assert/a11y-form-labels.mjs
   risk: low
-- [ ] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 再列同一份 Top10（1440 屏上同一排名出现两次）。需在热榜 tab 隐藏右栏热榜块、改渲染「等你来答」（复用 UnansweredRail），保留 390 隐藏策略；断言 `?tab=hot` 1440 下右栏不含热榜块、主列表首卡与右栏内容不重复
+- [x] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`/?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 又列同一批 Top10，1440×900 同一排名出现两次。hot tab 下右栏不再渲染热榜块，改渲染「等你来答」（UnansweredRail），未答库存为 0 时兜底「你可能感兴趣的话题」块而非留空白；非 hot tab 保持热榜块 + 等你来答；390px 右栏依旧不渲染、热榜 tab aria-selected 不回归 ✅ (2026-11-17 devin：App.tsx 抽 Rail 组件按 pathname+?tab 切换，UnansweredRail 空库存时复用 /topics 接口渲染话题兜底块（沿用 rail-block--unanswered 移动端隐藏）；新增 assert/rail-dedupe-hot.mjs——hot 页右栏无热榜块且首卡与右栏链接不重复、默认首页热榜块仍在、390 右栏隐藏无溢出、__errs 空；基线 FAIL「右栏仍含热榜区块」，修后 3/3 PASS；rail-second-block.mjs 回归 PASS)
   verify: node scripts/assert/rail-dedupe-hot.mjs
   risk: low

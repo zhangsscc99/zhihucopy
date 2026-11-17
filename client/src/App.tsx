@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { HotRail } from "./components/HotRail";
@@ -30,16 +30,24 @@ function Search() {
   return <Home />;
 }
 
+// Z1105 — 首页热榜 tab 主列表本身就是热榜 Top20，右栏再列同一份属于重复；
+// hot 下热榜块让位给「等你来答」（含无数据时的话题兜底），其余页面保持原样。
+function Rail() {
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const hotHome = pathname === "/" && params.get("tab") === "hot";
+  if (hotHome) return <UnansweredRail />;
+  return (
+    <>
+      <HotRail />
+      <UnansweredRail />
+    </>
+  );
+}
+
 export function App() {
   return (
-    <Layout
-      rail={
-        <>
-          <HotRail />
-          <UnansweredRail />
-        </>
-      }
-    >
+    <Layout rail={<Rail />}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<Search />} />
