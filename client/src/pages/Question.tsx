@@ -582,7 +582,7 @@ export function Question() {
 
   const submitComment = async (a: Answer) => {
     const body = (commentDrafts[a.id] ?? "").trim();
-    if (!body) return;
+    if (!body || commentSending[a.id]) return;
     setCommentSending((s) => ({ ...s, [a.id]: true }));
     try {
       const { comment } = await post<{ comment: CommentNode }>("/comments", {
@@ -1440,6 +1440,15 @@ export function Question() {
                                 onChange={(e) =>
                                   setCommentDrafts((d) => ({ ...d, [a.id]: e.target.value }))
                                 }
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    !e.nativeEvent.isComposing
+                                  ) {
+                                    e.preventDefault();
+                                    void submitComment(a);
+                                  }
+                                }}
                               />
                               <div className="answer__comment-actions">
                                 <Button
