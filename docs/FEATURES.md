@@ -218,7 +218,7 @@
 - [ ] Z974 404 页返修：区分「内容不存在」与网络错误，补「回首页/搜索/提问」入口（Z967 收尾）
   verify: node scripts/assert/notfound-page.mjs
   risk: low
-- [ ] Z975 评论计数常显：评论区展开后「N 条评论」计数消失，展开态保留数量
+- [x] Z975 评论计数常显：评论区展开后「N 条评论」计数消失，展开态保留数量（复核结论：产品侧 `收起评论（N）` 已在 Z1029/Z1066 落地，本轮补齐断言——展开态按钮必须正向含当前计数、全页「N 条评论」计数节点 ≤1；基线 `790b267` FAIL） ✅ (2026-11-17 devin swe-2-medium：`assert/comment-count.mjs` 新增 `countCommentCountNodes()` 叶子节点统计 + 展开态 `includes（N）` 正向断言 + 收起/重载两态节点数守卫，3/3 连跑 PASS；基线 worktree FAIL「展开后计数消失：「收起评论」不匹配 收起评论（N）」)
   verify: node scripts/assert/comment-count.mjs
   risk: low
 - [x] Z977 时间统一：7 天内相对时间、更早 `YYYY-MM-DD`，提问/回答/评论同一格式（Z958 收尾） ✅ (2026-11-15 devin)
@@ -584,10 +584,10 @@
 
 ## 第二十二轮收尾观察（待办）
 
-- [ ] Z1094 登录后用浏览器「后退」，头部仍渲染未登录态（P3，状态一致性）：线上实测登录成功 → `history.back()` 停在 `/question/6`（`next=` 回跳正确、`.authform` 已消失），但顶栏仍显示「登录 注册」，刷新后才变「林间有风」。原因是后退命中的历史项由浏览器缓存/React 未重跑 auth 校验。需在 `popstate`（或路由变化）时重新校验 token/user，保证任何一次进入页面都按当前 token 渲染头部
+- [x] Z1094 登录后用浏览器「后退」，头部仍渲染未登录态（P3，状态一致性）：线上实测登录成功 → `history.back()` 停在 `/question/6`（`next=` 回跳正确、`.authform` 已消失），但顶栏仍显示「登录 注册」，刷新后才变「林间有风」。原因是后退命中的历史项由浏览器缓存/React 未重跑 auth 校验。需在 `popstate`（或路由变化）时重新校验 token/user，保证任何一次进入页面都按当前 token 渲染头部 ✅ (2026-11-17 devin swe-2-high：`auth.tsx` 新增串行化 `refresh()` + `userTokenRef`，触发面=挂载/location.key 变化/pageshow/popstate/focus/visibilitychange/storage；`api.ts` 增 `onUnauthorized` 选项（静默复验不带跳登录）；`TopNav` 解析中渲染 null 占位不再闪「登录 注册」；新增 `assert/back-auth-state.mjs`（三场景 × 1440/390，goBack 后 `.usermenu__trigger` 3s 内出现、注入有效 token → popstate 翻已登录、无效 token → 回未登录；__errs/溢出/白屏守卫），3/3 连跑 PASS；基线副本 FAIL「goBack 后等不到 .usermenu__trigger」；回归 login-history-replace / usermenu-a11y-name / a11y-form-labels / auth 全绿)
   verify: node scripts/assert/back-auth-state.mjs
   risk: low
-- [ ] Z1095 通知文案「与你互动了」过于含糊（P3，文案）：通知页 7 条里 3 条是「XXX · 与你互动了」，看不出对方是回答了你的问题、还是评论/邀请了。真知乎会写「回答了你的问题」「在回答中提到了你」。需按 type 细分文案，并同步 e2e/assert 里的文案断言
+- [x] Z1095 通知文案「与你互动了」过于含糊（P3，文案）：通知页 7 条里 3 条是「XXX · 与你互动了」，看不出对方是回答了你的问题、还是评论/邀请了。真知乎会写「回答了你的问题」「在回答中提到了你」。需按 type 细分文案，并同步 e2e/assert 里的文案断言 ✅ (2026-11-17 devin swe-2-medium：根因=`reply`(26 条)/`moderation`(7 条) 无映射；`Notifications.tsx` ACTION_TEXT 补「回复了你的评论」「处理了你的回答」+ `replied`/`moderated` 内联 SVG（沿用 1.7 stroke 规格），`server/routes/notifications.js` 的 EVENT_LABELS 同口径补两条；新增 `assert/notification-copy.mjs`（选有 reply 的种子号，API 每个 event_label 非空白名单内、两视口行文案无「互动」、含一行「回复了你的评论」、__errs/溢出守卫）PASS；基线副本 FAIL「通知 #59 (type=reply) event_label 为空」；无既有断言依赖旧兜底文案)
   verify: node scripts/assert/notification-copy.mjs
   risk: low
 - [ ] Z1096 关注流「有新回答」提示（P2，社交回路）：现在关注流只能靠手动刷新；建议在「关注」tab 上加「N 条新回答」pill，基于 `answers.created_at > 上次访问时间` 计算，点击后插入并清零
@@ -661,6 +661,6 @@
 
 ## 第二十七轮走查新增（2026-11-17 09:5x，来源 docs/PRODUCT-REVIEW.md 第二十七轮）
 
-- [ ] Z1115 昵称批量生成感（P1，内容真实感）：生产库 370 个账号里 215 个昵称是「汉语名 + 1–3 位数字」（`陈默31`/`林间有风32`/`半山腰64`），另有 1 个带拉丁后缀（`沈知微gbw`）。这些名字同时出现在信息流卡作者行、回答作者行、通知行，是全站最刺眼的「合成感」。需改为真实感昵称池（无数字尾巴，重名用不同姓/词区分；不得与既有真实昵称重复），写幂等改名脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写生产库，跑前 `.backup()`，同步改 `answer_revisions`/通知 actor 显示无需改名因按 user_id 关联），并断言「昵称以 1–4 位数字结尾的比例 ≤2%」且线上通知/回答作者行不再出现
+- [x] Z1115 昵称批量生成感（P1，内容真实感） ✅ (2026-11-17 devin swe-2-high：新增 `scripts/nickname-pool.js`（30 原型 × 7 别名 + 142 条通用池，加载即校验 2–6 字/无数字拉丁/全池唯一）、`persona-domains.js` 加 `ALIAS_TO_BASE` + `personaBaseOf()`（别名/数字尾/本名三级还原，领域映射不变，别名指向表外即抛错）、`seed.js` clone 命名改 `cloneNickname()`；新增 `scripts/fix-nicknames.js`（默认只读 dry-run，`--apply --prod` + `ZH_ALLOW_PROD_WRITE=1` + 当日 `.backup()` 才写生产，跳过 content-filter 测试账号，幂等二次 0 命中）；新增 `assert/nickname-realism.mjs`（DB/API/浏览器三层，可疑比例 ≤2%）；**生产库已 apply：370 账号中 294 个改名**（备份 `data/backups/zhihu-20261117100930-nicknames.db`），线上可疑名 0/353；回归 seed-persona-domain 100%、seed-bio-consistency 100%、`server npm test` 38/38)
   verify: node scripts/assert/nickname-realism.mjs
   risk: med
