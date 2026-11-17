@@ -47,7 +47,7 @@ const BADGES = [
   {
     code: "first_follower",
     event: "first_follower",
-    name: "被关注",
+    name: "被看见",
     description: "收获了第一个粉丝",
     icon_svg: medal(`<circle cx="8" cy="6.2" r="1.8" fill="#0066FF"/><path d="M4.8 11.5c0-1.8 1.4-2.9 3.2-2.9s3.2 1.1 3.2 2.9" stroke="#0066FF" stroke-width="1.4" stroke-linecap="round"/>`),
     check: (db, uid) =>
@@ -104,8 +104,11 @@ function ensureSeeded(db) {
     })();
     db.pragma("foreign_keys = ON");
   }
+  // upsert 而非 IGNORE：徽章改名/改描述时老库里的 badges 行一并刷新。
   const ins = db.prepare(
-    "INSERT OR IGNORE INTO badges (code, name, description, icon_svg, rule) VALUES (?, ?, ?, ?, ?)"
+    `INSERT INTO badges (code, name, description, icon_svg, rule) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(code) DO UPDATE SET name=excluded.name, description=excluded.description,
+       icon_svg=excluded.icon_svg, rule=excluded.rule`
   );
   for (const b of BADGES) ins.run(b.code, b.name, b.description, b.icon_svg, b.event);
   // 旧授予表仍存在时，把 code 匹配的记录并入 user_badges。

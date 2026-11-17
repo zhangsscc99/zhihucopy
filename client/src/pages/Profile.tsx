@@ -535,14 +535,6 @@ export function Profile() {
         </div>
         <dl className="profile__stats">
           <div>
-            <dt>回答</dt>
-            <dd>{stats.answers}</dd>
-          </div>
-          <div>
-            <dt>提问</dt>
-            <dd>{stats.questions}</dd>
-          </div>
-          <div>
             <dt>获赞</dt>
             <dd>{stats.vote_up}</dd>
           </div>
