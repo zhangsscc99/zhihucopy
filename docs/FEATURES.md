@@ -617,3 +617,6 @@
 - [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
   verify: node scripts/assert/unanswered-stock.mjs
   risk: med
+- [x] Z1104 登录/注册表单 label 未与 input 关联（P2，a11y）：`/register`、`/login` 的 `<label>` 无 `for`、`<input>` 无 `id`，点标签不聚焦、读屏读不出字段名；且 `.field:focus { outline:none }` 压掉全局 `input:focus-visible` 焦点环 ✅ (2026-11-17 devin：Register/Login 每个 input 补稳定 id（reg-*/login-*）+ label htmlFor；styles.css 补 `.field:focus-visible` 2px 主色轮廓；新增 a11y-form-labels.mjs（getByLabel 唯一定位 + 点 label 聚焦 + Tab 焦点环 + 双视口溢出/errs 守卫）PASS，基线 FAIL；auth.mjs、a11y.mjs 回归全绿)
+  verify: node scripts/assert/a11y-form-labels.mjs
+  risk: low

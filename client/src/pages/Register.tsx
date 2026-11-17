@@ -38,18 +38,20 @@ export function Register() {
       <Card className="authcard">
         <h1 className="page-title">加入知乎（仿）</h1>
         <form onSubmit={submit} className="authform">
-          <label className="form-label">
+          <label className="form-label" htmlFor="reg-nickname">
             昵称
             <Input
+              id="reg-nickname"
               required
               maxLength={24}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
             />
           </label>
-          <label className="form-label">
+          <label className="form-label" htmlFor="reg-email">
             邮箱
             <Input
+              id="reg-email"
               type="email"
               required
               autoComplete="email"
@@ -57,9 +59,10 @@ export function Register() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </label>
-          <label className="form-label">
+          <label className="form-label" htmlFor="reg-password">
             密码
             <Input
+              id="reg-password"
               type="password"
               required
               minLength={6}

@@ -37,9 +37,10 @@ export function Login() {
       <Card className="authcard">
         <h1 className="page-title">登录知乎（仿）</h1>
         <form onSubmit={submit} className="authform">
-          <label className="form-label">
+          <label className="form-label" htmlFor="login-email">
             邮箱
             <Input
+              id="login-email"
               type="email"
               required
               autoComplete="email"
@@ -47,9 +48,10 @@ export function Login() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </label>
-          <label className="form-label">
+          <label className="form-label" htmlFor="login-password">
             密码
             <Input
+              id="login-password"
               type="password"
               required
               autoComplete="current-password"
