@@ -485,6 +485,10 @@ textarea:focus-visible {
 .feed__meta > span {
   flex: none;
 }
+.feed__answers-short,
+.feed__views-short {
+  display: none;
+}
 .feed__author {
   color: var(--ink-3);
   display: inline-flex;
@@ -774,9 +778,14 @@ mark.hl {
   .feed__item {
     padding: 14px;
   }
-  /* 窄屏元信息行让位：藏「N 次浏览」，保头像 + 昵称 + 回答数单行 */
+  /* 窄屏元信息行：长文案「N 个回答 / N 次浏览」换成紧凑「N 答 / N 浏览（万）」单行 */
+  .feed__meta .feed__answers,
   .feed__meta .feed__views {
     display: none;
+  }
+  .feed__meta .feed__answers-short,
+  .feed__meta .feed__views-short {
+    display: inline;
   }
   .search-head {
     padding: 12px 14px;
