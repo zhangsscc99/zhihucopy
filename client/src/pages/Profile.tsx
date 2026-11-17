@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { followUser, get, unfollowUser } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -372,6 +372,7 @@ export function Profile() {
   const { user: me, loading: authLoading } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
@@ -417,7 +418,9 @@ export function Profile() {
   const toggleFollow = async () => {
     if (!data || followPending) return;
     if (!me) {
-      navigate(`/login?next=${encodeURIComponent(`/u/${id ?? data.user.id}`)}`);
+      navigate(`/login?next=${encodeURIComponent(`/u/${id ?? data.user.id}`)}`, {
+        state: { returnTo: location.pathname + location.search, pushed: true },
+      });
       return;
     }
     if (me.id === data.user.id) return;

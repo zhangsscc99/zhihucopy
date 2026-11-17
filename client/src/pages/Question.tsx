@@ -133,6 +133,12 @@ export function Question() {
   const loginNext = `/login?next=${encodeURIComponent(
     location.pathname + location.search
   )}`;
+  // push 进站并标记 returnTo：登录成功后 Login 用 navigate(-1) 落回本条目，
+  // 「后退一次」能越过本页回到上一页（详见 Login.tsx）。
+  const loginState = {
+    returnTo: location.pathname + location.search,
+    pushed: true,
+  };
 
   const [question, setQuestion] = useState<QuestionType | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -524,7 +530,7 @@ export function Question() {
 
   const needLogin = () => {
     toast("请先登录", "error");
-    navigate(loginNext);
+    navigate(loginNext, { state: loginState });
   };
 
   const followed = following ?? Boolean(question?.followed);
@@ -583,7 +589,7 @@ export function Question() {
   const writeAnswer = () => {
     if (!user) {
       toast("登录后即可回答");
-      navigate(loginNext);
+      navigate(loginNext, { state: loginState });
       return;
     }
     editorBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1039,7 +1045,7 @@ export function Question() {
         {!user && (
           <p className="answers__login-hint">
             登录后即可回答 · 已有 {question.answer_count} 条回答
-            <Link to={loginNext} className="answers__login-cta">
+            <Link to={loginNext} state={loginState} className="answers__login-cta">
               去登录
             </Link>
           </p>
