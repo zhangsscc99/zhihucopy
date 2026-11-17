@@ -3,8 +3,9 @@
 //   · 关注话题后该话题下的问题出现在流中
 //   · 关注的问题出现在流中
 //   · 未登录返回 401（与 notifications/votes 等需登录接口一致）
-//   · 自动化产物（测试标题或测试账号作者）即使来自关注的人也不进流
-// 注意：要「出现」在流中的问题需用真实形态账号与标题，否则会被 content-filter 过滤。
+//   · 测试账号作者的内容即使被关注也不进流；Z1079 起标题形态不再过滤关注流
+//     （私域流仅按作者身份过滤），命中标题规则的真实作者提问应出现在流中
+// 注意：进流与否只看作者身份；测试作者由 @test.dev 邮箱/is_test 标记识别。
 import { ok, req, register, expect, main, uniq } from "./lib.mjs";
 
 const hasQ = (feed, qid) =>
@@ -58,10 +59,11 @@ main("feed-following", async () => {
   const feedQ = await ok("GET", "/feed/following?page=1", { token: a.token });
   expect(hasQ(feedQ, fq.id), "followed question not in A's feed");
 
-  // 自动化产物标题即使来自关注的人也不进流。
+  // Z1079：关注流不按标题形态过滤 —— 真实作者命中标题规则（[assert] 前缀）的
+  // 提问仍应进流（公共出口才拦；由 following-title-allow.mjs 反向守卫）。
   const { question: spam } = await ok("POST", "/questions", { token: b.token, body: { title: `[assert] ${uniq("q")} — spam?` } });
   const feedSpam = await ok("GET", "/feed/following?page=1&limit=50", { token: a.token });
-  expect(!hasQ(feedSpam, spam.id), "spam-titled question leaked into following feed");
+  expect(hasQ(feedSpam, spam.id), "real-author question wrongly title-filtered from following feed");
 
   // 测试账号作者的提问即使标题正常、被关注也不进流。
   const d = await register();

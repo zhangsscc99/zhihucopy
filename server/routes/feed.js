@@ -3,7 +3,7 @@ const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
 const { questionRow, topicsForQuestions, HOT_SCORE_SQL } = require("./questions");
-const { testQuestionSql } = require("../content-filter");
+const { testQuestionSql, testUserSql } = require("../content-filter");
 
 const router = express.Router();
 
@@ -51,7 +51,9 @@ const FOLLOWING_CANDIDATES = `
 `;
 
 // GET /feed/following?page=&limit= — 本人关注内容流，item 与 GET /questions 列表项一致。
-// 需登录（与 notifications/votes 一致：未登录 401）；自动化产物标题同样被过滤。
+// 需登录（与 notifications/votes 一致：未登录 401）。私域流只按作者身份过滤
+// （testUserSql）：按标题形态猜「像不像测试内容」会误吞被关注者的真实提问
+// （Z1079 回归修复）；公共出口仍走标题+作者双滤。
 router.get("/following", requireAuth, (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
@@ -63,7 +65,7 @@ router.get("/following", requireAuth, (req, res) => {
        FROM (${FOLLOWING_CANDIDATES}) c
        JOIN questions q ON q.id = c.qid
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${testUserSql("u")}
        GROUP BY c.qid
        ORDER BY activity_ts DESC, c.qid DESC
        LIMIT ? OFFSET ?`
@@ -80,7 +82,7 @@ router.get("/following", requireAuth, (req, res) => {
          SELECT c.qid FROM (${FOLLOWING_CANDIDATES}) c
          JOIN questions q ON q.id = c.qid
          JOIN users u ON u.id = q.author_id
-         WHERE ${testQuestionSql("q", "u")}
+         WHERE ${testUserSql("u")}
          GROUP BY c.qid
        )`
     )
