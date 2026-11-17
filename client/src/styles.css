@@ -3322,3 +3322,31 @@ a.ntf__title:hover {
   text-overflow: ellipsis;
 }
 
+
+/* Z1135 空收藏夹态一键「收藏到默认收藏夹」主按钮（主色实心、单行）。 */
+.answer__fav-default {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 6px 10px 2px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.answer__fav-default:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.answer__fav-default:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.answer__fav-default:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
