@@ -7,6 +7,9 @@
 //      （GROUP BY target_id, TRIM(content)）。
 //   b) DB 全量：全站同一句占用率 ≤8%（最高频文案条数 / 存活评论总数）；
 //      且同一句出现在 ≤3 个不同 question 下。
+//   b2) 抽样 5 个问题（按存活评论数取前 5），取该题下全部 is_deleted=0
+//      评论，同一 question 内相同文案出现次数 ≤1（Z1152b：读者连刷同题
+//      多条回答不撞句）；失败打印问题 id 与句子前 20 字。
 //   c) 抽样 30 条公开可见评论（作者/正文未被公共过滤）：
 //      - 万能句白名单（seed-data/comments.js GENERIC_WHITELIST 精确匹配）
 //        命中率 ≤5%，命中明细逐条打印；
@@ -107,6 +110,38 @@ async function checkVariety(db, { skipApi = false } = {}) {
   expect(
     cross.length === 0,
     `仍有 ${cross.length} 种文案出现在 >${CROSS_Q_CAP} 个 question 下（见上）`
+  );
+
+  // b2) 抽样 5 个问题（存活评论数前 5，确定性）：同题相同文案 ≤1 次。
+  const topQs = db
+    .prepare(
+      `SELECT a.question_id AS qid, COUNT(*) AS n
+       FROM comments c JOIN answers a ON a.id = c.target_id
+       WHERE c.is_deleted = 0 AND c.target_type = 'answer'
+       GROUP BY a.question_id ORDER BY n DESC, qid LIMIT 5`
+    )
+    .all();
+  let sameQGroups = 0;
+  let sameQMax = 0;
+  const sameQDup = db.prepare(
+    `SELECT TRIM(c.content) AS t, COUNT(*) AS n
+     FROM comments c JOIN answers a ON a.id = c.target_id
+     WHERE c.is_deleted = 0 AND c.target_type = 'answer' AND a.question_id = ?
+     GROUP BY TRIM(c.content) HAVING n > 1 ORDER BY n DESC`
+  );
+  for (const q of topQs) {
+    for (const d of sameQDup.all(q.qid)) {
+      sameQGroups++;
+      sameQMax = Math.max(sameQMax, d.n);
+      console.error(`  同题重复 q#${q.qid} ×${d.n}：「${String(d.t).slice(0, 20)}」`);
+    }
+  }
+  console.log(
+    `  同题抽查 ${topQs.length} 题（q#${topQs.map((q) => q.qid).join("、q#")}）：重复组 ${sameQGroups}、最大 ×${sameQMax || 1}`
+  );
+  expect(
+    sameQGroups === 0,
+    `抽样 ${topQs.length} 题仍有 ${sameQGroups} 组同一 question 重复文案（最大 ×${sameQMax}，见上）`
   );
 
   // c) 抽样 30 条公开可见评论：白名单 ≤5%、实指 ≥60%、长度 ≥6、API 双口径。

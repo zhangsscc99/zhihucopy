@@ -17,12 +17,15 @@
  *      该回答所属大类领域名词表（DOMAIN_NOUNS）——与断言同一份判据。
  *      存量库里这类句占七成，只改前三类到不了断言的 ≥60% 实指占比，
  *      故一并重写为域内锚定句。
- *   四类条件取并集构成重写集；「保留集」完全按行 id 确定性计算。
+ *   5. 同一 question 下同一句出现 >1 次（Z1152b）：同一句保留该行 id 最
+ *      小的一条，其余重写 —— 读者连刷同题多条回答时不会撞同一句。
+ *   五类条件取并集构成重写集；「保留集」完全按行 id 确定性计算。
  *
  * 重写取句：该 answer 所在话题大类的锚定句 → 本类兜底 → 通用池 → 二级回复
  * 池（回复句 k 需命中父评论当前文本；父评论本身被重写时用新文本）。候选句
- * 还必须满足：同 answer 未占用、指派后全站占用 ≤8%、所在 question 集合
- * ≤3 —— 保证写完后三类条件全部失效，二次执行零改动（幂等）。
+ * 还必须满足：同 answer 未占用、同 question 未占用（第五类）、指派后全站
+ * 占用 ≤8%、所在 question 集合 ≤3 —— 保证写完后各类条件全部失效，二次
+ * 执行零改动（幂等）。
  *
  * 只 UPDATE content：author_id / created_at / parent_id / is_deleted 原样
  * 保留；answers.comment_count 不变（不改删除态）。
@@ -107,6 +110,8 @@ async function main() {
   let wlRowN = 0;
   const occViol = []; // {t, n}
   const qViol = []; // {t, qn, n}
+  const sameQViol = []; // {t, qid, n}（Z1152b：同题同句 >1 的组）
+  let sameQRowN = 0; // 同题多出的行数（n-1 合计）
   for (const [t, list] of byText) {
     if (WHITELIST_SET.has(t)) {
       wlRowN += list.length;
@@ -116,12 +121,27 @@ async function main() {
     const qids = new Set(list.map((r) => r.qid));
     if (list.length > useCap) occViol.push({ t, n: list.length });
     if (qids.size > CROSS_Q_CAP) qViol.push({ t, qn: qids.size, n: list.length });
-    // 保留集：按 id 升序、前 3 个 question 内、且不超过 useCap 条。
+    const perQ = new Map(); // qid -> 该句在本题的行数
+    for (const r of list) perQ.set(r.qid, (perQ.get(r.qid) || 0) + 1);
+    for (const [qid, n] of perQ) {
+      if (n > 1) {
+        sameQViol.push({ t, qid, n });
+        sameQRowN += n - 1;
+      }
+    }
+    // 保留集：按 id 升序、前 3 个 question 内、每 question 至多保留一条、
+    // 且不超过 useCap 条。
     const keptQ = new Set();
+    const keptInQ = new Set(); // 已在本 question 保留过该句的 qid（Z1152b）
     let kept = 0;
     for (const r of list) {
-      if ((keptQ.size < CROSS_Q_CAP || keptQ.has(r.qid)) && kept < useCap) {
+      if (
+        (keptQ.size < CROSS_Q_CAP || keptQ.has(r.qid)) &&
+        !keptInQ.has(r.qid) &&
+        kept < useCap
+      ) {
         keptQ.add(r.qid);
+        keptInQ.add(r.qid);
         kept++;
       } else {
         rewriteIds.add(r.id);
@@ -149,16 +169,28 @@ async function main() {
     if (!qUse.has(r.t)) qUse.set(r.t, new Set());
     qUse.get(r.t).add(r.qid);
   }
-  const allow = (t, qid) =>
-    (useCount.get(t) || 0) < useCap &&
-    (!qUse.has(t) || qUse.get(t).has(qid) || qUse.get(t).size < CROSS_Q_CAP);
 
-  // 每个 answer 已占用文案（含未重写行的旧文案与已指派新文案，随指派更新）。
+  // 每个 answer / 每个 question 已占用文案（含未重写行的旧文案与已指派新文
+  // 案，随指派更新）。usedByQuestion 是 Z1152b「同题同句 ≤1」的候选闸门；
+  // qCount 记录各 (qid,t) 的现存行数，行被重写时减一，归零才释放该文案位。
   const usedByAnswer = new Map();
+  const usedByQuestion = new Map();
+  const qCount = new Map(); // qid -> Map<t, n>
   for (const r of rows) {
     if (!usedByAnswer.has(r.aid)) usedByAnswer.set(r.aid, new Set());
     usedByAnswer.get(r.aid).add(r.t);
+    if (!usedByQuestion.has(r.qid)) usedByQuestion.set(r.qid, new Set());
+    usedByQuestion.get(r.qid).add(r.t);
+    if (!qCount.has(r.qid)) qCount.set(r.qid, new Map());
+    const qc = qCount.get(r.qid);
+    qc.set(r.t, (qc.get(r.t) || 0) + 1);
   }
+  const inQuestion = (t, qid) =>
+    usedByQuestion.has(qid) && usedByQuestion.get(qid).has(t);
+  const allow = (t, qid) =>
+    (useCount.get(t) || 0) < useCap &&
+    (!qUse.has(t) || qUse.get(t).has(qid) || qUse.get(t).size < CROSS_Q_CAP) &&
+    !inQuestion(t, qid);
   // 父评论文本：库里原值 + 本批已指派的新值（回复句 k 要挂到父评论实指上）。
   const rawText = new Map(
     db.prepare("SELECT id, TRIM(content) t FROM comments").all().map((r) => [r.id, r.t])
@@ -171,45 +203,47 @@ async function main() {
     if (!rewriteIds.has(r.id)) continue;
     const used = usedByAnswer.get(r.aid);
     used.delete(r.t); // 本句即将被替换，允许同 answer 其它命中行复用位
+    const qc = qCount.get(r.qid);
+    qc.set(r.t, (qc.get(r.t) || 0) - 1);
+    if ((qc.get(r.t) || 0) <= 0) {
+      // 本句在本题已无存活行，释放该文案位（其余行仍在则继续占位）。
+      usedByQuestion.get(r.qid).delete(r.t);
+    }
     const { cat, content } = metaOf(r.aid);
     const parentText = r.parent_id
       ? finalText.get(r.parent_id) || rawText.get(r.parent_id) || ""
       : "";
-    // 取句三轮（候选一律要求「实指」isAnchored —— 换上的句自身满足断言判据，
+    // 取句两轮（候选一律要求「实指」isAnchored —— 换上的句自身满足断言判据，
     // 二次执行才不会被规则 4 再次命中，幂等才有保证）：
-    // ① k 命中回答正文的锚定句（含消耗新跨题名额——实指优先）；
-    // ② 已「计费」到本题的实指句（同题多 answer 复用不新增跨题占用）；
-    // ③ 消耗新跨题名额的实指句。① 保实指密度，② 保后面 question 的配额。
-    const charged = (t) => qUse.has(t) && qUse.get(t).has(r.qid);
+    // ① k 命中回答正文的锚定句；
+    // ② 本类兜底/通用池/回复池里的实指句。
+    // allow 里已含「同 question 未占用」，不会再把本题已有句换上去。
     const fits = (t) => allow(t, r.qid) && isAnchored(t, cat, content);
     let next = pickReplacement(cat, content, used, r.id, {
       allow: fits,
-      prefer: charged,
       parentText,
       onlyAnchored: true,
     });
-    if (next === null) {
-      next = pickReplacement(cat, content, used, r.id, {
-        allow: (t) => (useCount.get(t) || 0) < useCap && charged(t) && isAnchored(t, cat, content),
-        parentText,
-      });
-    }
     if (next === null) {
       next = pickReplacement(cat, content, used, r.id, {
         allow: fits,
         parentText,
       });
     }
-    // ④ 兜底引述句：语料/名额占满时从回答正文摘片段包裹成句，实指成立。
+    // ③ 兜底引述句：语料/名额占满时从回答正文摘片段包裹成句，实指成立。
     if (next === null) {
       next = pickQuote(content, used, r.id, (t) => allow(t, r.qid));
     }
     if (next === null) {
       unresolved.push(r);
       used.add(r.t);
+      qc.set(r.t, (qc.get(r.t) || 0) + 1);
+      usedByQuestion.get(r.qid).add(r.t);
       continue;
     }
     used.add(next);
+    usedByQuestion.get(r.qid).add(next);
+    qc.set(next, (qc.get(next) || 0) + 1);
     useCount.set(next, (useCount.get(next) || 0) + 1);
     if (!qUse.has(next)) qUse.set(next, new Set());
     qUse.get(next).add(r.qid);
@@ -224,6 +258,7 @@ async function main() {
   console.log(
     `[fix-variety] 命中：白名单 ${wlRowN} 行；占用>8% 的句 ${occViol.length} 种；` +
       `跨题>${CROSS_Q_CAP} 的句 ${qViol.length} 种；无实指 ${unanchoredN} 行；` +
+      `同题重复 ${sameQViol.length} 组（多出 ${sameQRowN} 行）；` +
       `待重写 ${plan.length} 行` +
       (unresolved.length ? `（${unresolved.length} 行无可替换句）` : "")
   );
@@ -234,6 +269,14 @@ async function main() {
     console.log(`  跨题超限 「${String(v.t).slice(0, 28)}」×${v.n} 行 / ${v.qn} 题`);
   }
   if (qViol.length > 12) console.log(`  …跨题超限另有 ${qViol.length - 12} 种`);
+  const sameQMax = sameQViol.reduce((m, v) => Math.max(m, v.n), 0);
+  if (sameQViol.length) {
+    console.log(`  同题重复句 ${sameQViol.length} 组，最大同题重复 ×${sameQMax}`);
+    for (const v of sameQViol.slice(0, 12)) {
+      console.log(`    q#${v.qid} ×${v.n} 「${String(v.t).slice(0, 28)}」`);
+    }
+    if (sameQViol.length > 12) console.log(`    …同题重复另有 ${sameQViol.length - 12} 组`);
+  }
   const SHOW = 60;
   for (const p of plan.slice(0, SHOW)) {
     console.log(
