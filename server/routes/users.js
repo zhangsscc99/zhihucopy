@@ -129,7 +129,25 @@ router.post("/:id/follow", requireAuth, (req, res) => {
       "INSERT OR IGNORE INTO follows (follower_id, target_type, target_id) VALUES (?, 'user', ?)"
     )
     .run(req.user.id, target.id);
-  if (inserted.changes) grantFor(target.id, "first_follower");
+  if (inserted.changes) {
+    grantFor(target.id, "first_follower");
+    // 关注成功给被关注者写一条 follow 通知。取关不删历史通知（与真知乎一致），
+    // 所以按 (user_id, actor, target) 先查重 —— 取消再关注不重复发（幂等）。
+    // 自关注已在上方 400 拦截，不会走到这里。
+    const dup = db
+      .prepare(
+        `SELECT id FROM notifications
+         WHERE user_id = ? AND type = 'follow' AND actor_id = ?
+           AND target_type = 'user' AND target_id = ?`
+      )
+      .get(target.id, req.user.id, target.id);
+    if (!dup) {
+      db.prepare(
+        `INSERT INTO notifications (user_id, type, actor_id, target_type, target_id)
+         VALUES (?, 'follow', ?, 'user', ?)`
+      ).run(target.id, req.user.id, target.id);
+    }
+  }
 
   res.json({
     following: true,
