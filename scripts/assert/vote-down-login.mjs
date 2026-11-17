@@ -103,12 +103,27 @@ async function main() {
 
       // b) 登录 → 回原问题页 → 点反对 → is-active / aria-pressed。
       if (landedLogin) {
+        // /votes/mine 批次完成计数：客户端按答案数各发一条，须等齐再取 n0、
+        // 挑未激活键——否则「计数/选键时未激活 → 点击前批次到达置 is-active」
+        // 会把已反对的答案点成取消（390 偶发 FAIL 的根因，属断言竞态）。
+        let mineDone = 0;
+        const onResp = (r) => {
+          if (/\/votes\/mine\?/.test(r.url())) mineDone++;
+        };
+        page.on("response", onResp);
         await doLogin(page, acct.email, acct.password);
         const backToQ = await page
           .waitForURL(/\/question\/6/, { timeout: 15000 })
           .then(() => true)
           .catch(() => false);
         check(`${vp.name}-login-return`, backToQ, `url=${page.url()}`);
+        const liSel = ".answers .answerlist > li";
+        await page.locator(liSel).first().waitFor({ state: "visible" });
+        const liCount = await page.locator(liSel).count();
+        const mineDeadline = Date.now() + 10000;
+        while (mineDone < liCount && Date.now() < mineDeadline)
+          await new Promise((r) => setTimeout(r, 50));
+        page.off("response", onResp);
         // 同一账号在上一视口可能已投过反对：选第一个未激活的反对键，避免点成取消；
         // 断言按「激活键数量 +1」判，绕开元素句柄在列表重渲染后失效的问题。
         const activeSel =
