@@ -20,8 +20,9 @@
  * ---------------------------------------------------------------------------
  * 冷热分层（Z064）：层级由 story 在列表中的序号决定（确定性，不掷骰子），
  * 题目 i 的层级 = i < HOT ? hot : i < HOT+WARM ? warm : i < HOT+WARM+COOL ? cool : cold。
- * scale=1 时：hot 9 / warm 15 / cool 22 / cold 14，共 60 题，152 条回答
- * （cold 题只插 story 的第 1 条回答；其余层保留 story 全部 3 条回答）。
+ * scale=1 时（Z982：N_QUESTIONS = STORIES.length，随语料扩充）：
+ * hot 12 / warm 20 / cool 40 / cold 为剩余（当前语料 111 题 -> cold 39），
+ * 回答数：cold 题只插 story 第 1 条；其余层取 story 全部回答（上限 5 条）。
  *
  * 调参入口（各区间均为闭区间，单位见注释）：
  *   TIER_PLAN.<tier>.n        该层题数（按 SEED_SCALE 线性缩放，cold 吃剩余）
@@ -49,6 +50,7 @@ function requireFromServer(name) {
 }
 const bcrypt = requireFromServer("bcryptjs");
 const { getDb } = require("../server/db");
+const { BADGES } = require("../server/badges");
 
 // ---------------------------------------------------------------------------
 // 随机数：固定种子 -> 内容可复现（便于对比两次执行的结果）
@@ -97,9 +99,9 @@ const at = (frac) => {
 };
 // 分层画像（见文件头注释）。数值为 scale=1 时的参数；age 单位为天。
 const TIER_PLAN = {
-  hot:  { n: 9,  answers: 3, age: [0.04, 3],    views: [3000, 9000], topUp: [120, 235], restUp: [30, 110], comments: [15, 25] },
-  warm: { n: 15, answers: 3, age: [14, 28],     views: [300, 900],   topUp: [20, 80],    restUp: [3, 18],   comments: [4, 8] },
-  cool: { n: 22, answers: 3, age: [30, 90],     views: [60, 250],    topUp: [1, 15],     restUp: [0, 5],    comments: [1, 4] },
+  hot:  { n: 12, answers: 5, age: [0.04, 3],    views: [3000, 9000], topUp: [120, 235], restUp: [30, 110], comments: [15, 25] },
+  warm: { n: 20, answers: 5, age: [14, 28],     views: [300, 900],   topUp: [20, 80],    restUp: [3, 18],   comments: [4, 8] },
+  cool: { n: 40, answers: 5, age: [30, 90],     views: [60, 250],    topUp: [1, 15],     restUp: [0, 5],    comments: [1, 4] },
   cold: { n: 14, answers: 1, age: [60, 179],    views: [3, 40],      topUp: [0, 0],      restUp: [0, 0],    comments: [0, 1] },
 };
 // 题目序号 -> 层级（确定性）。cold 吃掉所有剩余题目，保证总数 = N_QUESTIONS。
@@ -306,7 +308,11 @@ const CLEAR_ORDER = [
   "notifications",
   "reports",
   "mod_logs",
-  "badges",
+  // Z1013 后 badges 是定义表（catalog），授予记录在 user_badges；
+  // badge_grants_legacy 是旧授予表的归档，三者都要清。
+  "user_badges",
+  "badge_grants_legacy",
+  "question_votes",
   "votes",
   "answer_revisions",
   "answers",
@@ -319,11 +325,19 @@ const CLEAR_ORDER = [
 ];
 
 function clearAll(db) {
+  const existing = new Set(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all()
+      .map((r) => r.name)
+  );
   // 评论有自引用外键：先删子级
-  db.prepare("DELETE FROM comments WHERE parent_id IS NOT NULL").run();
-  db.prepare("DELETE FROM comments").run();
+  if (existing.has("comments")) {
+    db.prepare("DELETE FROM comments WHERE parent_id IS NOT NULL").run();
+    db.prepare("DELETE FROM comments").run();
+  }
   for (const table of CLEAR_ORDER) {
-    db.prepare(`DELETE FROM ${table}`).run();
+    if (existing.has(table)) db.prepare(`DELETE FROM ${table}`).run();
   }
   try {
     db.prepare("DELETE FROM answer_fts").run();
@@ -373,7 +387,9 @@ function main() {
   // 单答最多 N_USERS-1 票），scale=1 时取 240。
   const N_USERS = Math.max(6, Math.round(240 * S));
   const N_TOPICS = Math.max(4, Math.min(TOPICS.length, Math.round(20 * S)));
-  const N_QUESTIONS = Math.max(6, Math.round(60 * S));
+  // Z982：问题数跟随语料规模（seed-data 扩充后 scale=1 即全量 story），
+  // 不再硬编码 60；SEED_SCALE<1 时按比例取语料前缀，依然确定性。
+  const N_QUESTIONS = Math.max(6, Math.round(STORIES.length * S));
   const N_NOTIF = Math.max(12, Math.round(120 * S));
   const N_REPORTS = Math.max(3, Math.round(24 * S));
 
@@ -467,9 +483,8 @@ function main() {
       // 1-3 个话题：主话题 + 同类话题
       insQT.run(qid, topic.id);
       let extra = ri(3); // 0..2
-      const sameCat = topicIds.filter((t) => t.cat === cat && t.id !== topic.id);
-      const others = topicIds.filter((t) => t.cat !== cat);
-      const candidates = shuffle([...sameCat, ...others]);
+      // 附加话题只取同大类，避免跨类误标（Z982 修复）
+      const candidates = shuffle(topicIds.filter((t) => t.cat === cat && t.id !== topic.id));
       let picked = 0;
       for (const t of candidates) {
         if (picked >= extra) break;
@@ -496,8 +511,7 @@ function main() {
 
     const answerPlan = [];
     let answerSeq = 0;
-    // 每题回答数按层级：cold 只取 story 第 1 条，其余层取 story 全部回答。
-    // scale=1 时回答总数 = 9*3 + 15*3 + 22*3 + 14*1 = 152。
+    // 每题回答数按层级：cold 只取 story 第 1 条，其余层取 story 全部回答（cap=5）。
     for (let qi = 0; qi < questionPlan.length; qi++) {
       const q = questionPlan[qi];
       const cat = q.cat;
@@ -646,14 +660,16 @@ function main() {
 
     // ---------------- reports / mod_logs（会改 is_collapsed / is_deleted） ----------------
     const insReport = db.prepare(
-      `INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, status, handled_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, status, handled_by, handled_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     const insModLog = db.prepare(
       "INSERT INTO mod_logs (admin_id, action, target_type, target_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?)"
     );
-    const reasons = ["spam", "harassment", "misinformation", "plagiarism", "other"];
-    const statuses = ["pending", "rejected", "removed", "collapsed"];
+    // reports 表约束：reason ∈ (spam|abuse|illegal|other)，status ∈ (pending|handled|rejected)。
+    // handled 时随机选「折叠」或「删除」处置（对应 mod_log 动作不同）。
+    const reasons = ["spam", "abuse", "illegal", "other"];
+    const statuses = ["pending", "rejected", "handled", "handled"];
     for (let i = 0; i < N_REPORTS; i++) {
       const target = answerPlan[ri(answerPlan.length)];
       const status = pick(statuses);
@@ -669,16 +685,18 @@ function main() {
         "内容与问题无关，且有明显引流嫌疑。" ,
         status,
         handled,
+        status === "handled" ? t : null,
         t
       );
       bump("reports");
-      if (status === "collapsed") {
-        db.prepare("UPDATE answers SET is_collapsed = 1 WHERE id = ?").run(target.aid);
-        insModLog.run(adminId, "collapse_answer", "answer", target.aid, "多名用户举报，标记为争议内容", t);
-        bump("mod_logs");
-      } else if (status === "removed") {
-        db.prepare("UPDATE answers SET is_deleted = 1 WHERE id = ?").run(target.aid);
-        insModLog.run(adminId, "remove_answer", "answer", target.aid, "确认为垃圾内容，已删除", t);
+      if (status === "handled") {
+        if (g() < 0.5) {
+          db.prepare("UPDATE answers SET is_collapsed = 1 WHERE id = ?").run(target.aid);
+          insModLog.run(adminId, "collapse_answer", "answer", target.aid, "多名用户举报，标记为争议内容", t);
+        } else {
+          db.prepare("UPDATE answers SET is_deleted = 1 WHERE id = ?").run(target.aid);
+          insModLog.run(adminId, "remove_answer", "answer", target.aid, "确认为垃圾内容，已删除", t);
+        }
         bump("mod_logs");
       } else if (status === "rejected") {
         insModLog.run(adminId, "reject_report", "report", Number(info.lastInsertRowid), "证据不足，驳回举报", t);
@@ -864,10 +882,19 @@ function main() {
     ).run();
 
     // ---------------- badges ----------------
-    const insBadge = db.prepare("INSERT INTO badges (user_id, code, granted_at) VALUES (?, ?, ?)");
+    // Z1013 起 badges 是定义表、user_badges 存授予记录。定义直接复用
+    // server/badges.js 的 BADGES（含 icon_svg/rule），授予也只写这些 code，
+    // 保证 catalog 与运行时一致、icon_svg 非空。
+    const insBadgeDef = db.prepare(
+      "INSERT OR IGNORE INTO badges (code, name, description, icon_svg, rule) VALUES (?, ?, ?, ?, ?)"
+    );
+    for (const b of BADGES) insBadgeDef.run(b.code, b.name, b.description, b.icon_svg, b.event);
+    const insBadge = db.prepare(
+      "INSERT OR IGNORE INTO user_badges (user_id, badge_code, granted_at) VALUES (?, ?, ?)"
+    );
     const perUserAnswers = db
       .prepare(
-        `SELECT author_id, COUNT(*) c, SUM(vote_up) up, MAX(vote_up) top
+        `SELECT author_id, COUNT(*) c, SUM(vote_up) up
          FROM answers WHERE is_deleted = 0 GROUP BY author_id`
       )
       .all();
@@ -878,19 +905,19 @@ function main() {
         bump("badges");
       };
       if (row.c >= 1) grant("first_answer");
-      if (row.c >= 3) grant("answers_3");
-      if (row.c >= 8) grant("answers_8");
-      if ((row.up || 0) >= 10) grant("votes_10");
-      if ((row.up || 0) >= 30) grant("votes_30");
-      if ((row.top || 0) >= 12) grant("popular_answer");
+      if (row.c >= 5) grant("answer_5");
+      if ((row.up || 0) >= 10) grant("upvote_10");
     }
     const qAuthors = db.prepare("SELECT author_id, COUNT(*) c FROM questions GROUP BY author_id").all();
     for (const row of qAuthors) {
       insBadge.run(row.author_id, "first_question", fmtTs(at(0.5)));
       bump("badges");
     }
-    if (adminId) {
-      insBadge.run(adminId, "steward", fmtTs(at(0.95)));
+    const followed = db
+      .prepare("SELECT DISTINCT target_id uid FROM follows WHERE target_type = 'user'")
+      .all();
+    for (const row of followed) {
+      insBadge.run(row.uid, "first_follower", fmtTs(at(0.7)));
       bump("badges");
     }
 
