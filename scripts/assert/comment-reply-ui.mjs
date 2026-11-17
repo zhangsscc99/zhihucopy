@@ -88,13 +88,15 @@ run("comment-reply-ui", async ({ browser }) => {
   });
   const aid = answer.id;
 
-  // c1（u1，待被回复）、c2（u2，预埋 u3 的二级回复）、doomed（u3 发后即删 → 占位行）。
+  // c1（u1，待被回复）、c2（u2，预埋 u3 的二级回复）、doomed（u3 发后即删 →
+  // 带 1 条存活子回复，按 Z1101 契约仍渲染占位行）。
   const c1Text = mark("回复断言甲");
   const c2Text = mark("回复断言乙");
   const { comment: c1 } = await postComment(u1.token, aid, c1Text);
   const { comment: c2 } = await postComment(u2.token, aid, c2Text);
   await postComment(u3.token, aid, mark("预埋二级回复"), c2.id);
   const { comment: doomed } = await postComment(u3.token, aid, mark("待删除占位"));
+  await postComment(u2.token, aid, mark("占位子回复"), doomed.id);
   await apiOk("DELETE", `/comments/${doomed.id}`, { token: u3.token });
 
   const page = await authedPage(browser, u1.token);
@@ -113,9 +115,10 @@ run("comment-reply-ui", async ({ browser }) => {
   // ---- 入口可见性：一级有「回复」，二级/已删除没有 ----
   const tops = page.locator("li.answer__comment:not(.answer__comment--child)");
   const children = page.locator("li.answer__comment--child");
-  // 行集：c1、c2、删除占位，共 3 个一级 + 1 个预埋二级。
+  // 行集：c1、c2、删除占位，共 3 个一级 + 2 个二级（c2 的预埋回复 +
+  // 删除占位下的存活子回复）。
   expect((await tops.count()) === 3, `一级评论行数=${await tops.count()}，期望 3`);
-  expect((await children.count()) === 1, `二级评论行数=${await children.count()}，期望 1`);
+  expect((await children.count()) === 2, `二级评论行数=${await children.count()}，期望 2`);
 
   const topReplyBtns = tops.getByRole("button", { name: replyOpRe });
   expect(
@@ -200,7 +203,7 @@ run("comment-reply-ui", async ({ browser }) => {
   await page.locator(".toast", { hasText: "回复已发布" }).waitFor();
 
   expect((await replyForms.count()) === 0, "回复成功后表单未收起");
-  expect((await children.count()) === 2, `回复后二级行数=${await children.count()}，期望 2`);
+  expect((await children.count()) === 3, `回复后二级行数=${await children.count()}，期望 3`);
 
   // 归属：新回复是 c1 的 child（向上找最近非 child 的 li，其正文应为 c1Text）。
   const owner = await page.evaluate((needle) => {
@@ -221,10 +224,10 @@ run("comment-reply-ui", async ({ browser }) => {
     `新回复归属错误：父评论正文=${owner.parentBody}，期望含 ${c1Text}`
   );
 
-  // 计数 +1：非删除可见行数 2 一级 + 2 二级 = 4（删除占位不计入），
+  // 计数 +1：非删除可见行数 2 一级 + 3 二级 = 5（删除占位不计入），
   // 按钮文案与可见行数一致（Z1066 口径）。
   const toggleText = (await ans.getByRole("button", { name: /收起评论/ }).innerText()).trim();
-  expect(/^收起评论（4）$/.test(toggleText), `计数未 +1：「${toggleText}」期望 收起评论（4）`);
+  expect(/^收起评论（5）$/.test(toggleText), `计数未 +1：「${toggleText}」期望 收起评论（5）`);
 
   let errs = await pageErrs(page);
   expect(errs.length === 0, `回复流程出现页面错误：${errs.join(" | ")}`);

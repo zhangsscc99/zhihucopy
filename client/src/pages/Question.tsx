@@ -54,12 +54,13 @@ const answerExcerpt = (md: string, n = 80) => {
   return text.length > n ? `${text.slice(0, n)}…` : text;
 };
 
-// 从两级评论树里摘掉被删评论：无子回复的整条移除；有子回复的降级为
-// 「该评论已删除」占位（与刷新后服务端返回的软删形态一致，保住子回复）。
+// 从两级评论树里摘掉被删评论：无存活子回复的整条移除；仍有存活子回复的
+// 降级为「该评论已删除」占位（与刷新后服务端返回的软删形态一致，保住子回复）。
 const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
   list.flatMap((c) => {
     if (c.id === id) {
-      if (!c.children?.length) return [];
+      const alive = (c.children ?? []).filter((k) => !k.is_deleted);
+      if (!alive.length) return [];
       return [
         {
           ...c,
@@ -67,13 +68,26 @@ const dropComment = (list: CommentNode[], id: number): CommentNode[] =>
           content: null,
           author: null,
           placeholder: "该评论已删除",
+          children: alive,
         },
       ];
     }
     if (c.children?.some((k) => k.id === id)) {
-      return [{ ...c, children: c.children.filter((k) => k.id !== id) }];
+      const children = c.children.filter((k) => k.id !== id);
+      // 占位行仅剩已删除子回复时连占位一起摘走，否则留下孤行。
+      if (c.is_deleted && !children.some((k) => !k.is_deleted)) return [];
+      return [{ ...c, children }];
     }
     return [c];
+  });
+
+// 渲染行展开：已删除且没有存活子回复的评论整条不渲染（不再留「该评论已删除」
+// 占位）；已删除但仍有存活子回复的保留占位行，否则子回复会成孤儿。
+const flattenVisibleComments = (list: CommentNode[]): CommentNode[] =>
+  list.flatMap((c) => {
+    const aliveChildren = (c.children ?? []).filter((k) => !k.is_deleted);
+    if (c.is_deleted && !aliveChildren.length) return [];
+    return [c, ...aliveChildren];
   });
 
 // 评论计数口径 = 可见且未删除的评论数（与服务端 comment_count 一致）：
@@ -1094,6 +1108,9 @@ export function Question() {
             {answers.map((a) => {
               const my = votes[a.id] ?? 0;
               const cs = comments[a.id];
+              const commentRows = Array.isArray(cs)
+                ? flattenVisibleComments(cs)
+                : [];
               return (
                 <li
                   key={a.id}
@@ -1341,12 +1358,11 @@ export function Question() {
                         </p>
                       ) : (
                         <>
-                          {cs.length === 0 ? (
+                          {commentRows.length === 0 ? (
                             <p className="answer__comment-empty">还没有评论，来说两句吧</p>
                           ) : (
                             <ul className="answer__comment-list">
-                              {cs
-                                .flatMap((c) => [c, ...(c.children ?? [])])
+                              {commentRows
                                 .map((c) => {
                                   const cName = c.author
                                     ? c.author.nickname
