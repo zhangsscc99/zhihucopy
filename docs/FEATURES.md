@@ -522,3 +522,12 @@
 - [ ] Z1074 全仓 `:focus{outline:none}` 写法审计（P2，a11y 债务）：`.field:focus`、`.msearch__input:focus` 等以 `:focus` 直接抹掉 outline 的规则会系统性压掉 `:focus-visible`；统一为「`:focus` 改色/改边、`:focus-visible` 动 outline」，并加静态守卫防再犯
   verify: node scripts/assert/focus-outline-audit.mjs
   risk: low
+
+## 第二十轮待办（2026-11-17 00:3x，来源 docs/PRODUCT-REVIEW.md 第十八轮走查实测）
+
+- [ ] Z1075 评论输入框 Enter 无提交、无反馈（P2，操作可预期）：`Question.tsx` 评论输入是 `<input>`，只有「发布评论」按钮 onClick，`onKeyDown` 缺失；实测填完按 Enter 无 toast、无报错、草稿仍在、计数不变，用户会以为卡死。需 Enter 提交（空内容/发送中不重复提交），并保留按钮路径
+  verify: node scripts/assert/comment-enter-submit.mjs
+  risk: low
+- [ ] Z1076 列表接口 topics 恒为空 → 首页/话题流卡片无话题胶囊（P1，视觉保真 + 数据）：`GET /api/questions` 实测 `topics:[]`（30/30 条全空），而 `question_topics` 有 114 行、60/61 问题已绑话题；Z902 的「话题胶囊接口返回时渲染」因此从未真正显示。需列表 SQL join 话题（保持分页与 N+1 不回归）并断言卡片出现胶囊
+  verify: node scripts/assert/feed-topic-pills.mjs
+  risk: med
