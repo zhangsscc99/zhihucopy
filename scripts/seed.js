@@ -133,6 +133,70 @@ function tierOf(i, nQuestions, s) {
 }
 const rr = ([lo, hi]) => lo + ri(Math.max(1, hi - lo + 1));
 
+// Z1151：回答时间从 NOW 往前倒推（最新≈NOW-30min，相邻按层级 gap 1.5h-8h
+// 往前叠 + 分钟抖动），不再用「问题时间 + 随机量封顶」——后者在题目较新时
+// 把随机量全吃掉，同题所有回答塌到同一秒。
+const ANSWER_GAP_H = { hot: [1.5, 4], warm: [3, 6], cool: [4, 8], cold: [4, 8] };
+function spreadAnswers(qCreatedMs, n, tier) {
+  const [gLo, gHi] = ANSWER_GAP_H[tier] || [1.5, 8];
+  const hi = NOW - 30 * 60000;
+  let lo = Math.max(qCreatedMs + 3600000, NOW - 45 * DAY);
+  let winHi = hi;
+  if (lo >= winHi) {
+    lo = qCreatedMs + 60000;
+    winHi = NOW - 5 * 60000;
+  }
+  if (lo >= winHi) lo = winHi - n * 60000; // 极端兜底：仍保证单调不塌秒
+  const span = Math.max(0, winHi - lo);
+  if (n === 1) return [lo + span / 2];
+  const base = span / (n - 1);
+  const minGap = Math.min(30 * 60000, base * 0.5);
+  let gap = (gLo + g() * (gHi - gLo)) * 3600000;
+  if (gap > base * 0.8) gap = base * 0.8; // 窗口装不下目标 gap 时压缩
+  const out = [];
+  let prev = -Infinity;
+  for (let k = 0; k < n; k++) {
+    const raw = hi - (n - 1 - k) * gap - Math.floor(g() * 20) * 60000;
+    const t = Math.min(
+      winHi - (n - 1 - k) * minGap,
+      Math.max(Math.max(lo, prev + minGap), raw)
+    );
+    out.push(t);
+    prev = t;
+  }
+  return out;
+}
+
+// 评论时间在 [回答+5min, NOW-10min] 内按序号均匀散布（g() 分钟抖动），
+// 同答两两间隔 >=3min（窗口不足按比例降级），回复再抬到父评论 +2min。
+// 硬封顶 NOW-5min：抖动与回复抬升都不许越过（极端拥挤时让位间距约束）。
+function commentTime(aCreatedMs, idx, total, prevT, parentT) {
+  let lo = aCreatedMs + 5 * 60000;
+  let hi = NOW - 10 * 60000;
+  if (lo >= hi) {
+    lo = aCreatedMs + 60000;
+    hi = NOW - 5 * 60000;
+  }
+  let t;
+  if (lo >= hi) {
+    t = aCreatedMs + (idx + 1) * 60000;
+  } else if (total <= 1) {
+    t = lo + (hi - lo) / 2;
+  } else {
+    const span = hi - lo;
+    const base = span / (total - 1);
+    const minGap = Math.min(3 * 60000, base * 0.5);
+    const jitSteps = Math.max(0, Math.floor((base - minGap) / 60000));
+    const raw = lo + idx * base + (jitSteps > 0 ? ri(jitSteps + 1) : 0) * 60000;
+    const lower = Math.max(lo, prevT != null ? prevT + minGap : lo);
+    const upper = hi - (total - 1 - idx) * minGap;
+    t = Math.min(Math.max(lower, upper), Math.max(lower, raw));
+  }
+  if (prevT != null && t < prevT + 60000) t = prevT + 60000;
+  if (parentT != null) t = Math.max(t, parentT + 2 * 60000);
+  return Math.min(t, NOW - 5 * 60000);
+}
+
 const TOPICS = [
   { name: "编程", slug: "programming", cat: "code", description: "写代码这件事的手艺、习惯与取舍。" },
   { name: "JavaScript", slug: "javascript", cat: "code", description: "从语言特性到运行时行为的实践讨论。" },
@@ -653,14 +717,13 @@ function main() {
         authors.push(uid);
       }
 
+      // 回答时间从 NOW 往前倒推（Z1151）：最新≈NOW-30min，按层级 gap 往前
+      // 叠 + 抖动；保证晚于提问时间且同题两两不同，杜绝同秒塌缩。
+      const answerTimes = spreadAnswers(q.createdMs, nAns, q.tier);
       for (let k = 0; k < nAns; k++) {
         answerSeq++;
         const content = q.story.answers[k].content;
-        // 回答时间必须晚于提问时间：在问题创建后数小时~数天内落点，仍留在该层时间窗附近
-        const createdMs = Math.min(
-          NOW - 3600000,
-          q.createdMs + (k + 1) * 4 * 3600000 + Math.floor(g() * 3 * DAY)
-        );
+        const createdMs = answerTimes[k];
         const createdAt = fmtTs(createdMs);
         const info = insAnswer.run(q.qid, authors[k], content, createdAt, createdAt);
         const aid = Number(info.lastInsertRowid);
@@ -673,7 +736,7 @@ function main() {
           const tail = pickTail(cat, content);
           if (tail !== null) {
             const extra = `\n\n> ${tail}`;
-            const revTime = fmtTs(Math.min(NOW - 1800000, createdMs + 2 * DAY));
+            const revTime = fmtTs(Math.min(NOW - 600000, Math.max(createdMs + 60000, createdMs + 2 * DAY)));
             insRevision.run(aid, content, revTime);
             updateAnswerBody.run(content + extra, revTime, aid);
             finalCreated = revTime;
@@ -749,23 +812,41 @@ function main() {
     }
     // 全站同一句占用率上限 15%（Z1147）：候选里只挑低于上限的句。
     const commentUseCap = Math.max(2, Math.floor(commentQueue.length * 0.15));
+    // Z1151：每个回答的评论总数先聚合，时间在 [回答+5min, NOW-10min]
+    // 内按序号散布 —— 替代旧「回答+30min+随机9天封顶」的同秒塌缩写法。
+    const commentTotal = new Map();
+    for (const a of commentQueue) {
+      commentTotal.set(a.aid, (commentTotal.get(a.aid) || 0) + 1);
+    }
     for (const a of commentQueue) {
       const existing = commentTimes.get(a.aid) || [];
       const usedTexts = commentTexts.get(a.aid) || new Set();
       const author = userIds[ri(N_USERS)];
       const isReply = existing.length > 0 && g() < 0.34;
       let parentId = null;
+      let parentT = null;
       if (isReply) {
         const parents = existing.filter((c) => c.parentId === null);
-        if (parents.length) parentId = parents[ri(parents.length)].id;
+        if (parents.length) {
+          const p = parents[ri(parents.length)];
+          parentId = p.id;
+          parentT = p.t;
+        }
       }
       const text = parentId
         ? pickReplyText(usedTexts, commentUseCap)
         : pickCommentText(a, usedTexts, commentUseCap);
-      const t = Math.min(NOW - 300000, a.createdMs + 1800000 + ri(9 * DAY));
+      const prevT = existing.length ? existing[existing.length - 1].t : null;
+      const t = commentTime(
+        a.createdMs,
+        existing.length,
+        commentTotal.get(a.aid) || 1,
+        prevT,
+        parentT
+      );
       const info = insComment.run(a.aid, author, parentId, text, fmtTs(t));
       const cid = Number(info.lastInsertRowid);
-      existing.push({ id: cid, parentId });
+      existing.push({ id: cid, parentId, t });
       commentTimes.set(a.aid, existing);
       usedTexts.add(text);
       commentTexts.set(a.aid, usedTexts);
