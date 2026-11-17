@@ -664,3 +664,12 @@
 - [x] Z1115 昵称批量生成感（P1，内容真实感） ✅ (2026-11-17 devin swe-2-high：新增 `scripts/nickname-pool.js`（30 原型 × 7 别名 + 142 条通用池，加载即校验 2–6 字/无数字拉丁/全池唯一）、`persona-domains.js` 加 `ALIAS_TO_BASE` + `personaBaseOf()`（别名/数字尾/本名三级还原，领域映射不变，别名指向表外即抛错）、`seed.js` clone 命名改 `cloneNickname()`；新增 `scripts/fix-nicknames.js`（默认只读 dry-run，`--apply --prod` + `ZH_ALLOW_PROD_WRITE=1` + 当日 `.backup()` 才写生产，跳过 content-filter 测试账号，幂等二次 0 命中）；新增 `assert/nickname-realism.mjs`（DB/API/浏览器三层，可疑比例 ≤2%）；**生产库已 apply：370 账号中 294 个改名**（备份 `data/backups/zhihu-20261117100930-nicknames.db`），线上可疑名 0/353；回归 seed-persona-domain 100%、seed-bio-consistency 100%、`server npm test` 38/38)
   verify: node scripts/assert/nickname-realism.mjs
   risk: med
+
+## 第二十七轮收尾待办（下一轮优先）
+
+- [ ] Z1116 热门技术词召回过窄（P2，内容厚度）：线上 `?q=React` 仅 2 条问题、`useEffect` 2 条（Z1110 已确认是库内命中少而非召回 bug）。需按现有 seed story 结构补 10–15 条 React/useEffect/TypeScript/FTS 检索相关真实问题（标题+补充说明+2–3 回答，作者同域），使 `React`/`useEffect`/`TypeScript` 各 ≥5 条问题命中，且推荐流大类配额不回归
+  verify: node scripts/assert/search-stock.mjs
+  risk: med
+- [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：报告噪声掩盖真实回归，下一轮作为主车道清账
+  verify: node scripts/assert/verify-clean.mjs
+  risk: high
