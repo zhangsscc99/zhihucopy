@@ -16,6 +16,7 @@ import type {
   Page,
   Question,
   SearchCounts,
+  Topic,
   UserResult,
 } from "../types";
 
@@ -379,8 +380,26 @@ function SearchResults({ q }: { q: string }) {
   const [moreError, setMoreError] = useState("");
   const [reason, setReason] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  // Z1144 — 「相关话题」兜底：命中 ≥2 个才渲染区块，无命中/请求失败整块不出现。
+  const [relTopics, setRelTopics] = useState<Topic[]>([]);
 
   const requestSeq = useRef(0);
+  const topicSeq = useRef(0);
+
+  // 相关话题与结果 scope 无关，只随关键词变化：单独拉取，命中 ≥2 个由渲染处裁决。
+  useEffect(() => {
+    const seq = ++topicSeq.current;
+    setRelTopics([]);
+    get<Page<Topic>>(
+      `/search?q=${encodeURIComponent(q)}&type=topic&limit=6`
+    )
+      .then((tr) => {
+        if (seq === topicSeq.current) setRelTopics(tr.items || []);
+      })
+      .catch(() => {
+        if (seq === topicSeq.current) setRelTopics([]);
+      });
+  }, [q]);
 
   useEffect(() => {
     const seq = ++requestSeq.current;
@@ -468,6 +487,11 @@ function SearchResults({ q }: { q: string }) {
     // 换词保留当前分类 tab（question 不带 type 参数）。
     navigate(`${searchHref(t)}${scope === "question" ? "" : `&type=${scope}`}`);
   };
+
+  // Z1144 — settled = 本 scope 数据已回；lowHit = 本 tab total ≤3（守卫类
+  // too_short 除外）→ 列表顶部提示。相关话题块只看是否命中 ≥2 个话题。
+  const settled = !initialLoading && !error && itemsScope === scope;
+  const lowHit = settled && total <= 3 && reason !== "too_short";
 
   return (
     <>
@@ -583,6 +607,11 @@ function SearchResults({ q }: { q: string }) {
         )
       ) : (
         <>
+          {lowHit && items.length > 0 && (
+            <p className="search-lowhit" role="note">
+              结果较少，试试更宽的关键词
+            </p>
+          )}
           <ul className="feed">
             {scope === "answer"
               ? (items as AnswerResult[]).map((a) => (
@@ -603,6 +632,28 @@ function SearchResults({ q }: { q: string }) {
             onLoadMore={loadMore}
           />
         </>
+      )}
+
+      {/* Z1144 — 「相关话题」兜底：≥2 个匹配才渲染，否则整块不输出。 */}
+      {settled && relTopics.length >= 2 && (
+        <section className="search-rel" aria-label="相关话题">
+          <h2 className="search-rel__title">相关话题</h2>
+          <ul className="search-rel__list">
+            {relTopics.map((t) => (
+              <li key={t.id} className="search-rel__item">
+                <Link to={`/topic/${t.id}`} className="search-rel__link">
+                  <span className="search-rel__name">{t.name}</span>
+                  {t.description ? (
+                    <span className="search-rel__desc">{t.description}</span>
+                  ) : null}
+                  <span className="search-rel__meta">
+                    {t.question_count ?? 0} 个问题 · {t.follower_count ?? 0} 关注
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );

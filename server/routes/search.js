@@ -3,6 +3,7 @@ const { getDb } = require("../db");
 const { parsePage, pageResult } = require("../util");
 const { questionRow } = require("./questions");
 const { testQuestionSql, testUserSql } = require("../content-filter");
+const { recallPlan } = require("../search-recall");
 
 const router = express.Router();
 
@@ -61,46 +62,73 @@ function topicsForQuestions(db, questionIds) {
 
 const ZERO_COUNTS = { question: 0, answer: 0, user: 0 };
 
-// GET /search?q=&page=&limit=&type=question|answer|user — 关键词搜索。
+// GET /search?q=&page=&limit=&type=question|answer|user|topic — 关键词搜索。
 // 说明：库内 FTS5 仅有 answer_fts（索引回答，缺答案的问题无法命中），且不得改表结构，
-// 故各 scope 检索都用 LIKE。type=question 按标题/详情/所属话题名子串匹配（原行为）；
+// 故各 scope 检索都用 LIKE。type=question 按标题/详情/所属话题名子串匹配；
 // type=answer 按回答正文子串匹配（排除已删/测试产物），结果跳 /question/:qid#answer-:id；
-// type=user 按昵称/bio 子串匹配（排除测试账号），结果跳 /u/:id。
-// 未知 type 保守返回空页；counts 在任意 type 下都返回各 scope 的 total 供 tab 显示。
+// type=user 按昵称/bio 子串匹配（排除测试账号），结果跳 /u/:id；
+// type=topic（Z1144 新增只读 scope，不进前端 tab）按话题名/简介匹配，低命中
+// 结果页用它渲染「相关话题」兜底区块。
+//
+// Z1144 召回：recallPlan（server/search-recall.js）把有效词条折算成 OR 词组 ——
+// 含空格按空格分词、≥2 汉字按 bigram 拆分（代码质量 → 代码/码质/质量），
+// 单字/纯英文/单 token 仍是原子串 LIKE。多词模式下按命中词数排序（全词命中
+// 靠前，其次原 match_rank、vote/created_at）；counts 与列表共用同一份 WHERE +
+// 参数，口径天然一致。未知 type 保守返回空页；counts 在任意 type 下都返回各
+// scope 的 total 供 tab 显示。
 router.get("/", (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 100);
   const { page, limit, offset } = parsePage(req);
   const type = String(req.query.type || "question");
   const term = effectiveTerm(q);
-  if (
-    term.length === 0 ||
-    (term.length === 1 && q.trim().length === 1 && !HAS_HAN.test(term))
-  ) {
-    return res.json({
+  const tooShort = () =>
+    res.json({
       ...pageResult([], 0, page, limit),
       page,
       limit,
       reason: "too_short",
       counts: { ...ZERO_COUNTS },
     });
+  if (
+    term.length === 0 ||
+    (term.length === 1 && q.trim().length === 1 && !HAS_HAN.test(term))
+  ) {
+    return tooShort();
   }
-  const pat = likePattern(q);
   const db = getDb();
+  const plan = recallPlan(q, term);
+  if (plan.kind === "none") return tooShort();
 
-  // 三个 scope 共用的 WHERE 片段：问题 scope 的话题名命中用 EXISTS 子查询而非 JOIN，
+  // 召回词组：single = 单子串（现行为）；terms = 多词 OR。整串模式 pat 供
+  // match_rank（命中来源）、全词命中排序与用户 scope 沿用。
+  const words = plan.kind === "single" ? [plan.word] : plan.terms;
+  const pats = words.map(likePattern);
+  const multi = words.length > 1;
+  const pat = likePattern(q);
+
+  // 三个 scope 的 WHERE 片段：counts 与列表共用同一份 sql + 参数，保证 tab
+  // 数字与列表 total 一致。问题 scope 的话题名命中用 EXISTS 子查询而非 JOIN，
   // 避免一题多话题时重复行影响分页与 total；回答 scope 还要套所属问题/回答作者的
-  // 测试产物过滤；用户 scope 用 testUserSql 排除测试账号。
-  const qWhere = `q.is_collapsed = 0 AND ${testQuestionSql("q", "u")} AND (
+  // 测试产物过滤；用户 scope 用 testUserSql 排除测试账号（仍按整串，不放宽）。
+  const qCond = `(
     q.title LIKE ? ESCAPE '\\' OR q.detail_md LIKE ? ESCAPE '\\' OR
     EXISTS (SELECT 1 FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
             WHERE qt.question_id = q.id AND t.name LIKE ? ESCAPE '\\')
   )`;
+  const qWhere = `q.is_collapsed = 0 AND ${testQuestionSql("q", "u")} AND (${words
+    .map(() => qCond)
+    .join(" OR ")})`;
+  const qWhereParams = pats.flatMap((p) => [p, p, p]);
+
+  const aCond = `a.content_md LIKE ? ESCAPE '\\'`;
   const aJoins = `FROM answers a
     JOIN questions q ON q.id = a.question_id
     JOIN users u ON u.id = a.author_id
     JOIN users qu ON qu.id = q.author_id`;
-  const aWhere = `a.is_deleted = 0 AND a.content_md LIKE ? ESCAPE '\\'
+  const aWhere = `a.is_deleted = 0 AND (${words.map(() => aCond).join(" OR ")})
     AND ${testQuestionSql("q", "qu")} AND ${testUserSql("u")}`;
+  const aWhereParams = [...pats];
+
   const uWhere = `${testUserSql("u")} AND (
     u.nickname LIKE ? ESCAPE '\\' OR u.bio LIKE ? ESCAPE '\\'
   )`;
@@ -111,22 +139,67 @@ router.get("/", (req, res) => {
       .prepare(
         `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id WHERE ${qWhere}`
       )
-      .get(pat, pat, pat).c,
-    answer: db.prepare(`SELECT COUNT(*) c ${aJoins} WHERE ${aWhere}`).get(pat).c,
+      .get(...qWhereParams).c,
+    answer: db.prepare(`SELECT COUNT(*) c ${aJoins} WHERE ${aWhere}`).get(...aWhereParams).c,
     user: db.prepare(`SELECT COUNT(*) c FROM users u WHERE ${uWhere}`).get(pat, pat).c,
   };
 
+  // Z1144 — type=topic：相关话题兜底。同一召回词组 OR 匹配话题名/简介，
+  // 命中词数多者在前（并列按关注数），只读、不进前端 tab。
+  if (type === "topic") {
+    const tCond = `(t.name LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')`;
+    const tOr = words.map(() => tCond).join(" OR ");
+    const tHit = words
+      .map(() => `(CASE WHEN ${tCond} THEN 1 ELSE 0 END)`)
+      .join(" + ");
+    const tParams = pats.flatMap((p) => [p, p]);
+    const rows = db
+      .prepare(
+        `SELECT t.id, t.name, t.slug, t.description, t.follower_count,
+           (SELECT COUNT(*) FROM question_topics qt
+            JOIN questions q ON q.id = qt.question_id
+            JOIN users u ON u.id = q.author_id
+            WHERE qt.topic_id = t.id AND ${testQuestionSql("q", "u")}) AS question_count,
+           (${tHit}) AS hit_cnt
+         FROM topics t
+         WHERE ${tOr}
+         ORDER BY hit_cnt DESC, t.follower_count DESC, t.id ASC
+         LIMIT ? OFFSET ?`
+      )
+      .all(...tParams, ...tParams, limit, offset);
+    const total = db
+      .prepare(`SELECT COUNT(*) c FROM topics t WHERE ${tOr}`)
+      .get(...tParams).c;
+    const items = rows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      description: t.description,
+      follower_count: t.follower_count,
+      question_count: t.question_count,
+    }));
+    return res.json({ ...pageResult(items, total, page, limit), page, limit, counts });
+  }
+
   if (type === "answer") {
+    // 多词模式：命中词数排最前（全词命中次之），再按赞同/时间兜底。
+    const aScoreCols = multi
+      ? `, (${words.map(() => `(CASE WHEN ${aCond} THEN 1 ELSE 0 END)`).join(" + ")}) AS hit_cnt,
+           (CASE WHEN ${aCond} THEN 0 ELSE 1 END) AS not_full`
+      : "";
+    const aOrder = multi
+      ? "hit_cnt DESC, not_full ASC, a.vote_up DESC, a.created_at DESC"
+      : "a.vote_up DESC, a.created_at DESC";
     const rows = db
       .prepare(
         `SELECT a.id, a.question_id, a.content_md, a.vote_up, a.created_at,
-           q.title AS question_title, ${AUTHOR_COLS}
+           q.title AS question_title, ${AUTHOR_COLS}${aScoreCols}
          ${aJoins}
          WHERE ${aWhere}
-         ORDER BY a.vote_up DESC, a.created_at DESC
+         ORDER BY ${aOrder}
          LIMIT ? OFFSET ?`
       )
-      .all(pat, limit, offset);
+      .all(...(multi ? [...pats, pat] : []), ...aWhereParams, limit, offset);
     const topicsByQ = topicsForQuestions(db, [...new Set(rows.map((r) => r.question_id))]);
     const items = rows.map((row) => ({
       id: row.id,
@@ -177,19 +250,30 @@ router.get("/", (req, res) => {
     return res.json({ ...pageResult([], 0, page, limit), page, limit, counts });
   }
 
+  // 多词模式：命中词数排最前 → 全词命中 → 原 match_rank（标题>摘要>话题名）→ 时间。
+  const qScoreCols = multi
+    ? `, (${words.map(() => `(CASE WHEN ${qCond} THEN 1 ELSE 0 END)`).join(" + ")}) AS hit_cnt,
+         (CASE WHEN ${qCond} THEN 0 ELSE 1 END) AS not_full`
+    : "";
+  const qOrder = multi
+    ? "hit_cnt DESC, not_full ASC, match_rank ASC, q.created_at DESC"
+    : "match_rank ASC, q.created_at DESC";
   const rows = db
     .prepare(
-      `SELECT q.*, ${AUTHOR_COLS},
+      `SELECT q.*, ${AUTHOR_COLS}${qScoreCols},
          CASE WHEN q.title LIKE ? ESCAPE '\\' THEN 1
               WHEN q.detail_md LIKE ? ESCAPE '\\' THEN 2
               ELSE 3 END AS match_rank
        FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${qWhere}
-       ORDER BY match_rank ASC, q.created_at DESC
+       ORDER BY ${qOrder}
        LIMIT ? OFFSET ?`
     )
-    .all(pat, pat, pat, pat, pat, limit, offset);
+    .all(
+      ...(multi ? [...qWhereParams, pat, pat, pat] : []),
+      pat, pat, ...qWhereParams, limit, offset
+    );
 
   // 结果卡需要展示话题胶囊：一次性捞回本页问题的话题（id/name/slug），避免逐题查询。
   const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
