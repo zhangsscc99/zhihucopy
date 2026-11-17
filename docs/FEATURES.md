@@ -758,3 +758,9 @@
 - [ ] Z1142 话题页头部「关注」重复、统计与按钮挤在一起（P3，可读性）：`/topic/2` 头部文本为「JavaScript 从语言特性到运行时行为的实践讨论 66 关注 19 讨论 关注」——两个「关注」相邻，扫读时分不清哪个是按钮。要求：统计文案改为「66 人关注 · 19 个讨论」（或等价、与站内其他计数口径一致），统计与关注按钮之间 ≥12px 且按钮文案保持不变；1440 单行、390 不折行不溢出。断言 `scripts/assert/topic-header-copy.mjs`：`.topic` 头部内不出现「关注 关注」连续形态、统计文本含「人关注」或「个讨论」、统计容器与按钮间距 ≥12px、双端无横向溢出。
   verify: node scripts/assert/topic-header-copy.mjs
   risk: low
+
+## 第十一轮待办（2026-11-17 19:05，第三十五轮走查）
+
+- [ ] Z1143 未登录动作零解释（P3，可预期性）：未登录点赞/关注时 `Question.tsx` 的 `needLogin()` 先 `toast("请先登录")` 再 `navigate(loginNext)`，React 状态未提交组件已卸载 —— 实测点击后 `.toast-stack` 内文本从未出现（MutationObserver 记录为空），用户被整页扔到登录页且登录页只有「登录知乎（仿）」标题，没有任何「登录后即可继续刚才的操作」。要求：登录页在存在 `next`（有效站内路径）时于表单上方显示一行说明「登录后即可继续刚才的操作」（无 `next` 时不显示），不改登录/注册流程与 Z1131 的登录回跳（`next === returnTo` 时仍 `navigate(-1)`）；不新增全局 toast 时序改造。断言 `scripts/assert/login-next-hint.mjs`：未登录在 `/question/6` 点赞 → 落到 `/login?next=%2Fquestion%2F6` 且 `main` 文本含「登录后即可继续」；直接打开 `/login`（无 next）时该文案 0 处；`/login?next=https%3A%2F%2Fevil.com` 时该说明不出现且登录后不跳外站；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上必 FAIL。
+  verify: node scripts/assert/login-next-hint.mjs
+  risk: low
