@@ -176,27 +176,29 @@ export function Topic() {
                 {topic.description && (
                   <p className="topic-head__desc">{topic.description}</p>
                 )}
-                <div className="topic-head__meta">
-                  <span>{topic.follower_count ?? 0} 关注</span>
-                  <span>{topic.question_count ?? 0} 讨论</span>
-                </div>
               </>
             ) : (
               <span className="sk-bar" style={{ width: "40%", height: 26 }} aria-hidden="true" />
             )}
           </div>
-          {topic && (
+        </div>
+        {topic && (
+          <div className="topic__statsrow">
+            <div className="topic-head__meta topic__stats">
+              <span>{topic.follower_count ?? 0} 人关注</span>
+              <span>{topic.question_count ?? 0} 个讨论</span>
+            </div>
             <button
               type="button"
-              className={`btn topic-head__follow${following ? " topic-head__follow--on" : ""}`}
+              className={`btn topic-head__follow${following ? " topic-head__follow--on" : " topic__follow"}`}
               onClick={toggleFollow}
               disabled={followPending}
               title={following ? "取消关注" : undefined}
             >
               {following ? "已关注" : "关注"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {initialLoading ? (

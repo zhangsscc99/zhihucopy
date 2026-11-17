@@ -3356,3 +3356,30 @@ a.ntf__title:hover {
   color: #8590a6;
   text-align: center;
 }
+
+/* ---------- Z1142 话题页头部：统计口径 + 与关注按钮间距 ---------- */
+/* 「N 人关注 · N 个讨论」与右侧关注按钮区分口径；主色描边小按钮，非实心。 */
+.topic__statsrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+.topic__stats {
+  margin-right: 12px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.topic__follow {
+  border-color: var(--accent);
+  background: rgba(0, 102, 255, 0.06);
+  color: var(--accent);
+}
+.topic__follow:hover {
+  border-color: var(--accent-hover);
+  background: rgba(0, 102, 255, 0.12);
+  color: var(--accent-hover);
+}
