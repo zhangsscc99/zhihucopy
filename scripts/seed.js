@@ -32,6 +32,10 @@
  *   TIER_PLAN.<tier>.topUp    每题「最高赞回答」的 up 票数区间（受 N_USERS-1 上限截断）
  *   TIER_PLAN.<tier>.restUp   其余回答的 up 票数区间
  *   TIER_PLAN.<tier>.comments 每题评论数区间（跨该题各回答按票数加权分配）
+ *
+ * 回答作者人设（Z1097）：随机派作者时只在「作者领域 ∩ 问题大类可接受域」
+ * 里挑（见 scripts/persona-domains.js），语料显式指定的 author 除外——
+ * 那是按口吻写定的。领域表缺人设定义会在加载期直接抛错。
  * ---------------------------------------------------------------------------
  */
 
@@ -51,6 +55,13 @@ function requireFromServer(name) {
 const bcrypt = requireFromServer("bcryptjs");
 const { getDb } = require("../server/db");
 const { BADGES } = require("../server/badges");
+// Z1097：种子用户人设领域（昵称->领域集合、大类->可接受域），
+// 回答作者只在「作者领域 ∩ 问题大类可接受域」里挑，杜绝健身教练答 React。
+const {
+  PERSONA_DOMAINS,
+  DOMAINS_BY_CAT,
+  domainsOf,
+} = require("./persona-domains");
 
 // ---------------------------------------------------------------------------
 // 随机数：固定种子 -> 内容可复现（便于对比两次执行的结果）
@@ -209,6 +220,12 @@ const { stories: STORIES } = require("./seed-data");
         throw new Error(`${where} 第 ${k + 1} 条回答指定了未知作者「${a.author}」`);
       }
     }
+  }
+}
+// Z1097：每个种子人设必须在领域表里有定义，否则派作者时退回随机。
+for (const [nick] of USERS) {
+  if (!PERSONA_DOMAINS[nick]) {
+    throw new Error(`persona-domains: 种子用户「${nick}」缺领域定义`);
   }
 }
 
@@ -541,8 +558,18 @@ function main() {
       topicIds.push({ id: Number(info.lastInsertRowid), cat: t.cat, name: t.name, idx: i });
       bump("topics");
     }
-    // 每个大类里，用户有一个「擅长领域」，用于挑选回答作者
-    const catOf = (uIdx) => ["code", "work", "life", "sci", "psy", "edu", "health", "money"][uIdx % 8];
+    // Z1097：用户领域 = PERSONA_DOMAINS(昵称) ∪ bio 关键词（见 persona-domains.js）。
+    // clone 用户继承原型的领域，回答作者只在其中与问题大类相交的人里挑。
+    const domainSetOf = (uIdx) => {
+      const [nick, bio] = USERS[uIdx % USERS.length];
+      return domainsOf(nick, bio);
+    };
+    const fitsCat = (uIdx, cat) => {
+      const ok = DOMAINS_BY_CAT[cat];
+      if (!ok) return true;
+      for (const d of domainSetOf(uIdx)) if (ok.includes(d)) return true;
+      return false;
+    };
 
     // ---------------- questions ----------------
     const insQuestion = db.prepare(
@@ -620,9 +647,11 @@ function main() {
       const cat = q.cat;
       const nAns = Math.min(q.story.answers.length, TIER_PLAN[q.tier].answers);
       // 作者不重复且不是提问者；story 显式指定作者（昵称）时优先用指定者
+      // （显式作者是语料里按口吻写定的，不再做领域过滤）。
+      // 随机部分只在该问题大类可接受的领域里挑（Z1097），不够才退回全体。
       const preferred = userIds
         .map((id, idx) => ({ id, idx }))
-        .filter((u) => catOf(u.idx) === cat && u.idx !== q.authorIdx);
+        .filter((u) => fitsCat(u.idx, cat) && u.idx !== q.authorIdx);
       const fallback = userIds.map((id, idx) => ({ id, idx })).filter((u) => u.idx !== q.authorIdx);
       const pool = shuffle(preferred.length >= nAns ? preferred : fallback);
       const authors = [];
