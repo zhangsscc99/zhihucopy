@@ -776,3 +776,21 @@
 - [x] Z1146 问题页读完即到底，无「相关问题」（P2，内容厚度/留存）：✅ (2026-11-17 devin swe-2-high：新增 `GET /api/questions/:id/related`（同话题其它题、`testQuestionSql` 过滤、answer_count/view_count 降序、`topicsForQuestions` 批量取话题无 N+1、无话题→`items:[]`、不存在→404）；`Question.tsx` 在「已经到底了」与页脚之间渲染 ≤6 行（标题 + N 个回答 + 话题胶囊），空/失败整块不渲染，不动回答分页与排序；线上 `/question/6` 6 条、href 均指向他题（29/4/5/25/559/555）、1440 与 390 无溢出、`__errs`=0；verify PASS、断言 3/3、ask-answer 与 vote-comment 无回归、server 41/41，反向自检线上 FAIL)；原条目：`/question/6` 3 条回答（6399 浏览）后是「已经到底了」，页面没有任何通往同话题其它问题的入口，用户会话在此中断。要求：问题页回答列表下方新增「相关问题」区块（≤6 条，取自该问题所在话题下的其它问题，按热度/浏览降序，排除自身与测试内容，每行显示标题 + 「N 个回答」+ 话题胶囊，点击进 `/question/:id`）；问题无话题或取不到数据时整块不渲染（不许空块/骨架长驻）；放在「已经到底了」之后、页脚之前；不改回答问题列表分页与排序。断言 `scripts/assert/related-questions.mjs`：`/question/6` 底部出现「相关问题」且条目 ≥3、全部 href 指向别的 `/question/:id`（不含自身 id）、每行含回答数；无话题问题（自造/挑选）该区块 0 个；双端无横向溢出、`window.__errs` 为空、点击首条能进到对应问题（标题变化）；反向自检线上 FAIL（区块不存在）。
   verify: node scripts/assert/related-questions.mjs
   risk: med
+
+## 第十三轮待办（2026-11-17 20:35，第三十七轮走查）
+
+- [ ] Z1147 评论区语料模板化（P1，内容厚度）：`/question/6` 的 19 条评论抽 8 条，4 条撞同一批万能句（「有一个小细节我可能理解得不对，回头再读一遍。」×2、「我按这个思路试了，确实有效。」×2、「受教了。」），全部「16 小时前」，无一条指向回答里的具体点。要求：① 把 `scripts/seed-data` 的评论语料扩到 ≥40 条并按回答正文的关键词/领域分池，评论必须带实指（引用回答里的具体概念或做法，≥8 字）；② 同一 answer 下不得出现相同文案，全站同一句的占用率 ≤15%；③ 新增 `scripts/fix-comment-variety.js`（默认 dry-run，`--apply --prod` 需 `ZH_ALLOW_PROD_WRITE=1` 且先 `.backup()`，幂等，只改万能句命中的存量评论）；④ 断言 `scripts/assert/comment-variety.mjs`：抽样 ≥20 条未删除评论，同 answer 内重复文案 = 0、万能句白名单命中率 ≤20%、单条长度 ≥6 字、`--self-test` 副本库植入重复评论必须检出；反向自检线上必须 FAIL。
+  verify: node scripts/assert/comment-variety.mjs
+  risk: high
+
+- [ ] Z1148 未登录「反对」不走登录回跳（P2，可预期性）：同页未登录时点赞/收藏/关注问题都跳 `/login?next=<当前页>`，只有「反对」只弹一句「请先登录」toast（实测 URL 不变、无弹层）。要求：反对与其它写操作走同一 `needLogin(next)` 路径，登录成功后回到原问题页；不得改动点赞/收藏/关注既有行为与 Z1131 的 `navigate(-1)` 回跳。断言 `scripts/assert/vote-down-login.mjs`：未登录在 `/question/6` 点反对 → 落到 `/login?next=%2Fquestion%2F6` 且 main 含「登录后即可继续」；登录后回原问题页且「反对」按钮可点、`aria-pressed` 变 true；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上 FAIL。
+  verify: node scripts/assert/vote-down-login.mjs
+  risk: low
+
+- [ ] Z1149 通知分类 tab 计数粘连且 0 也显示（P3，可读性）：新号通知页 4 个 tab 渲染为「全部0 / 评论0 / 赞同0 / 关注0」，数字与汉字之间无间隔，0 值也照写。要求：文案改为「全部 3」式（数字前一个空格/分隔符），计数为 0 时只显示「评论」等纯文案不显示 0，`aria-label` 给完整说明（如「评论，5 条」）；tab 数字仍须与列表条数一致，改分类后不回归 Z1145 的筛选行为。断言 `scripts/assert/notify-tabs-copy.mjs`：登录有通知的种子号，4 个 tab 的 innerText 不含 `\d` 与汉字直接相邻形态（`全部0`、`评论3` 均 FAIL），数字与列表条数一致；新号 4 个 tab 文本不含任何数字；双端无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/notify-tabs-copy.mjs
+  risk: low
+
+- [ ] Z1150 赞同态只有颜色，没有「已赞同」文案（P3，可预期性）：点赞同后按钮仍是「赞同 142」，只靠蓝底白字区分已投；`aria-pressed` 已正确更新，缺的是可见文案。要求：已赞同态文案为「已赞同 142」（点击可取消，`title`/`aria-label` 说明「取消赞同」），未投时保持「赞同 N」；反对态同理「已反对」；点赞/取消在网络失败时回滚并 toast，不改既有投票接口与计数口径。断言 `scripts/assert/vote-label-state.mjs`：1440 登录后点赞 → 按钮文本含「已赞同」且 `aria-pressed=true`、再点变回「赞同 N」且计数 -1、刷新后状态保持；未登录不出现「已赞同」；390 下按钮宽度不溢出（`scrollWidth-clientWidth=0`）；反向自检线上 FAIL。
+  verify: node scripts/assert/vote-label-state.mjs
+  risk: low
