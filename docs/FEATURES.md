@@ -545,3 +545,15 @@
 - [ ] Z1080 Z1033 断言与评论过滤规则冲突（P2，测试基建）：`content-ownership.mjs` 用 `@test.dev` 账号造「他人评论」，而 `GET /comments` 的 `testCommentSql` 会把测试号评论过滤掉 → 断言「他人评论未渲染」恒 FAIL（11-16 12:13 / 11-17 01:38 / 02:20 三份报告均 FAIL，条目却已勾选）。需改用非测试形态账号，或与 Z1073 的 test-support 逃生舱统一解决
   verify: node scripts/assert/content-ownership.mjs
   risk: low
+
+## 第二十一轮待办（2026-11-17 02:4x，来源 docs/PRODUCT-REVIEW.md 第十九轮线上走查）
+
+- [ ] Z1082 首屏假内容与自动化残留（P1，内容洁净度/真实感）：① 无补充说明的问题在信息流卡片上直接渲染占位文案「暂无补充说明」，真知乎此处应直接进入元信息；② 推荐流第一位是「质检小七 / 路人乙qa」的 0 关注 1 句回答；③ `/question/339` 评论区残留「走查9434 / 走查评论D：测试提交路径」；④ 通知页 6 条里 2 条「巡检探针banv」。`content-filter` 现有规则不认「走查<数字>」「走查评论…」「巡检探针」形态。需补标题/正文/昵称三类规则（JS 与 SQL 同口径）、清理生产库残留，并让卡片在无补充说明时不渲染占位
+  verify: node scripts/assert/feed-clean-first-screen.mjs
+  risk: med
+- [ ] Z1083 一条评论弹两个同文案 toast（P2，操作可预期，Z1036 复发）：Enter 提交与「发布评论」按钮共用 `submitComment` 却各弹一次「评论已发布」，右下角叠两条；需 toast 单例化（同 kind+text 去重、同屏最多一条），并给评论 `textarea` 补 `aria-label="写下你的评论"`
+  verify: node scripts/assert/comment-toast-singleton.mjs
+  risk: low
+- [ ] Z1084 页面 title 带 emoji（P2，品牌视觉红线）：`document.title` 实测「🐴 知乎（仿） · 有问题，就会有答案」，浏览器标签与分享卡片都带马头，违反「品牌名只能是知乎（仿）、禁 emoji」；需全仓清理 title/logo/meta 中的 emoji 并加静态守卫
+  verify: node scripts/assert/brand-title-no-emoji.mjs
+  risk: low
