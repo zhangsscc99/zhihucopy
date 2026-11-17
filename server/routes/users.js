@@ -4,7 +4,11 @@ const { publicUser, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { testUserSql, testQuestionSql } = require("../content-filter");
 const { authorAnswersSql } = require("./answers");
-const { AUTHOR_QUESTIONS_WHERE } = require("./questions");
+const {
+  AUTHOR_QUESTIONS_WHERE,
+  questionRow,
+  topicsForQuestions,
+} = require("./questions");
 const { grantFor, listFor } = require("../badges");
 
 const router = express.Router();
@@ -86,6 +90,81 @@ router.get("/:id", (req, res) => {
     );
   }
   res.json(body);
+});
+
+// 赞同回答的摘要：剥 markdown 标记后压缩空白，总长 ≤ n（截断留 1 字位给省略号）。
+function snippetOf(md, n = 60) {
+  const text = String(md || "")
+    .replace(/[#>*`\-[\]()!]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > n ? text.slice(0, n - 1) + "…" : text;
+}
+
+// GET /users/:id/highlights?limit=5 — 0 回答主页的空态补内容（Z1111）：
+// 该用户最近关注的问题 + 最近赞同的回答，一次请求带回两块、各 ≤limit 条。
+// 公开数据（未登录同口径）；测试内容过滤与 /users/:id stats 同源
+// （selfView = 页主本人时放开），关注问题的话题走 topicsForQuestions 批量取，
+// 赞同回答一次 JOIN 取全，均无 N+1。
+router.get("/:id/highlights", (req, res) => {
+  const db = getDb();
+  const user = db.prepare("SELECT id FROM users WHERE id = ?").get(req.params.id);
+  if (!user) return res.status(404).json({ error: "用户不存在" });
+  const limit = Math.min(10, Math.max(1, parseInt(req.query.limit, 10) || 5));
+  const selfView = Boolean(req.user && req.user.id === user.id);
+  // authorAlias = 该查询里「问题作者」users JOIN 的别名（两个查询别名不同）。
+  const publicQ = (authorAlias) =>
+    selfView ? "" : `AND ${testQuestionSql("q", authorAlias)}`;
+
+  const qRows = db
+    .prepare(
+      `SELECT q.*, u.id AS author_id, u.nickname AS author_nickname,
+              u.avatar_url AS author_avatar, u.bio AS author_bio
+       FROM follows f
+       JOIN questions q ON q.id = f.target_id
+       JOIN users u ON u.id = q.author_id
+       WHERE f.follower_id = ? AND f.target_type = 'question' ${publicQ("u")}
+       ORDER BY f.created_at DESC, f.target_id DESC LIMIT ?`
+    )
+    .all(user.id, limit);
+  const topicsByQ = topicsForQuestions(
+    db,
+    qRows.map((r) => r.id)
+  );
+  const followed_questions = qRows.map((r) =>
+    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+  );
+
+  const upvoted_answers = db
+    .prepare(
+      `SELECT a.id AS answer_id, a.question_id, q.title AS question_title,
+              a.content_md, a.vote_up, a.created_at,
+              u.id AS author_id, u.nickname AS author_nickname,
+              u.avatar_url AS author_avatar
+       FROM votes v
+       JOIN answers a ON a.id = v.answer_id
+       JOIN questions q ON q.id = a.question_id
+       JOIN users u ON u.id = a.author_id
+       JOIN users qu ON qu.id = q.author_id
+       WHERE v.user_id = ? AND v.value = 1 AND a.is_deleted = 0 ${publicQ("qu")}
+       ORDER BY v.created_at DESC, v.answer_id DESC LIMIT ?`
+    )
+    .all(user.id, limit)
+    .map((r) => ({
+      answer_id: r.answer_id,
+      question_id: r.question_id,
+      question_title: r.question_title,
+      snippet: snippetOf(r.content_md),
+      vote_up: r.vote_up,
+      created_at: r.created_at,
+      author: {
+        id: r.author_id,
+        nickname: r.author_nickname,
+        avatar_url: r.author_avatar,
+      },
+    }));
+
+  res.json({ followed_questions, upvoted_answers });
 });
 
 router.patch("/me", requireAuth, (req, res) => {

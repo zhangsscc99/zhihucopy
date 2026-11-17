@@ -118,3 +118,19 @@ export interface ProfileData {
   // 仅登录请求返回：当前用户是否已关注该页主。
   is_following?: boolean;
 }
+
+// /users/:id/highlights — 0 回答主页的空态补内容：页主最近关注的问题与赞同的回答。
+export interface UpvotedAnswer {
+  answer_id: number;
+  question_id: number;
+  question_title: string;
+  snippet: string;
+  vote_up: number;
+  created_at: string;
+  author: Author;
+}
+
+export interface ProfileHighlights {
+  followed_questions: Question[];
+  upvoted_answers: UpvotedAnswer[];
+}
