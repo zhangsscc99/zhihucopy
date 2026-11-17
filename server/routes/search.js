@@ -90,7 +90,7 @@ router.get("/", (req, res) => {
   // 三个 scope 共用的 WHERE 片段：问题 scope 的话题名命中用 EXISTS 子查询而非 JOIN，
   // 避免一题多话题时重复行影响分页与 total；回答 scope 还要套所属问题/回答作者的
   // 测试产物过滤；用户 scope 用 testUserSql 排除测试账号。
-  const qWhere = `${testQuestionSql("q", "u")} AND (
+  const qWhere = `q.is_collapsed = 0 AND ${testQuestionSql("q", "u")} AND (
     q.title LIKE ? ESCAPE '\\' OR q.detail_md LIKE ? ESCAPE '\\' OR
     EXISTS (SELECT 1 FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
             WHERE qt.question_id = q.id AND t.name LIKE ? ESCAPE '\\')

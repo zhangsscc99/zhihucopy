@@ -632,3 +632,6 @@
 - [ ] Z1106 种子作者 bio 与作答领域口吻不一致（P2，内容真实感）：Z1103 后错位已清零，但邻接表允许 `data → code`，「温故52（bio：统计出身，现在做增长）」仍在 `/question/6` 答 React useEffect，读者第一眼仍出戏。需给跨域作答的种子作者补一句跨域说明（如 bio 加「也写前端」）或让其只在首选领域作答；断言 `scripts/assert/seed-bio-consistency.mjs`：抽样 ≥30 条回答，作者 bio 关键词或领域声明 ∩ 问题话题大类 ≠ ∅ 比例 ≥95%，且 bio 与 PERSONA_DOMAINS 首选域一致的作者不被改派
   verify: node scripts/assert/seed-bio-consistency.mjs
   risk: med
+- [x] Z1110 搜索召回偏窄疑点复核（P1，检索口径）：线上 `/search?q=React` 仅「相关结果 · 2 条」（问题 2/回答 6/用户 0）。只读核对：questions title/detail LIKE '%React%'=2、answers content LIKE=6、answer_fts 303/303 行与 answers 全量对齐、questions 无 FTS 索引——接口命中已与库内 LIKE 计数一致，偏窄主因是库内 React 字面命中本就少 + 命中分散在回答 tab；顺带发现 question scope 未排除 is_collapsed（口径要求未折叠） ✅ (2026-11-17 devin：qWhere 补 `q.is_collapsed = 0`；新增 search-recall.mjs——四词（React/useEffect/数据库/职场）counts.question ≥ 只读 LIKE 基线、answer>0、React/react/REACT 三态 counts 一致、type=answer total 与 counts.answer 自洽；search-page/search-scope/search-guard 回归全 PASS)
+  verify: node scripts/assert/search-recall.mjs
+  risk: med
