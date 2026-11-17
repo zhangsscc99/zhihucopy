@@ -3649,4 +3649,51 @@ a.ntf__title:hover {
     left: 10px;
     right: 10px;
   }
+/* ---------- Z1146 问题页「相关问题」 ---------- */
+/* 白卡列表块：标题行 + 元信息 + 话题胶囊，置于回答列表（「已经到底了」）之后。 */
+.related {
+  margin-top: 8px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.related__title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.related__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.related__item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 4px;
+  padding: 10px 0;
+}
+.related__item + .related__item {
+  border-top: 1px solid var(--line);
+}
+.related__link {
+  min-width: 0;
+  font-size: 15px;
+  color: var(--ink);
+}
+.related__link:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.related__meta {
+  font-size: 13px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.related__item .tag {
+  margin-right: 0;
 }
