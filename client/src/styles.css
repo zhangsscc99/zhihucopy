@@ -2650,7 +2650,7 @@ a.ntf__title:hover {
 
 /* ---------- 通知 ---------- */
 
-.toast-stack {
+.notify-stack {
   position: fixed;
   left: 50%;
   bottom: 32px;

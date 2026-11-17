@@ -637,7 +637,7 @@
 - [ ] Z1108 补记尾巴按领域限定（P2，内容真实感）：`answers.content_md` 里「别照抄文里的参数和阈值，那些数字是我这台机器、这份数据上跑出来的，换环境先小流量验证」这类免责尾巴被通用追加，导致 JavaScript 问题下的回答也挂数据类免责句（answer id 18，`/question/6`）。只对数据/实验/经验类话题（data/money/sci/life 的实测型回答）追加；已污染的存量行按话题清理。断言 `scripts/assert/answer-tail-domain.mjs`：全库不存在「话题大类 ∈ {code, psy, edu} 且正文含数据免责尾巴」的回答，且清理后条数 = 0
   verify: node scripts/assert/answer-tail-domain.mjs
   risk: low
-- [ ] Z1109 toast 单实例（P2，操作可预期）：同一次操作渲染两条相同 toast（「注册成功，欢迎来到知乎（仿）」×2、「评论已发布」×2、「该邮箱已注册」×2，`[role=status]` 内各两份），视觉叠影且读屏重复播报。改为同一 key 的消息只保留一条（新消息替换旧同位消息）。断言 `scripts/assert/toast-single.mjs`：连续触发注册失败与发布评论，`[role=status],[class*=toast]` 中同文案出现次数 ≤1，且提示可见
+- [x] Z1109 toast 单实例（P2，操作可预期）：同一次操作渲染两条相同 toast（「注册成功，欢迎来到知乎（仿）」×2、「评论已发布」×2、「该邮箱已注册」×2，`[role=status]` 内各两份），视觉叠影且读屏重复播报。改为同一 key 的消息只保留一条（新消息替换旧同位消息）。断言 `scripts/assert/toast-single.mjs`：连续触发注册失败与发布评论，`[role=status],[class*=toast]` 中同文案出现次数 ≤1，且提示可见 ✅ (2026-11-17 devin：根因=活体区域挂在 `.toast-stack` 容器上，每条 toast 被容器+子项重复暴露；toast.tsx 把 role=status/aria-live 下放到每条 .toast（容器改纯布局 .notify-stack），push 按 (text,kind) 去重替换 + 上限 3 条；toast-single.mjs 基线 FAIL 节点数=2，修后 A/B/C 全 PASS)
   verify: node scripts/assert/toast-single.mjs
   risk: low
 - [ ] Z1110 搜索召回偏窄（P3，内容厚度）：`/search?q=React` 只返回问题 2 / 回答 6，`useEffect` 只 2 条，站内 JS/React 相关讨论明显更多；疑似 FTS5 只索引标题或查询分词过严。断言 `scripts/assert/search-recall.mjs`：对 React / useEffect / 数据库 / 职场 四个词，`GET /search` 的 question 命中数 ≥ 库内标题含该词的问题数，且回答命中数 > 0
