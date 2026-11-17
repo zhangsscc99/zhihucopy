@@ -725,3 +725,12 @@
 - [ ] Z1133 移动端卡片元信息缺溢出保护（P3，边界）：390 下 meta 现为「望山的人 · 3 答 · 6115 浏览」，单行 OK 但未验证长昵称 + 5 位浏览数组合（种子里有「王吴周郑」「简宁不慌」，实验号可能更长）。要求：`.feed__meta` 的昵称节点 `max-width: 40%` + `text-overflow: ellipsis; white-space: nowrap`，短文案节点 `flex: none`，任何组合下仍单行且 `scrollWidth-clientWidth=0`；断言 `scripts/assert/mobile-feed-meta.mjs` 增补一个注入 12 字昵称的用例（可用 query 参数或临时造号，不得只测种子现状）
   verify: node scripts/assert/mobile-feed-meta.mjs
   risk: low
+
+## 第九轮待办（2026-11-17 15:55，第三十二轮走查）
+
+- [ ] Z1134 收藏弹层没有退出路径（P2，可预期性）：点回答卡「收藏」弹出 `.answer__fav-menu` 后，按 Esc 无效、点页面空白处也无效，只有再点一次「收藏」才收起（双端实测 `open` 恒为 true），且焦点停在触发按钮、从未进入弹层。要求：弹层支持 Esc 关闭、点击弹层外部关闭（`pointerdown` 在容器外即关，点弹层内部不关），打开时焦点移到弹层第一个可聚焦元素（无收藏夹时是「新建收藏夹」输入框），关闭后焦点回触发按钮；不得改变「再点一次收藏按钮也收起」的现有行为，不得影响未登录态（未登录点收藏仍走登录跳转）；断言 `scripts/assert/fav-menu-dismiss.mjs`：①打开后 Esc → 弹层 0 个，②重开 → 点 `main` 空白处 → 弹层 0 个，③重开 → 弹层内点一次不关（`menuCount===1`），④打开时 `document.activeElement` 在 `.answer__fav-menu` 内且可输入，⑤Esc 后焦点回 `.answer__action`，⑥390 与 1440 无横向溢出、`window.__errs` 为空；反向自检（改动前）必须 FAIL
+  verify: node scripts/assert/fav-menu-dismiss.mjs
+  risk: low
+- [ ] Z1135 首次收藏缺默认收藏夹（P3，留存）：新用户点「收藏」看到「还没有收藏夹，先建一个吧」+ 需自己命名才能收藏，真实知乎直接进「默认收藏夹」。要求：用户无任何收藏夹时，弹层提供一键「收藏到默认收藏夹」（首次自动建 `默认收藏夹`，之后直接复用），保留手动新建入口；断言 `scripts/assert/fav-default-collection.mjs`：新号点收藏 → 一键创建后 toast 含「默认收藏夹」、按钮变「已收藏」、刷新保持、`/collections` 能看到该收藏夹且不产生重名副本
+  verify: node scripts/assert/fav-default-collection.mjs
+  risk: low
