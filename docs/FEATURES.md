@@ -531,3 +531,6 @@
 - [ ] Z1076 列表接口 topics 恒为空 → 首页/话题流卡片无话题胶囊（P1，视觉保真 + 数据）：`GET /api/questions` 实测 `topics:[]`（30/30 条全空），而 `question_topics` 有 114 行、60/61 问题已绑话题；Z902 的「话题胶囊接口返回时渲染」因此从未真正显示。需列表 SQL join 话题（保持分页与 N+1 不回归）并断言卡片出现胶囊
   verify: node scripts/assert/feed-topic-pills.mjs
   risk: med
+- [ ] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选
+  verify: node scripts/assert/mobile-search.mjs && node scripts/assert/notfound-page.mjs && node scripts/assert/login-copy.mjs && node scripts/assert/mobile-nav.mjs
+  risk: low
