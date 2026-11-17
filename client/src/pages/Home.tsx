@@ -315,7 +315,6 @@ function FeedFoot({
   moreError: string;
   onLoadMore: () => void;
 }) {
-  if (moreLoading) return <FeedSkeleton count={2} />;
   if (moreError) {
     return (
       <div className="feed-foot feed-foot--error" role="alert">
@@ -327,11 +326,20 @@ function FeedFoot({
     );
   }
   if (hasMore) {
+    // Z1137 — 点击后同一帧进入加载态：按钮 disabled + aria-busy + 3px 顶部进度条，
+    // 不换骨架屏，避免列表底部长度跳动。
     return (
-      <div className="feed-foot">
-        <button type="button" className="btn btn--outline" onClick={onLoadMore}>
-          加载更多
+      <div className={`feed-foot${moreLoading ? " feed-foot--loading" : ""}`}>
+        <button
+          type="button"
+          className="btn btn--outline"
+          onClick={onLoadMore}
+          disabled={moreLoading}
+          aria-busy={moreLoading}
+        >
+          {moreLoading ? "加载中…" : "加载更多"}
         </button>
+        {moreLoading && <span className="feed-foot__bar" aria-hidden="true" />}
       </div>
     );
   }

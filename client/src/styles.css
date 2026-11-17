@@ -580,6 +580,32 @@ textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  position: relative;
+}
+/* Z1137 — 追加加载不确定进度条：3px 主色条贴在卡片顶边，不撑高度、不跳布局 */
+.feed-foot__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.feed-foot__bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: var(--accent);
+  animation: feed-foot-slide 1.1s ease-in-out infinite;
+}
+@keyframes feed-foot-slide {
+  to {
+    left: 100%;
+  }
 }
 .feed-foot--error {
   justify-content: space-between;
@@ -2061,6 +2087,17 @@ mark.hl {
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+}
+@media (min-width: 768px) {
+  /* Z1136 — 右栏吸顶：顶栏 52px + 16px 间距；栏内可滚，细滚动条 */
+  .rail {
+    align-self: flex-start;
+    position: sticky;
+    top: 68px;
+    max-height: calc(100vh - 84px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
 }
 .rail-block {
   background: var(--surface);
