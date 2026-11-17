@@ -3,7 +3,7 @@ const { getDb } = require("../db");
 const { publicUser, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
 const { testUserSql, testQuestionSql } = require("../content-filter");
-const { AUTHOR_ANSWERS_SQL } = require("./answers");
+const { authorAnswersSql } = require("./answers");
 const { AUTHOR_QUESTIONS_WHERE } = require("./questions");
 const { grantFor, listFor } = require("../badges");
 
@@ -54,20 +54,24 @@ router.get("/:id", (req, res) => {
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!user) return res.status(404).json({ error: "用户不存在" });
   // 计数与列表接口共用同一口径：/questions?author= 与 /answers?author= 的 WHERE。
+  // 本人看自己主页（viewer === user.id）放开测试内容过滤 —— 与两个 ?author=
+  // 列表的 selfView 判定同源，保证计数与列表一致；访客口径不变。
+  const selfView = Boolean(req.user && req.user.id === user.id);
+  const authorSql = authorAnswersSql({ selfView });
   const stats = {
     answers: db
-      .prepare(`SELECT COUNT(*) c ${AUTHOR_ANSWERS_SQL}`)
+      .prepare(`SELECT COUNT(*) c ${authorSql}`)
       .get(user.id).c,
     questions: db
       .prepare(
         `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-         WHERE ${testQuestionSql("q", "u")} AND ${AUTHOR_QUESTIONS_WHERE}`
+         WHERE ${selfView ? "1=1" : testQuestionSql("q", "u")} AND ${AUTHOR_QUESTIONS_WHERE}`
       )
       .get(user.id).c,
     followers: countFollowers(db, user.id),
     following: countFollowing(db, user.id),
     vote_up: db
-      .prepare(`SELECT COALESCE(SUM(a.vote_up), 0) s ${AUTHOR_ANSWERS_SQL}`)
+      .prepare(`SELECT COALESCE(SUM(a.vote_up), 0) s ${authorSql}`)
       .get(user.id).s,
   };
   const body = { user: publicUser(user), stats, badges: listFor(user.id) };

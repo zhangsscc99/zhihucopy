@@ -15,7 +15,9 @@ run("profile", async ({ browser }) => {
   for (const label of ["回答", "关注", "粉丝"]) {
     await page.locator("dl, .profile__stats, main").getByText(label, { exact: false }).first().waitFor();
   }
-  // 回答列表：出现指向刚回答问题的链接或「TA 的回答/回答列表」区块
-  const list = page.getByRole("link", { name: new RegExp(q.question.title.slice(0, 15)) }).or(page.getByText(/TA 的回答|的回答|回答列表/)).first();
+  // 回答列表：出现指向刚回答问题的链接或「TA 的回答/回答列表」区块。
+  // 注意用字符串（子串匹配）而非 RegExp —— 标题以 [e2e] 开头，直接 new RegExp
+  // 会把方括号解释成字符类，永远匹配不到（Z1085 返修）。
+  const list = page.getByRole("link", { name: q.question.title.slice(0, 15) }).or(page.getByText(/TA 的回答|的回答|回答列表/)).first();
   await list.waitFor({ timeout: 8000 });
 });
