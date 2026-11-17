@@ -614,6 +614,6 @@
 
 ## 第二十三轮收尾观察（待办）
 
-- [ ] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写）
+- [x] Z1102 右栏「等你来答」线上不显示（P2，数据缺口）：生产库 111 题全部已有回答，`GET /questions?tab=unanswered` 返回 0 条，UnansweredRail 按「0 条不渲染空卡」直接 return null → 部署后右栏仍是热榜一块 705px + 约 195px 空白。需让 `scripts/seed.js` 生成 8–12 条「零回答」真实形态问题（标题+补充说明，0 回答，带话题），并写幂等脚本补进生产库（默认 dry-run，`SEED_ALLOW_PROD=1` 才写） ✅ (2026-11-17 devin：seed-data/unanswered.js 10 条零回答真问题 + seed-unanswered.js 幂等补库（dry-run/SEED_ALLOW_PROD=1，已写生产库 q#247-256，API 返回 10 条）；unanswered-stock.mjs PASS，基线 FAIL)
   verify: node scripts/assert/unanswered-stock.mjs
   risk: med
