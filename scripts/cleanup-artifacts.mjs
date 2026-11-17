@@ -36,7 +36,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const cleanup = require("../server/artifact-cleanup.js");
-const { questionMatchSql, userMatchSql, commentMatchSql } = require("../server/content-filter.js");
+const { questionMatchSql, userMatchSql, probeUserMatchSql, commentMatchSql } = require("../server/content-filter.js");
 const {
   SEL, count, initDelTables, cascadeFromDelUsers, expandCommentReplies,
   addOwnedTargets, deleteMarked, recomputeDerived, delCounts,
@@ -315,7 +315,8 @@ function runDb() {
     // 形态命中但未标记的账号：沿用旧规则 —— 扣掉待删集后无任何剩余内容才删。
     db.prepare(
       `INSERT OR IGNORE INTO _del_u SELECT u.id FROM users u
-       WHERE ${userMatchSql("u", OPTS)} AND u.is_admin = 0 AND ${age("u.created_at")}
+       WHERE (${userMatchSql("u", OPTS)} OR ${probeUserMatchSql("u")})
+         AND u.is_admin = 0 AND ${age("u.created_at")}
          AND u.id NOT IN ${SEL.u}
          AND NOT EXISTS (SELECT 1 FROM questions q WHERE q.author_id = u.id
                           AND q.id NOT IN ${SEL.q})

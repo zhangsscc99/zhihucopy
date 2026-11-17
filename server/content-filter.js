@@ -334,6 +334,19 @@ function userMatchSql(userAlias = "u", opts = {}) {
   return `(${conds.join(" OR ")})`;
 }
 
+// 「真人…」断言探针号的清理口径（Z1121）：follows/questions/notifications 等
+// 断言脚本故意注册真实形态账号（昵称 真人+≥6 位小写字母数字随机串、邮箱
+// real-*@zhihucopy.dev）以绕过公共过滤 —— userMatchSql 判不中属刻意设计，
+// 公共出口需要它们可见（见 server/test/content-filter.test.js）。
+// 本条件仅供物理删除口径（artifact-cleanup / cleanup-artifacts / clean-probe-users）
+// 判定「可删」，绝不许并进 userMatchSql —— 否则断言运行时目标账号被公共过滤吞掉。
+// 种子人设号（userN@zhihucopy.dev / persona 池昵称）永不命中这两条。
+function probeUserMatchSql(uAlias = "u") {
+  const u = uAlias;
+  return `(${u}.nickname GLOB '真人${globRun(6)}*'
+    OR ${u}.email LIKE 'real-%@zhihucopy.dev' ESCAPE '\\')`;
+}
+
 // 问题是测试产物的正向条件：标题匹配；传了 userAlias 时作者匹配也算。
 // 需要 `JOIN users <uAlias> ON <uAlias>.id = <qAlias>.author_id` 才传第二个参。
 function questionMatchSql(qAlias = "q", uAlias = null, opts = {}) {
@@ -438,6 +451,7 @@ module.exports = {
   isTestBody,
   titleMatchSql,
   userMatchSql,
+  probeUserMatchSql,
   questionMatchSql,
   bodyMatchSql,
   commentMatchSql,
