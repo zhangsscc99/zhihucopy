@@ -5,6 +5,8 @@
 //   A) API：/api/questions?tab=hot&limit=5 取热榜前 3 题，逐题
 //      GET /api/questions/:id —— answers.created_at 去重数 === 回答条数，
 //      且最新-最老 >= 1h（回答数 <2 的题跳过，至少 1 题受检）。
+//      跨题口径：热榜前 5 题任意两题的回答 created_at 集合交集 <=1
+//      （防「全库同三个绝对时刻」式重排）。
 //   B) API：取 5 个有评论的回答，GET /api/comments?target_type=answer&target_id=N
 //      —— comments.created_at 去重数 >= ceil(n*0.8)（含二级回复平铺计）。
 //   C) DB（DB_PATH，缺省 <repo>/data/zhihu.db，只读；文件不存在且未显式
@@ -126,10 +128,15 @@ async function checkApi() {
 
   let checked = 0;
   const answerPool = [];
-  for (const it of items.slice(0, 3)) {
+  const qTimeSets = new Map(); // qid -> Set<回答 created_at>（跨题交集口径用）
+  const top5 = items.slice(0, 5);
+  for (let idx = 0; idx < top5.length; idx++) {
+    const it = top5[idx];
     const d = await apiOk("GET", `/questions/${it.id}`);
     const ans = d.answers || [];
     answerPool.push(...ans);
+    if (ans.length) qTimeSets.set(it.id, new Set(ans.map((a) => a.created_at)));
+    if (idx >= 3) continue; // 去重+跨度口径只检热榜前 3
     if (ans.length < 2) {
       console.log(`  热榜 q#${it.id} 回答数 ${ans.length}<2，跳过`);
       continue;
@@ -146,6 +153,27 @@ async function checkApi() {
   }
   expect(checked >= 1, "热榜前 3 题无 >=2 回答的题可检");
   console.log(`  热榜前 3 题：${checked} 题回答时间去重+跨度>=1h 通过`);
+
+  // 跨题口径：热榜前 5 题两两回答 created_at 集合交集 <=1 个时间点。
+  const qids = [...qTimeSets.keys()];
+  let maxInter = 0;
+  let worst = "";
+  for (let i = 0; i < qids.length; i++) {
+    for (let j = i + 1; j < qids.length; j++) {
+      const b = qTimeSets.get(qids[j]);
+      let inter = 0;
+      for (const t of qTimeSets.get(qids[i])) if (b.has(t)) inter++;
+      if (inter > maxInter) {
+        maxInter = inter;
+        worst = `q#${qids[i]}×q#${qids[j]}`;
+      }
+    }
+  }
+  expect(
+    maxInter <= 1,
+    `热榜跨题回答时间交集 ${maxInter}>1（${worst}）：不同题落在同一批绝对时刻`
+  );
+  console.log(`  跨题口径通过：热榜前 ${qids.length} 题两两回答时间交集最大 ${maxInter}（<=1）`);
 
   const commented = [];
   const seen = new Set();
