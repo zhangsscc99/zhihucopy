@@ -623,7 +623,7 @@
 - [ ] Z1103 种子语料「显式 author」绕过领域校验（P1，内容真实感）：`/question/6`（React useEffect）第一条回答作者「温故52 — 统计出身，现在做增长」，而 `scripts/persona-domains.js` 里 `温故: ["data","sci"]`，本不该答 code 类问题；`scripts/seed-data/*.js` 中硬编码 `author` 的语料不走同域校验，`seed-persona-domain.mjs` 抽样也只覆盖随机派单的回答。需：seed 阶段对显式 author 做同域校验（不符则改派同域作者或抛错）、写幂等修正脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写库，同步 `answers`/`answer_revisions`）、断言改全库口径（作者领域 ∩ 问题话题大类 ≠ ∅ 比例 100%，显式 author 单独计数且错位 0）
   verify: node scripts/assert/seed-persona-domain.mjs
   risk: high
-- [ ] Z1104 表单 label 未与 input 关联（P2，可访问性）：`/register` 与 `/login` 的 `<label>昵称/邮箱/密码</label>` 的 `for` 为空且 input 无 `id`，点标签不聚焦、读屏读不出字段名。需给每个字段 id + label htmlFor（或 aria-label），并补 `scripts/assert/a11y-form-labels.mjs`（Playwright `getByLabel('昵称'|'邮箱'|'密码')` 均能定位到唯一输入框；点 label 后 `document.activeElement` 为对应 input；1440/390 各一遍；__errs 空）
+- [x] Z1104 登录/注册表单 label 未与 input 关联（P2，a11y）：`/register`、`/login` 的 `<label>` 无 `for`、`<input>` 无 `id`，点标签不聚焦、读屏读不出字段名；且 `.field:focus { outline:none }` 压掉全局 `input:focus-visible` 焦点环 ✅ (2026-11-17 devin：Register/Login 每个 input 补稳定 id（reg-*/login-*）+ label htmlFor；styles.css 补 `.field:focus-visible` 2px 主色轮廓；新增 a11y-form-labels.mjs（getByLabel 唯一定位 + 点 label 聚焦 + Tab 焦点环 + 双视口溢出/errs 守卫）PASS，基线 FAIL；auth.mjs、a11y.mjs 回归全绿)
   verify: node scripts/assert/a11y-form-labels.mjs
   risk: low
 - [ ] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 再列同一份 Top10（1440 屏上同一排名出现两次）。需在热榜 tab 隐藏右栏热榜块、改渲染「等你来答」（复用 UnansweredRail），保留 390 隐藏策略；断言 `?tab=hot` 1440 下右栏不含热榜块、主列表首卡与右栏内容不重复
