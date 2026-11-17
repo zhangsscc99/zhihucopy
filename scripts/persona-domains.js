@@ -9,7 +9,9 @@
  *
  * 数据结构：
  *   PERSONA_DOMAINS   昵称 -> 领域数组（权威表，覆盖 USERS 里全部种子人设；
- *                     昵称后的数字序号是 clone 后缀，查表前剥掉）
+ *                     旧库昵称后的数字序号是 clone 后缀，查表前剥掉）
+ *   ALIAS_TO_BASE     真实感别名 -> 种子原型（Z1115：clone 用户改用
+ *                     nickname-pool 的真实感别名，查表前先还原原型）
  *   BIO_DOMAIN_RULES  bio 关键词 -> 领域，给非种子用户兜底
  *   TOPIC_DOMAINS     话题名 -> 可接受的作者领域（Z1106：判定下沉到话题级）
  *   DOMAINS_BY_CAT    问题大类 -> 可接受的作者领域（话题未覆盖时的兜底；
@@ -24,6 +26,9 @@
  * 相邻域，绝不含 data），数据库类才允许 data。
  */
 "use strict";
+
+// Z1115：clone 用户真实感别名表（scripts/nickname-pool.js），别名 -> 原型。
+const { CLONE_ALIASES } = require("./nickname-pool");
 
 const DOMAINS = [
   "frontend",
@@ -129,9 +134,31 @@ const DOMAINS_BY_CAT = {
   money: ["money", "work", "data", "backend"],
 };
 
-// seed 里给 clone 昵称追加 `${i+1}` 数字后缀；剥掉后再查人设表。
+// 旧版 seed 给 clone 昵称追加 `${i+1}` 数字后缀（存量库仍可能遇到）；
+// 剥掉后再查人设表。Z1115 起新 clone 用真实感别名，走 ALIAS_TO_BASE 还原。
 function baseNickname(nickname) {
   return String(nickname || "").replace(/\d+$/, "");
+}
+
+// Z1115：真实感别名 -> 种子原型（clone 第 N 轮用别名表第 N 项）。
+// 别名表的键必须恰好是 PERSONA_DOMAINS 的种子原型集，否则加载即抛错——
+// 人设来源唯一，不允许别名指向表外。
+const ALIAS_TO_BASE = {};
+for (const [base, list] of Object.entries(CLONE_ALIASES)) {
+  if (!PERSONA_DOMAINS[base]) {
+    throw new Error(`persona-domains: 别名表原型「${base}」不在 PERSONA_DOMAINS`);
+  }
+  for (const alias of list) ALIAS_TO_BASE[alias] = base;
+}
+
+// 昵称 -> 种子原型名（命中 PERSONA_DOMAINS 的键）；非种子/未知返回 null。
+// 依次尝试：剥数字尾 -> 本名 -> 别名表还原。
+function personaBaseOf(nickname) {
+  const n = String(nickname || "");
+  const stripped = baseNickname(n);
+  if (PERSONA_DOMAINS[stripped]) return stripped;
+  if (PERSONA_DOMAINS[n]) return n;
+  return ALIAS_TO_BASE[n] || null;
 }
 
 function bioDomains(bio) {
@@ -143,11 +170,12 @@ function bioDomains(bio) {
   return out;
 }
 
-// 作者领域集合 = 人设表（昵称命中）∪ bio 关键词。都不命中返回空集合。
+// 作者领域集合 = 人设表（昵称命中，含数字尾/真实感别名还原）∪ bio 关键词。
+// 都不命中返回空集合。
 function domainsOf(nickname, bio) {
   const out = bioDomains(bio);
-  const persona = PERSONA_DOMAINS[baseNickname(nickname)];
-  if (persona) for (const d of persona) out.add(d);
+  const base = personaBaseOf(nickname);
+  if (base) for (const d of PERSONA_DOMAINS[base]) out.add(d);
   return out;
 }
 
@@ -207,10 +235,12 @@ function authorFitsTopic(nickname, bio, topicName, cat) {
 module.exports = {
   DOMAINS,
   PERSONA_DOMAINS,
+  ALIAS_TO_BASE,
   BIO_DOMAIN_RULES,
   TOPIC_DOMAINS,
   DOMAINS_BY_CAT,
   baseNickname,
+  personaBaseOf,
   bioDomains,
   domainsOf,
   acceptedDomains,
