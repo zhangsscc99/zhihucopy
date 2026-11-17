@@ -1,62 +1,223 @@
-// Z1110 — 搜索召回与库内命中对齐：接口 counts 不得窄于只读 LIKE 计数。
+// Z1144 — 中文 bigram 召回 + 低命中「相关话题」兜底（API 级 + 浏览器级）。
 //
-// 取数口径：
-//   问题 SQL 基线 = questions.title/detail_md LIKE %term%（含折叠/测试产物，纯子串口径）；
-//   接口 question 命中 = 标题/详情子串 + 所属话题名命中（Z962 特性），再排除折叠/测试
-//   产物。话题名命中恒为增量，故断言 counts.question >= SQL 基线（±0 为恰好对齐）。
-//   回答 SQL 基线 = answers.content_md LIKE %term%；接口还排除已删/测试产物，
-//   故只要求 counts.answer > 0（基线为 0 的词除外）且不大于基线太多无意义——
-//   用 >= 对齐已删过滤后的可比下限即 counts.answer >= 未删除 LIKE 计数? 不，
-//   接口测试过滤可再减，只按任务口径断言 > 0。
-//   大小写：SQLite LIKE 对 ASCII 大小写不敏感，React/react/REACT 三态一致。
+// API 级（API_BASE，缺省 http://127.0.0.1:3030/zhihucopy/api）：
+//   1) GET /search?q=代码质量&type=question：counts.question >= 5 且
+//      items.length >= 5、total === counts.question（旧整串 LIKE 只回 2 条）。
+//   2) GET /search?q=React：counts.question >= 1 且 total === counts.question；
+//      type=answer 的 total === counts.answer（tab 数字与列表口径一致）。
+//   3) GET /search?q=？（纯标点）：items 为空、total === 0（Z1006 守卫不回归）。
+//   4) Z1110 回归：React/useEffect/数据库/职场 counts.question >= 只读 LIKE 基线、
+//      answer>0（基线为 0 的词除外）、type=answer total 与 counts.answer 自洽、
+//      React/react/REACT 三态 counts 完全一致（DB 不可读时跳过 SQL 基线比对）。
+// 浏览器级（E2E_BASE，或 API_BASE 去掉 /api 后缀推导页面地址，system chromium）：
+//   5) /search?q=代码质量（1440 与 390 双视口）：.feed__item >= 5、出现
+//      「相关话题」区块且其中每个链接 href 含 /topic/、无横向溢出
+//      （scrollWidth-clientWidth===0）、window.__errs 为空、
+//      document.body.innerText.length > 300。
+//   6) /search?q=React（1440）：条目 >=1、无溢出、__errs 为空、innerText>300。
+//
+// 反向自检：对改动前实例（如线上 https://openfolio.uk/zhihucopy）跑本脚本必须
+// FAIL —— 预期失败点 q=代码质量 counts.question=2 <5。
 //
 // 运行：node scripts/assert/search-recall.mjs
-//   DB_PATH 指向与接口同库的副本；API_BASE 缺省打 127.0.0.1:3030。
+//   Env: API_BASE / E2E_BASE / DB_PATH（SQL 基线用，缺省 ../../data/zhihu.db）/ CHROME。
+// 退出码即结论：0 PASS / 1 FAIL。
 
-import { API, db, expect, main, ok } from "./lib.mjs";
+import { API, db, expect, ok } from "./lib.mjs";
+import { run } from "../e2e/lib.mjs";
 
-const TERMS = ["React", "useEffect", "数据库", "职场"];
+const PAGE_BASE = (
+  process.env.E2E_BASE || API.replace(/\/api\/?$/, "")
+).replace(/\/+$/, "");
 
-async function search(q, type = "question") {
-  const d = await ok("GET", `/search?q=${encodeURIComponent(q)}&type=${type}&limit=1`);
-  expect(d && d.counts, `GET /search?q=${q} 响应缺 counts 字段`);
-  return d;
+const Z1110_TERMS = ["React", "useEffect", "数据库", "职场"];
+
+function injectErrs(page) {
+  return page.addInitScript(() => {
+    const w = window;
+    w.__errs = [];
+    w.addEventListener("error", (e) => w.__errs.push(`error:${e.message}`));
+    w.addEventListener("unhandledrejection", (e) =>
+      w.__errs.push(
+        `rejection:${e.reason && e.reason.message ? e.reason.message : e.reason}`
+      )
+    );
+    const origError = console.error;
+    console.error = (...args) => {
+      w.__errs.push(`console:${args.map(String).join(" ")}`);
+      return origError.apply(console, args);
+    };
+  });
 }
 
-main("search-recall", async () => {
-  const sqlite = db();
-  const qLike = sqlite.prepare(
-    "SELECT COUNT(*) c FROM questions WHERE title LIKE ? OR detail_md LIKE ?"
+async function checkSearchPage(browser, vp, q, { minItems, wantTopics }) {
+  const ctx = await browser.newContext({
+    viewport: { width: vp.width, height: vp.height },
+    locale: "zh-CN",
+  });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(15000);
+  const tag = `${vp.width}px ${q}`;
+  try {
+    await injectErrs(page);
+    await page.goto(`${PAGE_BASE}/search?q=${encodeURIComponent(q)}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page
+      .locator(".feed__item")
+      .first()
+      .waitFor({ state: "visible", timeout: 15000 });
+    // 相关话题块晚于结果一拍（独立请求），显式等它落定再判。
+    if (wantTopics) {
+      await page
+        .locator(".search-rel")
+        .first()
+        .waitFor({ state: "visible", timeout: 15000 });
+    } else {
+      await page.waitForTimeout(600);
+    }
+
+    const items = await page.locator(".feed__item").count();
+    expect(items >= minItems, `${tag}: 列表条目=${items}，期望 >=${minItems}`);
+
+    if (wantTopics) {
+      const rel = page.locator(".search-rel");
+      const relText = await rel.innerText();
+      expect(relText.includes("相关话题"), `${tag}: 未出现「相关话题」区块`);
+      const links = rel.locator("a");
+      const n = await links.count();
+      expect(n >= 2, `${tag}: 相关话题链接数=${n}，期望 >=2`);
+      for (let i = 0; i < n; i++) {
+        const href = (await links.nth(i).getAttribute("href")) || "";
+        expect(
+          href.includes("/topic/"),
+          `${tag}: 相关话题链接 href=${href} 不含 /topic/`
+        );
+      }
+    }
+
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth
+    );
+    expect(overflow === 0, `${tag}: 横向溢出 scrollWidth-clientWidth=${overflow}`);
+
+    const textLen = await page.evaluate(() => document.body.innerText.length);
+    expect(textLen > 300, `${tag}: innerText.length=${textLen}，期望 >300`);
+
+    const errs = await page.evaluate(() => window.__errs || []);
+    expect(
+      errs.length === 0,
+      `${tag}: __errs ${errs.length} 条: ${errs.slice(0, 3).join(" | ")}`
+    );
+    console.log(
+      `  [ok] ${tag}: items=${items} ovf=0 text=${textLen} errs=0 topics=${
+        wantTopics ? "yes" : "-"
+      }`
+    );
+  } finally {
+    await ctx.close();
+  }
+}
+
+await run("search-recall", async ({ browser }) => {
+  // ---------- API 级：Z1144 ----------
+  const q1 = await ok(
+    "GET",
+    `/search?q=${encodeURIComponent("代码质量")}&type=question&limit=20`
   );
-  const aLike = sqlite.prepare("SELECT COUNT(*) c FROM answers WHERE content_md LIKE ?");
+  expect(q1.counts, "q=代码质量 响应缺 counts");
+  expect(
+    q1.counts.question >= 5,
+    `q=代码质量 counts.question=${q1.counts.question}，期望 >=5（bigram 召回）`
+  );
+  expect(
+    Array.isArray(q1.items) && q1.items.length >= 5,
+    `q=代码质量 items.length=${q1.items && q1.items.length}，期望 >=5`
+  );
+  expect(
+    q1.total === q1.counts.question,
+    `q=代码质量 total=${q1.total} != counts.question=${q1.counts.question}`
+  );
+  console.log(
+    `  [ok] q=代码质量 counts.question=${q1.counts.question} items=${q1.items.length}`
+  );
 
-  for (const term of TERMS) {
+  const qr = await ok("GET", "/search?q=React&type=question&limit=20");
+  expect(
+    qr.counts && qr.counts.question >= 1,
+    `q=React counts.question=${qr.counts && qr.counts.question}，期望 >=1`
+  );
+  expect(
+    qr.total === qr.counts.question,
+    `q=React total=${qr.total} != counts.question=${qr.counts.question}`
+  );
+  const qra = await ok("GET", "/search?q=React&type=answer&limit=1");
+  expect(
+    qra.total === qra.counts.answer,
+    `q=React type=answer total=${qra.total} != counts.answer=${qra.counts.answer}`
+  );
+
+  const qm = await ok("GET", `/search?q=${encodeURIComponent("？")}`);
+  expect(
+    Array.isArray(qm.items) && qm.items.length === 0 && qm.total === 0,
+    `q=？ total=${qm.total} items=${qm.items && qm.items.length}，期望 0 条（Z1006）`
+  );
+  console.log(`  [ok] q=React total=${qr.total} q=？ total=0`);
+
+  // ---------- API 级：Z1110 回归（counts 不窄于只读 LIKE 基线） ----------
+  let sqlite = null;
+  try {
+    sqlite = db();
+  } catch {
+    sqlite = null; // 反向自检打线上时本机无可读库：跳过基线比对。
+  }
+  const qLike = sqlite
+    ? sqlite.prepare(
+        "SELECT COUNT(*) c FROM questions WHERE title LIKE ? OR detail_md LIKE ?"
+      )
+    : null;
+  const aLike = sqlite
+    ? sqlite.prepare("SELECT COUNT(*) c FROM answers WHERE content_md LIKE ?")
+    : null;
+
+  for (const term of Z1110_TERMS) {
     const pat = `%${term}%`;
-    const qSql = qLike.get(pat, pat).c;
-    const aSql = aLike.get(pat).c;
-
-    const d = await search(term);
-    expect(
-      d.counts.question >= qSql,
-      `q=${term}: question 命中 ${d.counts.question} < SQL LIKE 基线 ${qSql}`
+    const d = await ok(
+      "GET",
+      `/search?q=${encodeURIComponent(term)}&type=question&limit=1`
+    );
+    expect(d && d.counts, `q=${term} 响应缺 counts`);
+    if (qLike) {
+      const qSql = qLike.get(pat, pat).c;
+      expect(
+        d.counts.question >= qSql,
+        `q=${term}: question 命中 ${d.counts.question} < SQL LIKE 基线 ${qSql}`
+      );
+    }
+    if (aLike) {
+      const aSql = aLike.get(pat).c;
+      expect(
+        aSql === 0 ? true : d.counts.answer > 0,
+        `q=${term}: answer 命中 ${d.counts.answer}，SQL LIKE 基线 ${aSql}`
+      );
+    }
+    const da = await ok(
+      "GET",
+      `/search?q=${encodeURIComponent(term)}&type=answer&limit=1`
     );
     expect(
-      aSql === 0 ? true : d.counts.answer > 0,
-      `q=${term}: answer 命中 ${d.counts.answer}，SQL LIKE 基线 ${aSql}`
-    );
-    // 回答 tab 的 items 也应能取到（total 与 counts.answer 一致）。
-    const da = await search(term, "answer");
-    expect(
-      da.total === d.counts.answer,
-      `q=${term} type=answer total=${da.total} != counts.answer=${d.counts.answer}`
+      da.total === da.counts.answer,
+      `q=${term} type=answer total=${da.total} != counts.answer=${da.counts.answer}`
     );
   }
 
   // 大小写不敏感：React / react / REACT 三态 counts 完全一致。
   const [up, low, allup] = await Promise.all([
-    search("React"),
-    search("react"),
-    search("REACT"),
+    ok("GET", "/search?q=React&limit=1"),
+    ok("GET", "/search?q=react&limit=1"),
+    ok("GET", "/search?q=REACT&limit=1"),
   ]);
   expect(
     up.counts.question === low.counts.question &&
@@ -69,6 +230,23 @@ main("search-recall", async () => {
       low.counts
     )} REACT=${JSON.stringify(allup.counts)}`
   );
+  if (sqlite) sqlite.close();
+  console.log("  [ok] Z1110 四词基线 + 大小写三态一致");
 
-  sqlite.close();
+  // ---------- 浏览器级 ----------
+  for (const vp of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await checkSearchPage(browser, vp, "代码质量", {
+      minItems: 5,
+      wantTopics: true,
+    });
+  }
+  await checkSearchPage(
+    browser,
+    { width: 1440, height: 900 },
+    "React",
+    { minItems: 1, wantTopics: false }
+  );
 });
