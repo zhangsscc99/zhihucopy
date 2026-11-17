@@ -632,3 +632,6 @@
 - [ ] Z1106 种子作者 bio 与作答领域口吻不一致（P2，内容真实感）：Z1103 后错位已清零，但邻接表允许 `data → code`，「温故52（bio：统计出身，现在做增长）」仍在 `/question/6` 答 React useEffect，读者第一眼仍出戏。需给跨域作答的种子作者补一句跨域说明（如 bio 加「也写前端」）或让其只在首选领域作答；断言 `scripts/assert/seed-bio-consistency.mjs`：抽样 ≥30 条回答，作者 bio 关键词或领域声明 ∩ 问题话题大类 ≠ ∅ 比例 ≥95%，且 bio 与 PERSONA_DOMAINS 首选域一致的作者不被改派
   verify: node scripts/assert/seed-bio-consistency.mjs
   risk: med
+- [x] Z1108 数据免责尾巴跨话题误挂（P1，内容真实感）：`/question/6`（JavaScript/useEffect）回答结尾挂着「别照抄文里的参数和阈值……换环境先小流量验证」——这是 `ANSWER_TAILS.code` 池里混进的数据/实验免责句被无差别追加到前端技术回答上；全库 `别照抄` 命中 2 条仅 1 条（理财）语义相符。需把补记改成按问题话题限定：仅 life/sci/money 且正文带实测/数据/经验痕迹才挂，code/psy/edu 一律不挂；写幂等清理脚本 + 断言 ✅ (2026-11-17 devin：seed.js `ANSWER_TAILS` 删 code/psy/edu/work/health 池、别照抄句并入 sci，`pickTail(cat, content)` 加 TAIL_ALLOWED_CATS={life,sci,money}+DATA_HINT 双重门槛；新增 `scripts/clean-answer-tails.js`（默认 dry-run 打印 id/标题/话题/切除文本，`FIX_ALLOW_PROD=1` 才写，幂等二次命中 0）；新增 `assert/answer-tail-domain.mjs`（forbidden cat 标记=0 且逐条列 id + 允许类标记只在末段 + `>` 引用收尾）；副本自证：基线 FAIL 指出 id=18，apply 后 3/3 PASS；tmp 重灌种子 10 条尾巴全在 life/sci/money 末段）
+  verify: node scripts/assert/answer-tail-domain.mjs
+  risk: med
