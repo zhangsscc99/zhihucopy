@@ -83,6 +83,13 @@ router.post("/", requireAuth, (req, res) => {
   }
   const isPublic = is_public === undefined ? 1 : is_public ? 1 : 0;
   const db = getDb();
+  // Z1135「默认收藏夹」幂等：同一用户同名只留一个，存在则复用返回 200。
+  if (name.trim() === "默认收藏夹") {
+    const existing = db
+      .prepare("SELECT * FROM collections WHERE owner_id = ? AND name = ?")
+      .get(req.user.id, name.trim());
+    if (existing) return res.json({ collection: existing });
+  }
   const info = db
     .prepare("INSERT INTO collections (owner_id, name, is_public) VALUES (?, ?, ?)")
     .run(req.user.id, name.trim(), isPublic);

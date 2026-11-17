@@ -912,6 +912,32 @@ export function Question() {
     }
   };
 
+  // 空收藏夹态一键入口：建/复用「默认收藏夹」并收入当前回答（服务端对同名幂等）。
+  const collectDefault = async (answerId: number) => {
+    if (favBusy) return;
+    setFavBusy(true);
+    try {
+      const { collection } = await post<{
+        collection: Omit<CollectionItem, "item_count"> & { item_count?: number };
+      }>("/collections", {
+        name: "默认收藏夹",
+        is_public: false,
+      });
+      await post(`/collections/${collection.id}/items`, { answer_id: answerId });
+      setCollections((cs) => [
+        { ...collection, item_count: (collection.item_count ?? 0) + 1, has_item: 1 },
+        ...(cs ?? []).filter((x) => x.id !== collection.id),
+      ]);
+      setAnswerCollected(answerId, true);
+      closeFavMenu("inside");
+      toast(`已收藏到「${collection.name}」`);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setFavBusy(false);
+    }
+  };
+
   // 「已收藏」再点一次 = 从当前用户所有收藏夹移除该回答。
   const uncollect = async (answerId: number) => {
     if (!user) return needLogin();
@@ -1349,9 +1375,19 @@ export function Question() {
                           ) : (
                             <>
                               {collections.length === 0 && (
-                                <p className="answer__fav-empty">
-                                  还没有收藏夹，先建一个吧
-                                </p>
+                                <>
+                                  <button
+                                    type="button"
+                                    className="answer__fav-default"
+                                    disabled={favBusy}
+                                    onClick={() => collectDefault(a.id)}
+                                  >
+                                    收藏到默认收藏夹
+                                  </button>
+                                  <p className="answer__fav-empty">
+                                    还没有收藏夹，也可以先建一个
+                                  </p>
+                                </>
                               )}
                               {collections.map((c) => (
                                 <button
