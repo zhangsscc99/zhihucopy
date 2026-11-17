@@ -205,7 +205,7 @@ function MobileSearch({ initial, onClose }: { initial: string; onClose: () => vo
 }
 
 export function TopNav() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const { unread } = useNotifications();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -400,7 +400,7 @@ export function TopNav() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : loading ? null : (
             <>
               <Link to="/login" className="btn btn--ghost">
                 登录
