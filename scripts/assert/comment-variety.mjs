@@ -1,12 +1,18 @@
-// scripts/assert/comment-variety.mjs — Z1147 评论区语料多样性断言（数据级 + API 双口径）
+// scripts/assert/comment-variety.mjs — 评论区语料多样性断言（数据级 + API 双口径）
+// Z1147 建、Z1152 收紧：万能句白名单 ≤5%、全站单句占用 ≤8%、同一句跨题
+// ≤3 个 question、抽样「指向回答具体概念」占比 ≥60%。
 //
 // 契约：
 //   a) DB 全量：is_deleted=0 的 answer 评论，同一 answer 下重复文案 = 0
 //      （GROUP BY target_id, TRIM(content)）。
-//   b) DB 全量：全站同一句占用率 ≤15%（最高频文案条数 / 存活评论总数）。
-//   c) 抽样 ≥20 条公开可见评论（作者/正文未被公共过滤）：
+//   b) DB 全量：全站同一句占用率 ≤8%（最高频文案条数 / 存活评论总数）；
+//      且同一句出现在 ≤3 个不同 question 下。
+//   c) 抽样 30 条公开可见评论（作者/正文未被公共过滤）：
 //      - 万能句白名单（seed-data/comments.js GENERIC_WHITELIST 精确匹配）
-//        命中率 ≤20%，命中明细逐条打印；
+//        命中率 ≤5%，命中明细逐条打印；
+//      - 「指向回答具体概念」占比 ≥60%，判据：评论与所属回答正文有 ≥4 字
+//        连续重合，或命中该回答所属大类的领域名词表（DOMAIN_NOUNS）；
+//        命中率无论过不过线都打印（改前库应明显低于 60%，作反向自检证据）；
 //      - 单条正文长度 ≥6 字；
 //      - API 双口径：GET /comments?target_type=answer&target_id=N 返回该 id
 //        且正文与 DB 一致。
@@ -26,7 +32,9 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const requireFromServer = createRequire(new URL("../../server/package.json", import.meta.url));
 const Database = requireFromServer("better-sqlite3");
 const { testCommentSql } = requireFromServer("./content-filter.js");
-const { GENERIC_WHITELIST } = createRequire(import.meta.url)("../seed-data/comments.js");
+const reqHere = createRequire(import.meta.url);
+const { GENERIC_WHITELIST, isAnchored } = reqHere("../seed-data/comments.js");
+const { TOPICS } = reqHere("../seed.js");
 
 const DB_PATH = path.resolve(
   process.env.DB_PATH || path.join(SCRIPT_DIR, "..", "..", "data", "zhihu.db")
@@ -35,7 +43,11 @@ const API = (process.env.API_BASE || "http://127.0.0.1:3030/zhihucopy/api").repl
 const SELF_TEST = process.argv.includes("--self-test");
 
 const WL = new Set(GENERIC_WHITELIST);
-const SAMPLE_N = 24;
+const SAMPLE_N = 30;
+const CROSS_Q_CAP = 3;
+const OCCUPANCY_CAP = 0.08;
+const ANCHOR_MIN = 0.6;
+const CAT_BY_TOPIC = new Map(TOPICS.map((t) => [t.name, t.cat]));
 
 function openDb(p, readonly = true) {
   return new Database(p, { readonly });
@@ -61,7 +73,7 @@ async function checkVariety(db, { skipApi = false } = {}) {
     `is_deleted=0 评论仍有 ${dups.length} 组同一 answer 重复文案（见上）`
   );
 
-  // b) 全量：全站同一句占用率 ≤15%。
+  // b) 全量：全站同一句占用率 ≤8%；同一句跨题 ≤3 个 question。
   const total = db
     .prepare("SELECT COUNT(*) n FROM comments WHERE is_deleted = 0 AND target_type = 'answer'")
     .get().n;
@@ -76,13 +88,37 @@ async function checkVariety(db, { skipApi = false } = {}) {
   console.log(
     `  全站最高频句占用 ${top.n}/${total} = ${(share * 100).toFixed(1)}%：「${String(top.content).slice(0, 30)}」`
   );
-  expect(share <= 0.15, `单句全站占用率 ${(share * 100).toFixed(1)}% > 15%`);
+  expect(share <= OCCUPANCY_CAP, `单句全站占用率 ${(share * 100).toFixed(1)}% > 8%`);
 
-  // c) 抽样 ≥20 条公开可见评论：白名单 ≤20%、长度 ≥6、API 双口径一致。
+  const cross = db
+    .prepare(
+      `SELECT COUNT(DISTINCT a.question_id) q, COUNT(*) n, TRIM(c.content) t
+       FROM comments c JOIN answers a ON a.id = c.target_id
+       WHERE c.is_deleted = 0 AND c.target_type = 'answer'
+       GROUP BY TRIM(c.content)
+       HAVING q > ${CROSS_Q_CAP}
+       ORDER BY q DESC, n DESC`
+    )
+    .all();
+  for (const x of cross.slice(0, 10)) {
+    console.error(`  跨题复用 ×${x.q} 题（${x.n} 行）：「${String(x.t).slice(0, 32)}」`);
+  }
+  if (cross.length > 10) console.error(`  …跨题复用超限另有 ${cross.length - 10} 种句`);
+  expect(
+    cross.length === 0,
+    `仍有 ${cross.length} 种文案出现在 >${CROSS_Q_CAP} 个 question 下（见上）`
+  );
+
+  // c) 抽样 30 条公开可见评论：白名单 ≤5%、实指 ≥60%、长度 ≥6、API 双口径。
   const rows = db
     .prepare(
-      `SELECT c.id, c.target_id AS aid, c.content
-       FROM comments c JOIN users u ON u.id = c.author_id
+      `SELECT c.id, c.target_id AS aid, c.content, a.content_md,
+              (SELECT t.name FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
+               WHERE qt.question_id = a.question_id
+               ORDER BY qt.topic_id LIMIT 1) AS topic
+       FROM comments c
+       JOIN answers a ON a.id = c.target_id
+       JOIN users u ON u.id = c.author_id
        WHERE c.is_deleted = 0 AND c.target_type = 'answer' AND ${testCommentSql("c", "u")}
        ORDER BY c.id`
     )
@@ -114,8 +150,32 @@ async function checkVariety(db, { skipApi = false } = {}) {
   }
   const wlRate = wlHits.length / sample.length;
   expect(
-    wlRate <= 0.2,
-    `抽样 ${sample.length} 条万能句命中 ${wlHits.length} 条（${(wlRate * 100).toFixed(0)}% > 20%）`
+    wlRate <= 0.05,
+    `抽样 ${sample.length} 条万能句命中 ${wlHits.length} 条（${(wlRate * 100).toFixed(0)}% > 5%）`
+  );
+
+  // 实指占比：与回答正文 ≥4 字连续重合，或命中所属大类领域名词表
+  // （判据实现与 seed/fix 共用 seed-data/comments.js 的 isAnchored）。
+  let anchoredN = 0;
+  const unanchored = [];
+  for (const r of sample) {
+    const text = String(r.content || "").trim();
+    const cat = CAT_BY_TOPIC.get(r.topic) || null;
+    if (isAnchored(text, cat, r.content_md)) anchoredN++;
+    else unanchored.push(r);
+  }
+  const anchorRate = anchoredN / sample.length;
+  console.log(
+    `  实指命中率 ${anchoredN}/${sample.length} = ${(anchorRate * 100).toFixed(0)}%` +
+      `（判据：与回答正文 ≥4 字重合或命中 ${CAT_BY_TOPIC.size ? "大类" : ""}领域名词表）`
+  );
+  for (const u of unanchored.slice(0, 8)) {
+    console.log(`    无实指 #${u.id} answer#${u.aid} [${u.topic || "?"}]：「${String(u.content).slice(0, 30)}」`);
+  }
+  if (unanchored.length > 8) console.log(`    …无实指另有 ${unanchored.length - 8} 条`);
+  expect(
+    anchorRate >= ANCHOR_MIN,
+    `抽样 ${sample.length} 条实指命中 ${anchoredN} 条（${(anchorRate * 100).toFixed(0)}% < 60%）`
   );
 
   const tooShort = sample.filter((r) => [...String(r.content || "").trim()].length < 6);
@@ -144,10 +204,10 @@ async function checkVariety(db, { skipApi = false } = {}) {
     }
     expect(missing.length === 0, `API 双口径 ${missing.length}/${sample.length} 条不一致（见上）`);
     console.log(
-      `  抽样 ${sample.length} 条覆盖 ${aids.length} 个 answer：白名单 ${wlHits.length} 条、过短 0、API 双口径一致`
+      `  抽样 ${sample.length} 条覆盖 ${aids.length} 个 answer：白名单 ${wlHits.length} 条、实指 ${anchoredN} 条、过短 0、API 双口径一致`
     );
   } else {
-    console.log(`  抽样 ${sample.length} 条：白名单 ${wlHits.length} 条、过短 0（API 校验跳过）`);
+    console.log(`  抽样 ${sample.length} 条：白名单 ${wlHits.length} 条、实指 ${anchoredN} 条、过短 0（API 校验跳过）`);
   }
 }
 
@@ -164,7 +224,7 @@ main("comment-variety", async () => {
 
   // --self-test：临时副本上植入同 answer 重复评论两条，断言必须 FAIL。
   const tmp = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "z1147-selftest-")),
+    fs.mkdtempSync(path.join(os.tmpdir(), "z1152-selftest-")),
     "zhihu.db"
   );
   fs.copyFileSync(DB_PATH, tmp);
