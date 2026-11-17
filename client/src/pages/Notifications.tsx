@@ -333,12 +333,20 @@ export function Notifications() {
         <ErrorBox message={error} onRetry={() => setReloadToken((n) => n + 1)} />
       ) : items.length === 0 ? (
         <Empty
-          title="暂时没有新通知"
-          hint="赞同、评论与关注会出现在这里"
+          title="暂时没有新消息"
+          hint="有人赞同或评论你的回答、关注你时，会出现在这里"
           action={
-            <Link to="/" className="btn btn--outline">
-              去首页看看热门讨论
-            </Link>
+            <>
+              <div className="empty__actions">
+                <Link to="/" className="btn btn--outline">
+                  去首页看看热门讨论
+                </Link>
+                <Link to="/topics" className="btn btn--outline">
+                  去发现值得关注的话题
+                </Link>
+              </div>
+              <p className="empty__guide">关注作者后，他们的新回答会出现在关注流</p>
+            </>
           }
         />
       ) : (

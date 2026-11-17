@@ -3322,7 +3322,6 @@ a.ntf__title:hover {
   text-overflow: ellipsis;
 }
 
-
 /* Z1135 空收藏夹态一键「收藏到默认收藏夹」主按钮（主色实心、单行）。 */
 .answer__fav-default {
   display: block;
@@ -3349,4 +3348,11 @@ a.ntf__title:hover {
 .answer__fav-default:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+/* Z1138 通知空态：出口区下方一句轻量引导 */
+.empty__guide {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #8590a6;
+  text-align: center;
 }
