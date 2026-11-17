@@ -29,6 +29,28 @@ const TABS: { key: Tab; label: string }[] = [
 
 const PAGE_SIZE = 20;
 
+// Z1096 — 关注流「有新回答」pill：localStorage 按 uid 记「上次离开关注流」的
+// 时间（未登录场景统一 anon），进页作 since 传给 /feed/following，响应
+// new_count>0 时在列表顶部渲染胶囊；点击重拉首屏、清零、并把访问时间刷新为现在。
+const followingSeenKey = (uid: number | string) =>
+  `zhihu_following_seen_${uid}`;
+
+function readFollowingSeen(uid: number | string): string {
+  try {
+    return localStorage.getItem(followingSeenKey(uid)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeFollowingSeen(uid: number | string) {
+  try {
+    localStorage.setItem(followingSeenKey(uid), new Date().toISOString());
+  } catch {
+    // localStorage 不可用（隐私模式等）：静默降级，下次仍无 pill，不阻塞浏览。
+  }
+}
+
 function excerpt(md: string, n = 90) {
   const text = (md || "")
     .replace(/[#>*`\-[\]()!]/g, "")
@@ -586,9 +608,14 @@ function Feed() {
   const [error, setError] = useState("");
   const [moreError, setMoreError] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  // 「N 条新回答」pill：>0 才渲染（0/无 since 一律不渲染占位）。
+  const [newCount, setNewCount] = useState(0);
 
   // 切 tab 时递增，旧请求返回后直接丢弃，避免串数据。
   const requestSeq = useRef(0);
+  // 本次关注流是否成功加载过 —— 只有成功落过数据，离开时才回写「上次离开」时间，
+  // 加载失败回写会把未看到的 since 吞掉。
+  const feedLoaded = useRef(false);
 
   useEffect(() => {
     // 登录态未就绪先不发请求，避免已登录用户闪「去登录」空态。
@@ -601,16 +628,27 @@ function Feed() {
     setItems([]);
     setHasMore(false);
     setPage(1);
+    setNewCount(0);
+    feedLoaded.current = false;
     // 关注流需登录：未登录直接渲染空态，不发请求。
     if (tab === "following" && !user) {
       setInitialLoading(false);
       return;
     }
-    get<Page<Question>>(feedQuery(tab, 1))
+    let url = feedQuery(tab, 1);
+    if (tab === "following" && user) {
+      const since = readFollowingSeen(user.id);
+      if (since) url += `&since=${encodeURIComponent(since)}`;
+    }
+    get<Page<Question> & { new_count?: number }>(url)
       .then((res) => {
         if (seq !== requestSeq.current) return;
         setItems(res.items);
         setHasMore(res.has_more && res.items.length > 0);
+        if (tab === "following") {
+          feedLoaded.current = true;
+          setNewCount(Math.max(0, Number(res.new_count) || 0));
+        }
       })
       .catch((e: Error) => {
         if (seq !== requestSeq.current) return;
@@ -648,6 +686,35 @@ function Feed() {
       });
   }, [initialLoading, moreLoading, page, tab]);
 
+  const uid = user?.id;
+
+  // 「上次离开关注流的时间」：离开关注 tab / 离开本页时按 uid 落 localStorage。
+  // 仅本次成功加载过才写（feedLoaded），加载失败不动旧值。
+  useEffect(() => {
+    if (tab !== "following" || uid === undefined) return;
+    return () => {
+      if (feedLoaded.current) writeFollowingSeen(uid);
+    };
+  }, [tab, uid]);
+
+  // 点 pill：立即清零（1.5s 内可见反馈），回写访问时间，重拉首屏让新内容置顶。
+  const onNewAnswers = () => {
+    setNewCount(0);
+    if (uid !== undefined) writeFollowingSeen(uid);
+    const seq = ++requestSeq.current;
+    get<Page<Question>>(feedQuery("following", 1))
+      .then((res) => {
+        if (seq !== requestSeq.current) return;
+        setItems(res.items);
+        setHasMore(res.has_more && res.items.length > 0);
+        setPage(1);
+        setError("");
+      })
+      .catch(() => {
+        // 刷新失败保留旧列表：pill 已清零，不闪错误态。
+      });
+  };
+
   const setTab = (t: Tab) => setParams(t === "recommended" ? {} : { tab: t });
 
   const retry = () => setReloadToken((n) => n + 1);
@@ -668,6 +735,12 @@ function Feed() {
           </button>
         ))}
       </div>
+
+      {tab === "following" && newCount > 0 && (
+        <button type="button" className="new-pill" onClick={onNewAnswers}>
+          {newCount >= 99 ? "99+" : newCount} 条新回答
+        </button>
+      )}
 
       {tab === "following" && !user ? (
         authLoading ? (

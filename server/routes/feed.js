@@ -3,7 +3,7 @@ const { getDb } = require("../db");
 const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
 const { questionRow, topicsForQuestions, HOT_SCORE_SQL } = require("./questions");
-const { testQuestionSql, testUserSql } = require("../content-filter");
+const { testQuestionSql, testUserSql, testCommentSql } = require("../content-filter");
 const {
   questionCategory,
   rerankRecommended,
@@ -55,10 +55,57 @@ const FOLLOWING_CANDIDATES = `
   WHERE f.follower_id = ? AND f.target_type = 'question'
 `;
 
-// GET /feed/following?page=&limit= — 本人关注内容流，item 与 GET /questions 列表项一致。
-// 需登录（与 notifications/votes 一致：未登录 401）。私域流只按作者身份过滤
-// （testUserSql）：按标题形态猜「像不像测试内容」会误吞被关注者的真实提问
-// （Z1079 回归修复）；公共出口仍走标题+作者双滤。
+// 「有新回答」计数 SQL（Z1096）：answers.created_at > since 且作者是我关注的人，
+// 或所属问题命中我关注的话题；排除自己的回答、已删回答、测试/残留内容
+// （问题侧 testQuestionSql(q,qu) / 回答侧 testCommentSql(a,au) 口径 —— answers 表
+// 正文列叫 content_md，故先派生出 content 别名再套评论口径）。两路命中走
+// EXISTS，同一回答只计一次；全程单条 SQL，无 N+1。
+const NEW_ANSWERS_SQL = `
+  SELECT COUNT(*) AS c
+  FROM (
+    SELECT id, question_id, author_id, content_md AS content, created_at, is_deleted
+    FROM answers
+  ) a
+  JOIN questions q ON q.id = a.question_id
+  JOIN users qu ON qu.id = q.author_id
+  JOIN users au ON au.id = a.author_id
+  WHERE a.is_deleted = 0
+    AND a.created_at > ?
+    AND a.author_id <> ?
+    AND ${testQuestionSql("q", "qu")}
+    AND ${testCommentSql("a", "au")}
+    AND (
+      EXISTS (
+        SELECT 1 FROM follows fu
+        WHERE fu.follower_id = ? AND fu.target_type = 'user'
+          AND fu.target_id = a.author_id
+      )
+      OR EXISTS (
+        SELECT 1 FROM follows ft
+        JOIN question_topics qt
+          ON qt.topic_id = ft.target_id AND qt.question_id = a.question_id
+        WHERE ft.follower_id = ? AND ft.target_type = 'topic'
+      )
+    )
+`;
+
+// since 参数归一化为 created_at 同款的 'YYYY-MM-DD HH:MM:SS'（UTC）：
+// 前端传 ISO 串（也兼容纯数字 epoch ms），SQLite 文本比较要求格式一致；
+// 缺省返回 null（调用侧计 0），解析失败按 0 处理（epoch，不抛错）。
+function parseSince(raw) {
+  if (raw === undefined) return null;
+  const s = String(raw).trim();
+  const d = /^\d+$/.test(s) ? new Date(Number(s)) : new Date(s);
+  if (Number.isNaN(d.getTime())) return "1970-01-01 00:00:00";
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+// GET /feed/following?page=&limit=&since=<ISO> — 本人关注内容流，item 与
+// GET /questions 列表项一致。需登录（与 notifications/votes 一致：未登录 401）。
+// 私域流只按作者身份过滤（testUserSql）：按标题形态猜「像不像测试内容」会误吞
+// 被关注者的真实提问（Z1079 回归修复）；公共出口仍走标题+作者双滤。
+// since（Z1096）：可选，前端「上次离开关注流」时间；存在时响应多带 new_count
+// —— 此后关注对象的新回答数（口径见 NEW_ANSWERS_SQL），缺省时恒 0。
 router.get("/following", requireAuth, (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
@@ -93,7 +140,12 @@ router.get("/following", requireAuth, (req, res) => {
     )
     .get(uid, uid, uid, uid).c;
 
-  res.json({ items, total, has_more: page * limit < total, page });
+  const sinceTs = parseSince(req.query.since);
+  const newCount = sinceTs
+    ? db.prepare(NEW_ANSWERS_SQL).get(sinceTs, uid, uid, uid).c
+    : 0;
+
+  res.json({ items, total, has_more: page * limit < total, page, new_count: newCount });
 });
 
 // GET /feed/recommended?page=&limit= — 推荐流（首页「推荐」tab 数据源，无需登录）。

@@ -391,6 +391,25 @@ textarea:focus-visible {
   color: var(--ink);
 }
 
+/* 「N 条新回答」提示胶囊（Z1096）：关注流顶部居中，主色细边框，点按重拉列表 */
+.new-pill {
+  display: block;
+  margin: 8px auto 0;
+  height: 28px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.new-pill:hover {
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .feed {
   list-style: none;
   margin: 8px 0 0;

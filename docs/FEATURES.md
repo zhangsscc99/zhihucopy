@@ -673,3 +673,12 @@
 - [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：报告噪声掩盖真实回归，下一轮作为主车道清账
   verify: node scripts/assert/verify-clean.mjs
   risk: high
+
+## 第二十八轮走查新增（2026-11-17 10:46 UTC，来源 docs/PRODUCT-REVIEW.md 第二十八轮）
+
+- [ ] Z1117 个人主页头部措辞与重复计数（P2，可读性）：`/u/:id` 头部一行读下来是「被关注 关注 回答 1 提问 0 获赞 52 关注 6 粉丝 7 回答 1 提问 0」——「被关注（粉丝数）」与「关注（按钮）」并排易混，且「回答/提问」在统计区与 tab 区各出现一次。要求：粉丝标签改「粉丝」、关注按钮保持「关注/已关注」两态、统计区去掉与 tab 重复的「回答/提问」只留「获赞/关注/粉丝」；断言锁「头部不再出现『被关注』字样」且「统计区计数恰好 3 个」、关注按钮点击后两态切换且刷新保持
+  verify: node scripts/assert/profile-header-clarity.mjs
+  risk: low
+- [ ] Z1118 推荐流空壳题占比（P2，内容厚度）：干净会话首屏 20 卡里 2 张 `0 个回答`（林晚风、陆离），点进去是空态页。要求推荐排序对 `answer_count = 0` 降权（不排除，只是不占首屏），首屏空壳 ≤1 条，且不破坏 Z1114 的大类配额（tech_ratio ≤0.5、非技术大类 ≥4）；断言同时锁「首屏 0 回答卡 ≤1」与既有 diversity 字段
+  verify: node scripts/assert/feed-answer-floor.mjs
+  risk: med
