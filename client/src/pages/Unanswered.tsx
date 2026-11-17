@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { get } from "../api";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
+import { cardNav } from "../lib/cardNav";
 import type { Page, Question } from "../types";
 
 const PAGE_SIZE = 20;
@@ -13,6 +14,7 @@ function excerpt(md: string, n = 90) {
 }
 
 export function Unanswered() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Question[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -104,7 +106,12 @@ export function Unanswered() {
         <>
           <ul className="feed">
             {items.map((q) => (
-              <li key={q.id} className="feed__item">
+              <li
+                key={q.id}
+                className="feed__item"
+                aria-label={q.title}
+                {...cardNav(navigate, `/question/${q.id}`)}
+              >
                 {q.topics?.length ? (
                   <div className="feed__topics">
                     {q.topics.map((t) => (

@@ -6,6 +6,7 @@ import { useToast } from "../toast";
 import { Empty } from "../components/Layout";
 import { isContentMissing, NotFound } from "./NotFound";
 import { FeedSkeleton } from "../components/Skeleton";
+import { cardNav } from "../lib/cardNav";
 import type { Author, Topic as TopicType } from "../types";
 
 const PAGE_SIZE = 20;
@@ -215,7 +216,12 @@ export function Topic() {
         <>
           <ul className="feed">
             {items.map((q) => (
-              <li key={q.id} className="feed__item">
+              <li
+                key={q.id}
+                className="feed__item"
+                aria-label={q.title}
+                {...cardNav(navigate, `/question/${q.id}`)}
+              >
                 <Link to={`/question/${q.id}`} className="feed__title">
                   {q.title}
                 </Link>
