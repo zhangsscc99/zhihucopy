@@ -232,6 +232,10 @@ export function Question() {
   const [sort, setSort] = useState<AnswerSort>(() => readSort(location.search));
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  // Z1154 — 收起回答：首屏快照（条数/页号/hasMore）。「已展开」= 当前渲染条数
+  // 超过首屏条数；收起即截回快照并把分页态复位，不发重复请求。投票/收藏/
+  // 评论状态按 answer.id 分存，不受截断影响；排序快照随 applySort 换。
+  const [firstPage, setFirstPage] = useState({ count: 0, page: 0, hasMore: false });
   const [moreLoading, setMoreLoading] = useState(false);
   const [moreError, setMoreError] = useState("");
   const [sortLoading, setSortLoading] = useState(false);
@@ -292,6 +296,8 @@ export function Question() {
 
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const editorBoxRef = useRef<HTMLElement>(null);
+  const answersSecRef = useRef<HTMLElement>(null);
+  const answersHeadRef = useRef<HTMLHeadingElement>(null);
 
   const answersUrl = (s: AnswerSort, p: number) =>
     `/questions/${id}/answers?sort=${s}&page=${p}&limit=${ANSWER_PAGE_SIZE}`;
@@ -304,6 +310,7 @@ export function Question() {
     syncSort(wanted);
     setPage(0);
     setHasMore(false);
+    setFirstPage({ count: 0, page: 0, hasMore: false });
     setMoreLoading(false);
     syncSortLoading(false);
     setMoreError("");
@@ -328,6 +335,11 @@ export function Question() {
         if (wanted === "default") {
           setAnswers(d.answers);
           setHasMore(d.question.answer_count > d.answers.length);
+          setFirstPage({
+            count: d.answers.length,
+            page: 0,
+            hasMore: d.question.answer_count > d.answers.length,
+          });
           return;
         }
         // ?sort=new 深链/刷新：detail 只给默认序首屏，最新序另取分页第 1 页
@@ -338,6 +350,7 @@ export function Question() {
           setAnswers(res.items);
           setPage(1);
           setHasMore(res.has_more);
+          setFirstPage({ count: res.items.length, page: 1, hasMore: res.has_more });
         });
       })
       .catch((e) => {
@@ -394,6 +407,25 @@ export function Question() {
       });
   };
 
+  // Z1154 — 收起回答：截回首屏快照、复位分页态（不重发请求），随后把回答区
+  // 滚回顶部并把焦点交给区标题。排序/投票/收藏/已展开评论区均不受影响。
+  const answersExpanded = firstPage.count > 0 && answers.length > firstPage.count;
+  const collapseAnswers = () => {
+    if (!answersExpanded) return;
+    setAnswers((prev) => prev.slice(0, firstPage.count));
+    setPage(firstPage.page);
+    setHasMore(firstPage.hasMore);
+    setMoreError("");
+    requestAnimationFrame(() => {
+      const sec = answersSecRef.current;
+      if (sec) {
+        const top = sec.getBoundingClientRect().top + window.scrollY - 12;
+        window.scrollTo({ top: Math.max(0, top) });
+      }
+      answersHeadRef.current?.focus({ preventScroll: true });
+    });
+  };
+
   // 切排序：syncUrl 时把状态写进 ?sort=（replace，不污染历史）；失败回滚
   // {sort,page,hasMore} 三态（answers 未动过，旧列表与旧分页态一致）。
   const applySort = (next: AnswerSort, syncUrl: boolean) => {
@@ -423,6 +455,7 @@ export function Question() {
         setAnswers(res.items);
         setPage(1);
         setHasMore(res.has_more);
+        setFirstPage({ count: res.items.length, page: 1, hasMore: res.has_more });
       })
       .catch((e: Error) => {
         if (seq !== answersReq.current) return;
@@ -1244,9 +1277,11 @@ export function Question() {
         </button>
       </div>
 
-      <section className="answers">
+      <section className="answers" ref={answersSecRef}>
         <div className="answers__head">
-          <h2 className="answers__count">{question.answer_count} 个回答</h2>
+          <h2 className="answers__count" ref={answersHeadRef} tabIndex={-1}>
+            {question.answer_count} 个回答
+          </h2>
           {question.answer_count > 0 && (
             <div className="answers__sort" role="group" aria-label="回答排序">
               {ANSWER_SORTS.map((s) => (
@@ -1845,6 +1880,7 @@ export function Question() {
               <button
                 type="button"
                 className="btn btn--outline"
+                aria-expanded="false"
                 disabled={moreLoading || sortLoading}
                 onClick={loadMoreAnswers}
               >
@@ -1854,11 +1890,35 @@ export function Question() {
                     ? `查看全部 ${question.answer_count} 个回答`
                     : "加载更多回答"}
               </button>
+              {answersExpanded && (
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  aria-expanded="true"
+                  onClick={collapseAnswers}
+                >
+                  收起回答
+                </button>
+              )}
             </div>
           ) : page > 0 ? (
-            <p className="feed-end" role="status">
-              已经到底了
-            </p>
+            <>
+              <p className="feed-end" role="status">
+                已经到底了
+              </p>
+              {answersExpanded && (
+                <div className="feed-foot">
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    aria-expanded="true"
+                    onClick={collapseAnswers}
+                  >
+                    收起回答
+                  </button>
+                </div>
+              )}
+            </>
           ) : null)}
       </section>
 
