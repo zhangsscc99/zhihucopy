@@ -507,13 +507,13 @@
 
 ## 第十九轮待办（2026-11-16 12:2x，来源 docs/PRODUCT-REVIEW.md 第十七轮线上 Playwright 实测）
 
-- [ ] Z1070 移动端搜索弹层输入框无焦点环（P1，Z1065 漏网）：`.msearch__input:focus { outline: none }`（0-2-0）压过全局 `input:focus-visible`（0-1-1），弹层 autoFocus 时实测 `matches(':focus-visible')===true` 但 `outline-width:0px/none`，唯一反馈是 1px 边框变色，不达 WCAG 2.4.11；需给 `.msearch__input:focus-visible` 补 2px `#0066FF` outline
+- [x] Z1070 移动端搜索弹层输入框无焦点环（P1，Z1065 漏网）：`.msearch__input:focus { outline: none }`（0-2-0）压过全局 `input:focus-visible`（0-1-1），弹层 autoFocus 时实测 `matches(':focus-visible')===true` 但 `outline-width:0px/none`，唯一反馈是 1px 边框变色，不达 WCAG 2.4.11；需给 `.msearch__input:focus-visible` 补 2px `#0066FF` outline ✅ (2026-11-17 devin：`.msearch__input:focus-visible` 补 `outline:2px solid var(--accent)` + offset 2px，实测计算样式 outline-style=solid/width=2px/color=rgb(0,102,255)，blur 后回 none；新增 `msearch-sheet-focus.mjs`（390 视口 autoFocus 断言 + 桌面顶栏不回归 + 3/3 连跑），线上即验 PASS)
   verify: node scripts/assert/msearch-sheet-focus.mjs
   risk: low
 - [ ] Z1071 评论计数与可见列表不同口径（P2，Z1066 盲区）：`GET /comments` 用 `testCommentSql` 过滤测试产物，但 `answers.comment_count` 子查询（`artifact-cleanup.js` 附近）不过滤 → 清理窗口期内按钮显示「16 条评论」而列表只渲染 14 行，普通用户视角数字对不上；需两侧同口径（计数也过滤，或前端计数改单一数据源）
   verify: node scripts/assert/comment-count-scope.mjs
   risk: med
-- [ ] Z1072 移动搜索弹层 `role=search` 界标匿名（P2）：`.msearch__form` 带 `role="search"` 但无 `aria-label`，同页顶栏界标有名「全站搜索」，读屏遍历时会遇到匿名 search 界标（外层 dialog 的 aria-label 不传给内部 landmark）
+- [x] Z1072 移动搜索弹层 `role=search` 界标匿名（P2）：`.msearch__form` 带 `role="search"` 但无 `aria-label`，同页顶栏界标有名「全站搜索」，读屏遍历时会遇到匿名 search 界标（外层 dialog 的 aria-label 不传给内部 landmark） ✅ (2026-11-17 devin：移动搜索弹层 `.msearch__form` 补 `aria-label="移动端搜索"`，与「全站搜索」「在结果中搜索」三者互不相同；新增 `msearch-landmark-name.mjs`（所有 role=search 有名且两两不同，桌面+移动），线上即验 PASS)
   verify: node scripts/assert/msearch-landmark-name.mjs
   risk: low
 - [ ] Z1073 测试会话看不到自己的评论，删除/竞态路径线上不可测（P2，覆盖盲区）：`testCommentSql` 把测试账号评论从公共列表过滤，导致「删除自己的评论」「删除与切表单竞态」在线上无法构造夹具；需给 test-support 加一个「对本会话可见的自有评论」钩子或断言侧改用种子号构造
@@ -525,12 +525,15 @@
 
 ## 第二十轮待办（2026-11-17 00:3x，来源 docs/PRODUCT-REVIEW.md 第十八轮走查实测）
 
-- [ ] Z1075 评论输入框 Enter 无提交、无反馈（P2，操作可预期）：`Question.tsx` 评论输入是 `<input>`，只有「发布评论」按钮 onClick，`onKeyDown` 缺失；实测填完按 Enter 无 toast、无报错、草稿仍在、计数不变，用户会以为卡死。需 Enter 提交（空内容/发送中不重复提交），并保留按钮路径
+- [x] Z1075 评论输入框 Enter 无提交、无反馈（P2，操作可预期）：`Question.tsx` 评论输入是 `<input>`，只有「发布评论」按钮 onClick，`onKeyDown` 缺失；实测填完按 Enter 无 toast、无报错、草稿仍在、计数不变，用户会以为卡死。需 Enter 提交（空内容/发送中不重复提交），并保留按钮路径 ✅ (2026-11-17 devin：评论输入框补 `onKeyDown` Enter 提交，`isComposing` 组合态不提交、`submitComment` 内加 `commentSending` 守卫防重复；按钮路径不变共用同一函数；新增 `comment-enter-submit.mjs`（Enter 提交/空内容不提交/连按只落 1 条/按钮路径/console 0，3/3 连跑），线上即验 PASS)
   verify: node scripts/assert/comment-enter-submit.mjs
   risk: low
-- [ ] Z1076 列表接口 topics 恒为空 → 首页/话题流卡片无话题胶囊（P1，视觉保真 + 数据）：`GET /api/questions` 实测 `topics:[]`（30/30 条全空），而 `question_topics` 有 114 行、60/61 问题已绑话题；Z902 的「话题胶囊接口返回时渲染」因此从未真正显示。需列表 SQL join 话题（保持分页与 N+1 不回归）并断言卡片出现胶囊
+- [x] Z1076 列表接口 topics 恒为空 → 首页/话题流卡片无话题胶囊（P1，视觉保真 + 数据）：`GET /api/questions` 实测 `topics:[]`（30/30 条全空），而 `question_topics` 有 114 行、60/61 问题已绑话题；Z902 的「话题胶囊接口返回时渲染」因此从未真正显示。需列表 SQL join 话题（保持分页与 N+1 不回归）并断言卡片出现胶囊 ✅ (2026-11-17 devin：`questions.js` 新增 `topicsForQuestions()` 单次 `IN` 查询批量取话题（≤3/题，30 条列表共 3 次 SQL 无 N+1），列表/热榜/话题流/创建接口统一返回 topics；`Home.tsx` 胶囊按 Z902 顺序移到元信息之后；新增 `feed-topic-pills.mjs`（API ≥20 条带 topics + 桌面/移动各 ≥8 个可见胶囊 + DOM 顺序 + 3/3），线上实测 26/30 条带胶囊、首屏可见，即验 PASS)
   verify: node scripts/assert/feed-topic-pills.mjs
   risk: med
 - [ ] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选
   verify: node scripts/assert/mobile-search.mjs && node scripts/assert/notfound-page.mjs && node scripts/assert/login-copy.mjs && node scripts/assert/mobile-nav.mjs
   risk: low
+- [ ] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度/真实感）：线上 `GET /questions?limit=30` 前 4 条为「关注流链路回归 qmwjz7ia86jg 复盘？」「话题关注链路回归 …」「问题关注链路回归 …」「提问接口回归 …」，卡片带 0–2 回答直接占据推荐流首屏——`content-filter.js` 的标题规则不认「…回归 <小写随机串> 复盘？」形态（`复盘` 收尾规则要求 token 在 `复盘` 之后、尾部随机串规则要求 token 在标题末尾）。需补规则（标题含「链路回归/接口回归/回归 + 小写字母数字串」判为测试产物）并物理清掉现存残留
+  verify: node scripts/assert/feed-no-regression-residue.mjs
+  risk: med
