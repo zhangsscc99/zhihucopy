@@ -534,6 +534,6 @@
 - [ ] Z1077 断言欠账：已实现但缺断言文件的条目验收不上（P2，测试基建）：`bash scripts/verify.sh` 实测 Z972/Z974/Z978/Z979 均 `MODULE_NOT_FOUND`（`mobile-search.mjs`/`notfound-page.mjs`/`login-copy.mjs`/`mobile-nav.mjs` 不存在），但线上 UI 实测移动搜索弹层、404 页「回首页/去搜索」、底部导航均已可用——功能做了、验收没做，条目永远无法勾选。需按现状补建这四个断言（不得放宽为恒真），逐个跑通后勾选
   verify: node scripts/assert/mobile-search.mjs && node scripts/assert/notfound-page.mjs && node scripts/assert/login-copy.mjs && node scripts/assert/mobile-nav.mjs
   risk: low
-- [ ] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度/真实感）：线上 `GET /questions?limit=30` 前 4 条为「关注流链路回归 qmwjz7ia86jg 复盘？」「话题关注链路回归 …」「问题关注链路回归 …」「提问接口回归 …」，卡片带 0–2 回答直接占据推荐流首屏——`content-filter.js` 的标题规则不认「…回归 <小写随机串> 复盘？」形态（`复盘` 收尾规则要求 token 在 `复盘` 之后、尾部随机串规则要求 token 在标题末尾）。需补规则（标题含「链路回归/接口回归/回归 + 小写字母数字串」判为测试产物）并物理清掉现存残留
+- [x] Z1078 公开信息流顶部混入自动化回归残留（P1，内容洁净度/真实感）：线上 `GET /questions?limit=30` 前 4 条为「关注流链路回归 qmwjz7ia86jg 复盘？」「话题关注链路回归 …」「问题关注链路回归 …」「提问接口回归 …」，卡片带 0–2 回答直接占据推荐流首屏——`content-filter.js` 的标题规则不认「…回归 <小写随机串> 复盘？」形态（`复盘` 收尾规则要求 token 在 `复盘` 之后、尾部随机串规则要求 token 在标题末尾） ✅ (2026-11-17 devin：`TITLE_REGEXES` 增 `回归[ 　]*(验证[ 　]*)?[a-z](?=[a-z0-9]*[0-9])[a-z0-9]{7,}`（要求串内含数字，反例「回归分析怎么做」「A/B 测试回归怎么排查」「回归 transformer 调参」不命中），SQL 侧 GLOB 同步；`cleanup-test-content.js` 修掉 `badges` 旧表名（改 `user_badges` + `badge_grants_legacy`）并补 user/collection 目标通知级联；线上清理 12 问题（含 1349/1355/1356/1357）、5 回答、1 评论、4 通知、52 测试号；新增 `feed-no-regression-residue.mjs`（三接口无残留 + 造/删正反例 + 首屏 DOM 守卫 + 3/3），线上即验 PASS)
   verify: node scripts/assert/feed-no-regression-residue.mjs
   risk: med

@@ -97,12 +97,13 @@ const QUESTION_DEPS = [
 
 // 测试账号自身挂的行（answers/comments 门槛已保证为 0，这里兜底；其余是 FK 必删项）。
 const USER_DEPS = [
-  ["notifications", `DELETE FROM notifications WHERE user_id IN (SELECT id FROM _del_u) OR actor_id IN (SELECT id FROM _del_u)`],
+  ["notifications", `DELETE FROM notifications WHERE user_id IN (SELECT id FROM _del_u) OR actor_id IN (SELECT id FROM _del_u) OR (target_type = 'user' AND target_id IN (SELECT id FROM _del_u)) OR (target_type = 'collection' AND target_id IN (SELECT id FROM collections WHERE owner_id IN (SELECT id FROM _del_u)))`],
   ["follows", `DELETE FROM follows WHERE follower_id IN (SELECT id FROM _del_u) OR (target_type = 'user' AND target_id IN (SELECT id FROM _del_u))`],
   ["votes", `DELETE FROM votes WHERE user_id IN (SELECT id FROM _del_u)`],
   ["question_votes", `DELETE FROM question_votes WHERE user_id IN (SELECT id FROM _del_u)`],
   ["comments", `DELETE FROM comments WHERE author_id IN (SELECT id FROM _del_u)`],
-  ["badges", `DELETE FROM badges WHERE user_id IN (SELECT id FROM _del_u)`],
+  ["user_badges", `DELETE FROM user_badges WHERE user_id IN (SELECT id FROM _del_u)`],
+  ["badge_grants_legacy", `DELETE FROM badge_grants_legacy WHERE user_id IN (SELECT id FROM _del_u)`],
   ["reports(reporter)", `DELETE FROM reports WHERE reporter_id IN (SELECT id FROM _del_u)`],
   ["reports(handled_by)", `UPDATE reports SET handled_by = NULL WHERE handled_by IN (SELECT id FROM _del_u)`],
   ["mod_logs", `DELETE FROM mod_logs WHERE admin_id IN (SELECT id FROM _del_u)`],
