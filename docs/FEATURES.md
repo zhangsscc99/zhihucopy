@@ -629,3 +629,6 @@
 - [x] Z1105 热榜 tab 下右栏重复同一份热榜（P2，信息架构）：`/?tab=hot` 时主列表已是热榜 Top20，右栏 `.rail-block` 又列同一批 Top10，1440×900 同一排名出现两次。hot tab 下右栏不再渲染热榜块，改渲染「等你来答」（UnansweredRail），未答库存为 0 时兜底「你可能感兴趣的话题」块而非留空白；非 hot tab 保持热榜块 + 等你来答；390px 右栏依旧不渲染、热榜 tab aria-selected 不回归 ✅ (2026-11-17 devin：App.tsx 抽 Rail 组件按 pathname+?tab 切换，UnansweredRail 空库存时复用 /topics 接口渲染话题兜底块（沿用 rail-block--unanswered 移动端隐藏）；新增 assert/rail-dedupe-hot.mjs——hot 页右栏无热榜块且首卡与右栏链接不重复、默认首页热榜块仍在、390 右栏隐藏无溢出、__errs 空；基线 FAIL「右栏仍含热榜区块」，修后 3/3 PASS；rail-second-block.mjs 回归 PASS)
   verify: node scripts/assert/rail-dedupe-hot.mjs
   risk: low
+- [ ] Z1106 种子作者 bio 与作答领域口吻不一致（P2，内容真实感）：Z1103 后错位已清零，但邻接表允许 `data → code`，「温故52（bio：统计出身，现在做增长）」仍在 `/question/6` 答 React useEffect，读者第一眼仍出戏。需给跨域作答的种子作者补一句跨域说明（如 bio 加「也写前端」）或让其只在首选领域作答；断言 `scripts/assert/seed-bio-consistency.mjs`：抽样 ≥30 条回答，作者 bio 关键词或领域声明 ∩ 问题话题大类 ≠ ∅ 比例 ≥95%，且 bio 与 PERSONA_DOMAINS 首选域一致的作者不被改派
+  verify: node scripts/assert/seed-bio-consistency.mjs
+  risk: med
