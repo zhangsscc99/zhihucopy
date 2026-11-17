@@ -4,6 +4,11 @@ const { parsePage } = require("../util");
 const { requireAuth } = require("../auth");
 const { questionRow, topicsForQuestions, HOT_SCORE_SQL } = require("./questions");
 const { testQuestionSql, testUserSql } = require("../content-filter");
+const {
+  questionCategory,
+  rerankRecommended,
+  summarizeDiversity,
+} = require("../feed-diversity");
 
 const router = express.Router();
 
@@ -91,9 +96,12 @@ router.get("/following", requireAuth, (req, res) => {
   res.json({ items, total, has_more: page * limit < total, page });
 });
 
-// GET /feed/recommended?page=&limit= — 推荐流（与首页「推荐」tab 同源的最新问题列表，无需登录）。
+// GET /feed/recommended?page=&limit= — 推荐流（首页「推荐」tab 数据源，无需登录）。
 // Z1045 返修：不再按 detail_md 非空门控 —— detail_md 是可选字段，空详情是
 // 合法真实问题（由前端「暂无补充说明」兜底展示）；过滤会藏掉用户刚提的问题。
+// Z1114：纯时间序改为大类配额重排（server/feed-diversity.js，算法与口径见
+// 该文件头注释）——候选全集一次取出、内存重排、再按页切片，多次请求结果
+// 可复现；响应多带一个 diversity 字段供断言/运维核对，items 契约不变。
 router.get("/recommended", (req, res) => {
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
@@ -102,12 +110,28 @@ router.get("/recommended", (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
        WHERE ${testQuestionSql("q", "u")}
-       ORDER BY q.created_at DESC, q.id DESC LIMIT ? OFFSET ?`
+       ORDER BY q.created_at DESC, q.id DESC`
     )
-    .all(limit, offset);
-  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id));
-  const items = rows.map((r) =>
-    questionRow({ ...r, topics: topicsByQ.get(r.id) || [] })
+    .all();
+  // 全候选（不只是本页）的话题一次捞回：分类映射与同题降权都要用；
+  // perQuestion 取上限 5（发帖接口最多挂 5 个），出参仍按原契约截前 3。
+  const topicsByQ = topicsForQuestions(db, rows.map((r) => r.id), 5);
+  const candidates = rows.map((r) => {
+    const tps = topicsByQ.get(r.id) || [];
+    return {
+      row: r,
+      topics: tps.slice(0, 3),
+      cat: questionCategory(
+        tps.map((t) => t.name),
+        r.author_bio
+      ),
+      topicIds: new Set(tps.map((t) => t.id)),
+    };
+  });
+  const { items: ranked, missing } = rerankRecommended(candidates, limit);
+  const pageCands = ranked.slice(offset, offset + limit);
+  const items = pageCands.map((c) =>
+    questionRow({ ...c.row, topics: c.topics })
   );
   const total = db
     .prepare(
@@ -115,7 +139,13 @@ router.get("/recommended", (req, res) => {
        WHERE ${testQuestionSql("q", "u")}`
     )
     .get().c;
-  res.json({ items, total, has_more: page * limit < total, page });
+  res.json({
+    items,
+    total,
+    has_more: page * limit < total,
+    page,
+    diversity: summarizeDiversity(pageCands, missing),
+  });
 });
 
 // GET /feed/hot — 热榜 Top20（与 /questions?tab=hot 同一段 HOT_SCORE_SQL，热度分随行返回）。
