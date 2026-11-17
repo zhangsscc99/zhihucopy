@@ -9,13 +9,17 @@ const router = express.Router();
 
 // 个人页「该用户的回答」统一口径：未删除 + 作者非测试账号 + 所属问题非测试内容。
 // users.js 的 stats.answers / stats.vote_up 复用同一段 SQL，保证计数与列表一致。
-const AUTHOR_ANSWERS_SQL = `
+// selfView（viewer === author）时放开测试内容过滤 —— 本人看自己主页要能看到
+// 自己写的内容；访客口径不变（测试内容对外仍然隐藏）。
+function authorAnswersSql({ selfView = false } = {}) {
+  return `
   FROM answers a
   JOIN users u ON u.id = a.author_id
   JOIN questions q ON q.id = a.question_id
   JOIN users qu ON qu.id = q.author_id
-  WHERE a.author_id = ? AND a.is_deleted = 0
-    AND ${testUserSql("u")} AND ${testQuestionSql("q", "qu")}`;
+  WHERE a.author_id = ? AND a.is_deleted = 0${selfView ? "" : `
+    AND ${testUserSql("u")} AND ${testQuestionSql("q", "qu")}`}`;
+}
 
 function answerRow(a) {
   return {
@@ -65,18 +69,23 @@ router.get("/", (req, res) => {
   }
   const { page, limit, offset } = parsePage(req);
   const db = getDb();
+  // 本人查自己的回答列表（viewer === author）放开测试过滤，与
+  // users.js stats.answers / stats.vote_up 同一口径。
+  const authorSql = authorAnswersSql({
+    selfView: Boolean(req.user && req.user.id === authorId),
+  });
   const items = db
     .prepare(
       `SELECT a.*, q.title AS question_title,
               u.id AS author_id, u.nickname AS author_nickname,
               u.avatar_url AS author_avatar, u.bio AS author_bio
-       ${AUTHOR_ANSWERS_SQL}
+       ${authorSql}
        ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?`
     )
     .all(authorId, limit, offset)
     .map(answerRow);
   const total = db
-    .prepare(`SELECT COUNT(*) c ${AUTHOR_ANSWERS_SQL}`)
+    .prepare(`SELECT COUNT(*) c ${authorSql}`)
     .get(authorId).c;
   res.json(pageResult(items, total, page, limit));
 });
@@ -191,4 +200,6 @@ router.delete("/:id", requireAuth, (req, res) => {
 
 module.exports = router;
 module.exports.notifyQuestionAuthor = notifyQuestionAuthor;
-module.exports.AUTHOR_ANSWERS_SQL = AUTHOR_ANSWERS_SQL;
+module.exports.authorAnswersSql = authorAnswersSql;
+// 兼容旧调用点：常量即访客（非 selfView）口径。
+module.exports.AUTHOR_ANSWERS_SQL = authorAnswersSql();

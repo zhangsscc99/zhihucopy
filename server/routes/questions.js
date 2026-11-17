@@ -191,16 +191,21 @@ router.get("/", (req, res) => {
   // 热度分随行返回（仅热榜），前端元信息行直接展示，无需二次计算。
   const hotScoreCol = tab === "hot" ? `, ${HOT_SCORE_SQL} AS hot_score` : "";
   // ?author= 个人页口径：与 users.js stats.questions 同一段 WHERE（含测试内容过滤）。
-  const conds = [testQuestionSql("q", "u")];
+  // viewer === author（selfView）时放开测试过滤 —— 本人看自己主页要能看到
+  // 自己的提问；该判定与 users.js stats.questions 同源，保证计数与列表一致。
+  let selfView = false;
   const params = [];
+  const conds = [];
   if (req.query.author !== undefined) {
     const authorId = parseInt(req.query.author, 10);
     if (!Number.isInteger(authorId) || authorId <= 0) {
       return badRequest(res, "author 参数不合法");
     }
+    selfView = Boolean(req.user && req.user.id === authorId);
     conds.push(AUTHOR_QUESTIONS_WHERE);
     params.push(authorId);
   }
+  if (!selfView) conds.unshift(testQuestionSql("q", "u"));
   if (tab === "unanswered") {
     conds.push("q.answer_count = 0");
   }
