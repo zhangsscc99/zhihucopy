@@ -126,6 +126,11 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
   return <>{parts}</>;
 }
 
+function viewsShort(n: number) {
+  if (n >= 10000) return `${Math.round(n / 1000) / 10} 万浏览`;
+  return `${n} 浏览`;
+}
+
 function FeedCard({ q, kw }: { q: Question; kw: string }) {
   const ex = excerpt(q.detail_md);
   const navigate = useNavigate();
@@ -145,8 +150,10 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
       ) : null}
       <div className="feed__meta">
         <FeedAuthor author={q.author} />
-        <span>{q.answer_count} 个回答</span>
+        <span className="feed__answers">{q.answer_count} 个回答</span>
+        <span className="feed__answers-short">{q.answer_count} 答</span>
         <span className="feed__views">{q.view_count} 次浏览</span>
+        <span className="feed__views-short">{viewsShort(q.view_count)}</span>
       </div>
       {/* 话题胶囊跟在元信息之后；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
       {q.topics?.length ? (
@@ -277,8 +284,10 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
                 )}
               </span>
             )}
-            <span>{q.answer_count} 个回答</span>
+            <span className="feed__answers">{q.answer_count} 个回答</span>
+            <span className="feed__answers-short">{q.answer_count} 答</span>
             <span className="feed__views">{q.view_count} 次浏览</span>
+            <span className="feed__views-short">{viewsShort(q.view_count)}</span>
           </div>
           {q.topics?.length ? (
             <div className="feed__topics">
