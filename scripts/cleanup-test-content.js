@@ -20,9 +20,11 @@ const Database = require(require.resolve("better-sqlite3", {
 const {
   questionMatchSql,
   userMatchSql,
+  commentMatchSql,
   isTestTitle,
   isTestNickname,
   isTestEmail,
+  isTestBody,
 } = require("../server/content-filter");
 
 const APPLY = process.argv.includes("--apply");
@@ -38,12 +40,16 @@ const HAS_IS_TEST = db.prepare("PRAGMA table_info(users)").all().some((c) => c.n
 const OPTS = { isTest: HAS_IS_TEST };
 
 // 待删对象进 TEMP 表，后续各依赖表统一 IN (SELECT id FROM ...) 子查询。
-// - _del_q: 测试问题；- _del_a: 这些问题下的回答；- _del_u: 可删的测试账号。
+// - _del_q: 测试问题；- _del_a: 这些问题下的回答；- _del_u: 可删的测试账号；
+// - _del_c: 挂在真实内容下的残留评论（正文/作者命中口径，Z1082 新增）；
+// - _del_c2: _del_c 的回复子评论（parent_id 外键要求先删子再删父）。
 const DDL = `
   CREATE TEMP TABLE _del_q (id INTEGER PRIMARY KEY);
   CREATE TEMP TABLE _del_a (id INTEGER PRIMARY KEY);
   CREATE TEMP TABLE _del_u (id INTEGER PRIMARY KEY);
   CREATE TEMP TABLE _del_a2 (id INTEGER PRIMARY KEY);
+  CREATE TEMP TABLE _del_c (id INTEGER PRIMARY KEY);
+  CREATE TEMP TABLE _del_c2 (id INTEGER PRIMARY KEY);
 `;
 
 function fillTargets() {
@@ -56,7 +62,20 @@ function fillTargets() {
     `INSERT INTO _del_a SELECT a.id FROM answers a
      WHERE a.question_id IN (SELECT id FROM _del_q)`
   ).run();
-  // 用户：命中测试模式且「清理后」无任何剩余内容 —— 即扣掉待删集（_del_q/_del_a）
+  // 挂在真实内容下的残留评论（Z1082：如 走查9434 的「走查评论D：…」）——
+  // 正文命中 BODY 规则或作者命中测试账号口径即删，与评论路由的过滤同口径。
+  // 已在 _del_q/_del_a 删除范围内的评论也一并收录（重复删除无害，口径统一）。
+  db.prepare(
+    `INSERT INTO _del_c
+     SELECT c.id FROM comments c JOIN users u ON u.id = c.author_id
+     WHERE ${commentMatchSql("c", "u", OPTS)}`
+  ).run();
+  // 残留评论的回复子评论：parent_id 外键无级联，须先删子再删父。
+  db.prepare(
+    `INSERT INTO _del_c2 SELECT c.id FROM comments c
+     WHERE c.parent_id IN (SELECT id FROM _del_c)`
+  ).run();
+  // 用户：命中测试模式且「清理后」无任何剩余内容 —— 即扣掉待删集（_del_q/_del_a/_del_c）
   // 之后不再有 questions/answers/comments 的账号才删。
   db.prepare(
     `INSERT INTO _del_u SELECT u.id FROM users u
@@ -66,6 +85,8 @@ function fillTargets() {
        AND NOT EXISTS (SELECT 1 FROM answers a WHERE a.author_id = u.id
                         AND a.id NOT IN (SELECT id FROM _del_a))
        AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.author_id = u.id
+                        AND c.id NOT IN (SELECT id FROM _del_c)
+                        AND c.id NOT IN (SELECT id FROM _del_c2)
                         AND NOT ((c.target_type = 'question' AND c.target_id IN (SELECT id FROM _del_q))
                               OR (c.target_type = 'answer' AND c.target_id IN (SELECT id FROM _del_a))))`
   ).run();
@@ -93,6 +114,16 @@ const QUESTION_DEPS = [
   ["notifications", `DELETE FROM notifications WHERE target_type = 'question' AND target_id IN (SELECT id FROM _del_q)`],
   ["reports", `DELETE FROM reports WHERE target_type = 'question' AND target_id IN (SELECT id FROM _del_q)`],
   ["question_topics", `DELETE FROM question_topics WHERE question_id IN (SELECT id FROM _del_q)`],
+];
+
+// 挂在真实内容下的残留行（Z1082）：残留评论的子回复先删（FK），再删残留评论
+// 本体；测试账号作为 actor 产生的通知（赞同/评论/回答动作）一并清掉 —— 与
+// notifications 路由的 testNotificationSql 口径一致（actor 命中即滤）。
+const STRAY_DEPS = [
+  ["comments(残留回复)", `DELETE FROM comments WHERE id IN (SELECT id FROM _del_c2)`],
+  ["comments(残留)", `DELETE FROM comments WHERE id IN (SELECT id FROM _del_c)`],
+  ["notifications(测试操作者)", `DELETE FROM notifications WHERE actor_id IN
+     (SELECT u.id FROM users u WHERE ${userMatchSql("u", OPTS)})`],
 ];
 
 // 测试账号自身挂的行（answers/comments 门槛已保证为 0，这里兜底；其余是 FK 必删项）。
@@ -145,7 +176,12 @@ function run() {
     const nA = count("SELECT COUNT(*) c FROM _del_a");
     const nC = count(`SELECT COUNT(*) c FROM comments WHERE
       (target_type='question' AND target_id IN (SELECT id FROM _del_q)) OR
-      (target_type='answer' AND target_id IN (SELECT id FROM _del_a))`);
+      (target_type='answer' AND target_id IN (SELECT id FROM _del_a))
+      OR id IN (SELECT id FROM _del_c) OR id IN (SELECT id FROM _del_c2)`);
+    const nCs = count("SELECT COUNT(*) c FROM _del_c");
+    const nCs2 = count("SELECT COUNT(*) c FROM _del_c2");
+    const nN = count(`SELECT COUNT(*) c FROM notifications WHERE actor_id IN
+      (SELECT u.id FROM users u WHERE ${userMatchSql("u", OPTS)})`);
     const nV =
       count("SELECT COUNT(*) c FROM votes WHERE answer_id IN (SELECT id FROM _del_a)") +
       count("SELECT COUNT(*) c FROM question_votes WHERE question_id IN (SELECT id FROM _del_q)");
@@ -165,6 +201,8 @@ function run() {
     const residC = count(
       `SELECT COUNT(*) c FROM comments c WHERE c.author_id IN (
          SELECT u.id FROM users u WHERE ${userMatchSql("u", OPTS)})
+         AND c.id NOT IN (SELECT id FROM _del_c)
+         AND c.id NOT IN (SELECT id FROM _del_c2)
          AND NOT ((c.target_type = 'question' AND c.target_id IN (SELECT id FROM _del_q))
                OR (c.target_type = 'answer' AND c.target_id IN (SELECT id FROM _del_a)))`
     );
@@ -172,7 +210,8 @@ function run() {
     console.log(`[dry-run] DB: ${DB_PATH}`);
     console.log(`[dry-run] questions: ${nQ} / ${nQall} 将删除`);
     console.log(`[dry-run] answers:   ${nA} 将删除（含测试问题下的全部回答）`);
-    console.log(`[dry-run] comments:  ${nC} 将删除`);
+    console.log(`[dry-run] comments:  ${nC} 将删除（含真实内容下残留 ${nCs} 条 + 其回复 ${nCs2} 条）`);
+    console.log(`[dry-run] notifications: ${nN} 将删除（测试账号 actor 产生的通知）`);
     console.log(`[dry-run] votes:     ${nV} 将删除（answer votes + question votes）`);
     console.log(`[dry-run] users:     ${nU} / ${nUall} 将删除（另有 ${skipped} 个测试账号因仍有内容保留）`);
     console.log(`[dry-run] 残留提示: ${residA} 条测试回答 + ${residC} 条测试评论挂在真实内容下，不在删除范围`);
@@ -199,6 +238,7 @@ function run() {
       .run().changes;
     stats.questions = db.prepare("DELETE FROM questions WHERE id IN (SELECT id FROM _del_q)").run().changes;
 
+    for (const [key, sql] of STRAY_DEPS) del(key, sql);
     for (const [key, sql] of USER_DEPS) del(key, sql);
     stats.users = db.prepare("DELETE FROM users WHERE id IN (SELECT id FROM _del_u)").run().changes;
 
@@ -216,11 +256,15 @@ function run() {
     .prepare("SELECT nickname, email FROM users")
     .all()
     .filter((r) => isTestNickname(r.nickname) || isTestEmail(r.email)).length;
+  const dirtyC = db
+    .prepare("SELECT c.content, u.nickname FROM comments c JOIN users u ON u.id = c.author_id")
+    .all()
+    .filter((r) => isTestBody(r.content) || isTestNickname(r.nickname)).length;
 
   console.log("[apply] 已删除行数（按表）:");
   for (const [k, v] of Object.entries(stats)) console.log(`  ${k}: ${v}`);
   console.log(`[apply] 剩余 questions: ${leftQ}；剩余 users: ${leftU}`);
-  console.log(`[apply] 复核：仍命中测试模式的 questions=${dirtyQ}（应 0）；命中模式的 users=${dirtyU}（>0 属正常：仍有内容的账号按规则保留）`);
+  console.log(`[apply] 复核：仍命中测试模式的 questions=${dirtyQ}（应 0）；comments=${dirtyC}（应 0）；命中模式的 users=${dirtyU}（>0 属正常：仍有内容的账号按规则保留）`);
 }
 
 run();

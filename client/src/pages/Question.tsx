@@ -1435,6 +1435,7 @@ export function Question() {
                               <Textarea
                                 rows={2}
                                 maxLength={500}
+                                aria-label="写下你的评论"
                                 placeholder="写下你的评论…"
                                 value={commentDrafts[a.id] ?? ""}
                                 onChange={(e) =>
