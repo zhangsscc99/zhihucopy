@@ -17,6 +17,8 @@ const MAX_READ_IDS = 500;
 const EVENT_LABELS = {
   answer: ["answer_my_question", "回答了你的问题"],
   comment: ["commented", "评论了你的回答"],
+  reply: ["replied", "回复了你的评论"],
+  moderation: ["moderated", "处理了你的回答"],
   agree: ["agreed", "赞同了你的回答"],
   vote: ["agreed", "赞同了你的回答"],
   follow: ["followed_you", "关注了你"],
