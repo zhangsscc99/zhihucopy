@@ -193,6 +193,7 @@ const DEPS = [
   ["notifications→question", `DELETE FROM notifications WHERE target_type = 'question' AND target_id IN ${SEL.q}`],
   ["reports→question", `DELETE FROM reports WHERE target_type = 'question' AND target_id IN ${SEL.q}`],
   ["question_topics", `DELETE FROM question_topics WHERE question_id IN ${SEL.q}`],
+  ["question_invites→question", `DELETE FROM question_invites WHERE question_id IN ${SEL.q}`],
   // 回答、问题本体。
   ["answers", `DELETE FROM answers WHERE id IN ${SEL.a}`],
   ["questions", `DELETE FROM questions WHERE id IN ${SEL.q}`],
@@ -212,6 +213,7 @@ const DEPS = [
   ["reports(reporter)", `DELETE FROM reports WHERE reporter_id IN ${SEL.u} OR (target_type = 'user' AND target_id IN ${SEL.u})`],
   ["reports(handled_by)", `UPDATE reports SET handled_by = NULL WHERE handled_by IN ${SEL.u}`],
   ["mod_logs", `DELETE FROM mod_logs WHERE admin_id IN ${SEL.u}`],
+  ["question_invites(user)", `DELETE FROM question_invites WHERE inviter_id IN ${SEL.u} OR invitee_id IN ${SEL.u}`],
   // 账号本体。
   ["users", `DELETE FROM users WHERE id IN ${SEL.u}`],
 ];
