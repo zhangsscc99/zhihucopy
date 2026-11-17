@@ -8,6 +8,7 @@ import { isContentMissing, NotFound } from "./NotFound";
 import { FeedSkeleton } from "../components/Skeleton";
 import { FeedAuthor } from "../components/FeedAuthor";
 import { cardNav } from "../lib/cardNav";
+import { usePageTitle } from "../lib/usePageTitle";
 import type { Author, Topic as TopicType } from "../types";
 
 const PAGE_SIZE = 20;
@@ -57,6 +58,11 @@ export function Topic() {
   const [followPending, setFollowPending] = useState(false);
 
   const [related, setRelated] = useState<TopicType[]>([]);
+
+  // Z1160 — 话题名入标题；加载中默认标题，404/失败标「话题不存在」。
+  usePageTitle(
+    initialLoading ? null : notFound || error || !topic ? "话题不存在" : topic.name
+  );
 
   const requestSeq = useRef(0);
 

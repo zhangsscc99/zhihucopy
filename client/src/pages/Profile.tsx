@@ -14,6 +14,7 @@ import type {
   Question,
 } from "../types";
 import { formatTime } from "../lib/time";
+import { usePageTitle } from "../lib/usePageTitle";
 
 type TabKey = "answers" | "questions";
 
@@ -385,6 +386,11 @@ export function Profile() {
   const [following, setFollowing] = useState(false);
   const [followPending, setFollowPending] = useState(false);
   const profileSeq = useRef(0);
+
+  // Z1160 — 主页标题用昵称；加载中默认标题，失败标「用户不存在」。
+  usePageTitle(
+    loading ? null : notFound || error || !data ? "用户不存在" : data.user.nickname
+  );
 
   // 初始关注态由 /users/:id 的 is_following 一次带回（仅登录请求返回该字段）。
   // seq 守卫：切用户时在途响应直接丢弃，不落到新主页。

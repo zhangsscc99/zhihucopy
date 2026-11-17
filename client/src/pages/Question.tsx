@@ -10,6 +10,7 @@ import MarkdownEditor from "../components/MarkdownEditor";
 import { Button, Textarea } from "../components/ui";
 import type { Answer, Page, Question as QuestionType } from "../types";
 import { formatTime } from "../lib/time";
+import { usePageTitle } from "../lib/usePageTitle";
 
 interface CommentNode {
   id: number;
@@ -156,6 +157,11 @@ export function Question() {
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Z1160 — 加载中用默认站点标题（不残留上一页），404/失败标「问题不存在」。
+  usePageTitle(
+    loading ? null : notFound || error || !question ? "问题不存在" : question.title
+  );
 
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);

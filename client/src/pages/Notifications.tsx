@@ -7,6 +7,7 @@ import { useToast } from "../toast";
 import { Empty, ErrorBox } from "../components/Layout";
 import { FeedSkeleton } from "../components/Skeleton";
 import { formatTime } from "../lib/time";
+import { usePageTitle } from "../lib/usePageTitle";
 
 interface NotificationActor {
   id: number;
@@ -212,6 +213,8 @@ export function Notifications() {
   const requestSeq = useRef(0);
   // 进入页面自动已读只做一次（StrictMode 双跑与 reloadToken 重试都靠它挡住重复写）。
   const autoReadRef = useRef(false);
+
+  usePageTitle("通知");
 
   // tab 以 ?type= 为唯一事实源，浏览器前进/后退可还原选中态。
   const tabParam = searchParams.get("type") || "all";

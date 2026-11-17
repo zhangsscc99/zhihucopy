@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ApiError } from "../api";
+import { usePageTitle } from "../lib/usePageTitle";
 
 // 「内容不存在」的唯一判定：接口 404（ApiError.status === 404）。
 // fetch 抛错、5xx 及其它错误一律归「服务暂时不可用」。
@@ -44,6 +45,9 @@ export function NotFound({
 }) {
   const copy = COPY[kind];
   const friendly = friendlyDetail(detail);
+  // 兜底路由/独立 404 用默认站点标题；被 Question/Profile 等嵌入时父级
+  // usePageTitle 后执行、覆盖为本页专属错误标题。
+  usePageTitle(null);
   return (
     <div className="notfound">
       {copy.code && <p className="notfound__code">{copy.code}</p>}

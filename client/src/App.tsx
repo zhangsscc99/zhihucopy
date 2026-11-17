@@ -16,9 +16,11 @@ import { Notifications } from "./pages/Notifications";
 import { Collections, CollectionDetail } from "./pages/Collections";
 import { Admin } from "./pages/Admin";
 import { NotFound } from "./pages/NotFound";
+import { usePageTitle } from "./lib/usePageTitle";
 
 function Me() {
   const { user, loading } = useAuth();
+  usePageTitle("我的主页");
   if (loading) return null;
   return <Navigate to={user ? `/u/${user.id}` : "/login"} replace />;
 }

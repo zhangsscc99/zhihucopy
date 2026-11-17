@@ -11,6 +11,7 @@ import { cardNav } from "../lib/cardNav";
 import { saveRecentSearch } from "../lib/searchHistory";
 import { searchHref } from "../lib/searchHref";
 import { formatTime } from "../lib/time";
+import { usePageTitle } from "../lib/usePageTitle";
 import type {
   AnswerResult,
   Page,
@@ -884,6 +885,8 @@ function Feed() {
 export function Home() {
   const [params] = useSearchParams();
   const q = (params.get("q") || "").trim();
+  // 搜索页带关键词主体；首页仅热榜 tab 有专属标题，其余 tab 用默认站点标题。
+  usePageTitle(q ? `“${q}” 的相关结果` : params.get("tab") === "hot" ? "热榜" : null);
   // 搜索结果区整体套错误边界：任何行组件渲染异常 → 错误卡 + 重试，不整站白屏。
   if (q)
     return (
