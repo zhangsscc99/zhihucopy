@@ -540,3 +540,8 @@
 - [x] Z1079 关注流按标题形态误滤被关注者的真实提问（P1，回归修复）：Z1078 的「回归 + 小写字母数字串」标题规则经 `testQuestionSql("q","u")` 同时作用于 `/feed/following`，把 feed-following 链路验证提问（`…链路回归 <token> 复盘？`）和真实用户「线上回归怎么排查？」类提问一起吞掉，Z964/Z971 断言 FAIL；私域流按标题形态猜「像不像测试内容」本身不合理 ✅ (2026-11-17 devin：`/feed/following` 的 items/total 两段 WHERE 改为 `testUserSql("u")`（仅作者身份），公共出口 `/feed/recommended`、`/feed/hot`、`/questions`、搜索、话题流保持 `testQuestionSql` 双滤不变；`feed-following.mjs` 中「[assert] 标题真实作者提问不进流」断言按新口径反转为「应进流」；新增 `following-title-allow.mjs`（关注流包含命中标题规则的提问 + 三公共出口不含 + 测试号作者不含，3/3 PASS）)
   verify: node scripts/assert/following-title-allow.mjs && node scripts/assert/feed-following.mjs
   risk: med
+
+## 第二十轮收尾观察（待办）
+- [ ] Z1080 Z1033 断言与评论过滤规则冲突（P2，测试基建）：`content-ownership.mjs` 用 `@test.dev` 账号造「他人评论」，而 `GET /comments` 的 `testCommentSql` 会把测试号评论过滤掉 → 断言「他人评论未渲染」恒 FAIL（11-16 12:13 / 11-17 01:38 / 02:20 三份报告均 FAIL，条目却已勾选）。需改用非测试形态账号，或与 Z1073 的 test-support 逃生舱统一解决
+  verify: node scripts/assert/content-ownership.mjs
+  risk: low
