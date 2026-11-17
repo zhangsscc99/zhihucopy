@@ -764,3 +764,15 @@
 - [x] Z1143 未登录动作零解释（P3，可预期性）：未登录点赞/关注时 `Question.tsx` 的 `needLogin()` 先 `toast("请先登录")` 再 `navigate(loginNext)`，React 状态未提交组件已卸载 —— 实测点击后 `.toast-stack` 内文本从未出现（MutationObserver 记录为空），用户被整页扔到登录页且登录页只有「登录知乎（仿）」标题，没有任何「登录后即可继续刚才的操作」。要求：登录页在存在 `next`（有效站内路径）时于表单上方显示一行说明「登录后即可继续刚才的操作」（无 `next` 时不显示），不改登录/注册流程与 Z1131 的登录回跳（`next === returnTo` 时仍 `navigate(-1)`）；不新增全局 toast 时序改造。断言 `scripts/assert/login-next-hint.mjs`：未登录在 `/question/6` 点赞 → 落到 `/login?next=%2Fquestion%2F6` 且 `main` 文本含「登录后即可继续」；直接打开 `/login`（无 next）时该文案 0 处；`/login?next=https%3A%2F%2Fevil.com` 时该说明不出现且登录后不跳外站；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上必 FAIL。 ✅ (2026-11-17 devin swe-2-medium：`Login.tsx` 复用既有 `dest` 校验加 `showNextHint = next === dest && next !== "/login"`，渲染 `.authform__hint`「登录后即可继续刚才的操作」（无 next / 外站 / `//evil.com` / 自指 `/login` 均不渲染），未动 Z1131 回跳分支；`styles.css` 末尾 8 行；新增 `assert/login-next-hint.mjs`（未登录点赞→登录页含说明、无 next 0 处、外站 next 0 处且登录后不出站、正常回跳有内容、双端无溢出、`__errs` 空）；反向自检线上 FAIL 2 项（hintCount=0）；3/3 PASS + verify PASS + login-back-history 回归 PASS；部署后线上实测「登录知乎（仿）/ 登录后即可继续刚才的操作 / 邮箱…」)
   verify: node scripts/assert/login-next-hint.mjs
   risk: low
+
+## 第十二轮待办（2026-11-17 19:55，第三十六轮走查）
+
+- [ ] Z1144 搜索召回窄 + 低命中无兜底（P2，内容厚度/搜索）：站内搜索把整串当子串 LIKE，`/search?q=代码质量` 只返回 2 条（库里 111 题），且页面只有「2 条」没有其它出路；另外 `q=React` 端到端 1746ms，比站内其它动作（赞 113ms）慢一档。要求：① 中文查询按二元组（bigram）拆分做 OR 召回，命中全部 bigram 的排最前（相关度），单字/英文/含空格查询保持现行为；② 结果 ≤3 条时在列表下方渲染「相关话题」区块（按命中词匹配话题名/简介，≥2 个，链到 `/topic/:id`），没有相关话题时不渲染空块；③ 不改 `/search` 路由路径、tab 结构与既有 `counts` 口径（counts 必须与列表 total 一致）。断言 `scripts/assert/search-recall.mjs`：`q=代码质量` 的 `counts.question >= 5` 且列表 ≥5 条；`q=React` 仍在 1 条以上且 tab 数字 === 列表 total；`q=代码质量` 结果 ≤3 的旧口径必须 FAIL（反向自检线上 FAIL）；低命中时出现「相关话题」且每个链接 href 含 `/topic/`；1440/390 无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/search-recall.mjs
+  risk: med
+- [ ] Z1145 通知页无法按类型筛选（P3，可预期性）：种子号进 `/notifications` 有 9 条真实通知（关注/回复/评论/赞同混排），只有「全部已读」一个动作，想单看「评论」只能逐条扫。后端 `GET /notifications?type=` 已支持。要求：通知页顶部加分类 tab「全部 / 评论 / 赞同 / 关注」，每个 tab 带数量（全部 = 各类型之和，来自一次 `/notifications` 首屏 + 各类型请求或后端新增 `counts`；数量取不到时只显示文案不显示数字，不许写死）；点 tab 只显示该类型并保持「全部已读」可用；「暂无该类型通知」空态给「看全部通知」出口；不改通知 payload 结构、不改进页自动已读逻辑（Z1025）。断言 `scripts/assert/notify-tabs.mjs`：登录种子号进通知页 → 4 个 tab 存在且「全部」选中；点「评论」后列表每条的 event_label/类型文案均为评论类且条数 ≤ 全部条数；空类型 tab 显示空态与「看全部」出口；切 tab 后 URL 或选中态可回退；双端无横向溢出、`window.__errs` 为空；反向自检线上 FAIL（tab 不存在）。
+  verify: node scripts/assert/notify-tabs.mjs
+  risk: low
+- [ ] Z1146 问题页读完即到底，无「相关问题」（P2，内容厚度/留存）：`/question/6` 3 条回答（6399 浏览）后是「已经到底了」，页面没有任何通往同话题其它问题的入口，用户会话在此中断。要求：问题页回答列表下方新增「相关问题」区块（≤6 条，取自该问题所在话题下的其它问题，按热度/浏览降序，排除自身与测试内容，每行显示标题 + 「N 个回答」+ 话题胶囊，点击进 `/question/:id`）；问题无话题或取不到数据时整块不渲染（不许空块/骨架长驻）；放在「已经到底了」之后、页脚之前；不改回答问题列表分页与排序。断言 `scripts/assert/related-questions.mjs`：`/question/6` 底部出现「相关问题」且条目 ≥3、全部 href 指向别的 `/question/:id`（不含自身 id）、每行含回答数；无话题问题（自造/挑选）该区块 0 个；双端无横向溢出、`window.__errs` 为空、点击首条能进到对应问题（标题变化）；反向自检线上 FAIL（区块不存在）。
+  verify: node scripts/assert/related-questions.mjs
+  risk: med
