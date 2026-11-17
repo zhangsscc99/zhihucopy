@@ -38,6 +38,9 @@ interface InviteUser {
   nickname: string;
   avatar_url: string;
   bio: string;
+  // Z1158：同一昵称前缀的种子用户成簇，行内补回答/关注者供区分。
+  answer_count?: number;
+  follower_count?: number;
 }
 
 // 「相关问题」行形态（GET /questions/:id/related）：话题胶囊只回 id+name。
@@ -2038,6 +2041,11 @@ export function Question() {
                       <span className="invite__bio">
                         {u.bio || "这位知友还没有写简介"}
                       </span>
+                      {typeof u.answer_count === "number" && (
+                        <span className="invite__meta">
+                          回答 {u.answer_count} · 关注者 {u.follower_count ?? 0}
+                        </span>
+                      )}
                     </span>
                     <button
                       type="button"

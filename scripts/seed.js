@@ -68,6 +68,9 @@ const {
 // Z1115：clone 用户不再追加 `${i+1}` 数字后缀（机器生成感），改用
 // nickname-pool 的真实感别名；persona-domains 按别名还原原型领域。
 const { cloneNickname } = require("./nickname-pool");
+// Z1158：clone 用户不再复用原型 bio（30 组「8 人同一条简介」），
+// 按人设领域从 user-bios 池里取互不相同的简介。
+const { cloneBio } = require("./seed-data/user-bios");
 
 // ---------------------------------------------------------------------------
 // 随机数：固定种子 -> 内容可复现（便于对比两次执行的结果）
@@ -590,8 +593,10 @@ function main() {
       const [nick, bio] = USERS[i % USERS.length];
       // Z1115：clone 用真实感别名（round=1..7 对应第 1..7 轮复用人设），
       // 原型用户（i < USERS.length）直接用本名。
-      const nickname =
-        i < USERS.length ? nick : cloneNickname(nick, Math.floor(i / USERS.length));
+      const round = Math.floor(i / USERS.length);
+      const nickname = i < USERS.length ? nick : cloneNickname(nick, round);
+      // 原型本人保留 base bio；clone 按领域取差异化简介（round 保证同领域内不撞）。
+      const userBio = i < USERS.length ? bio : cloneBio(PERSONA_DOMAINS[nick] || [], round);
       const isAdmin = i === 0 ? 1 : 0;
       const email = i === 0 ? "admin@zhihucopy.dev" : `user${i + 1}@zhihucopy.dev`;
       const avatar = `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname)}&size=200`;
@@ -600,7 +605,7 @@ function main() {
       if (i === 7) mutedUntil = fmtTs(NOW + 3 * DAY);
       if (i === 19 && i < N_USERS) mutedUntil = fmtTs(NOW + 12 * DAY);
       const createdAt = fmtTs(at((i + 1) / (N_USERS + 4) * 0.6));
-      const info = insUser.run(email, passwordHash, nickname, avatar, bio, isAdmin, mutedUntil, createdAt);
+      const info = insUser.run(email, passwordHash, nickname, avatar, userBio, isAdmin, mutedUntil, createdAt);
       userIds.push(Number(info.lastInsertRowid));
       bump("users");
     }
