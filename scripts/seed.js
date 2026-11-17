@@ -241,65 +241,25 @@ for (const t of TOPICS) {
   }
 }
 
-const COMMENTS = [
-  "写得很实在，很多细节一看就是真做过的人写的。",
-  "补充一点：这个方法在小团队里要打个折扣，人手不够的时候根本执行不下去。",
-  "看完之后我最大的感受是，很多问题真的不是技术问题。",
-  "不同意最后一段，大多数人都没有你说的那个前提条件。",
-  "有个疑问，如果资源更紧张一些，你会怎么排优先级？",
-  "有些地方我还得再看一遍才能消化，先收藏了。",
-  "刚好在做类似的事，明天就试试，回来反馈。",
-  "这个思路我在一本书里见过，但你说得更具体。",
-  "收藏了，慢慢看。",
-  "说得好，但执行起来最难的是坚持。",
-  "我自己踩过一模一样的坑，看完会心一笑。",
-  "讲得太抽象了，能不能给个具体的例子？",
-  "这个结论我保留意见，感觉样本太小。",
-  "说到点子上了，比那些只讲原则的回答实在多了。",
-  "有几个细节想请教，方便的话能展开说说吗？",
-  "感谢分享，这种来自一线的经验比教程有用多了。",
-  "我觉得还有一点没说：人的因素往往比方法更重要。",
-  "这条我有不同经验，可能跟行业有关系。",
-  "第一段就把我说服了。",
-  "写得真好，已转发给同事。",
-  "说实话有点理想化，现实里没这么多时间给你折腾。",
-  "想问下你做了多久才看到效果？",
-  "看完觉得自己以前都在瞎努力。",
-  "有一个小细节我可能理解得不对，回头再读一遍。",
-  "作为刚入行的人，这篇帮我省了不少弯路。",
-  "能不能出一篇详细的操作版？",
-  "同意大方向，细节上我觉得要分场景。",
-  "楼主是不是漏了成本这一项？",
-  "我试了，有用，但没你说的那么明显。",
-  "这种内容太少了，希望多写。",
-  "看完默默关掉了正在刷的手机。",
-  "最后一句话值得单独抄下来。",
-  "请问有没有推荐的入门资料？",
-  "部分同意，有些场景下可能还要再分情况讨论。",
-  "同感，里面的好几个坑我都踩过。",
-  "写得很克制，没有贩卖焦虑，难得。",
-  "看完对照了下自己的情况，确实是这样。",
-  "有个反例：我们团队就是靠重度流程撑起来的。",
-  "感谢，正好这周要做决策，参考了。",
-  "这个话题下终于看到一篇说人话的。",
-  "能感觉到是真做过的人写的。",
-  "想问下大概需要投入多少时间？",
-  "逻辑很清晰，收藏了。",
-  "道理都懂，做起来还是难。",
-  "我补充一个：环境因素往往被低估。",
-  "第一条就中了，我一直以为是我自己的问题。",
-  "看完有点被安慰到。",
-  "希望有机会看到后续。",
-  "这种回答应该置顶。",
-  "有没有更多的例子？想再看看其他场景下的情况。",
-  "不太理解为什么这么多人赞，感觉有点老生常谈。",
-  "看完之后我改了三个习惯，一个月后确实不一样。",
-  "同意大方向，不过落地的时候还得看具体环境。",
-  "这篇我读了三遍，每遍都有新收获。",
-  "有点长，但值得看完。",
-  "提问的人运气好，遇到这种回答。",
-  "第一次看到有人把这件事讲这么细。",
-];
+// Z1147：评论语料下沉到 scripts/seed-data/comments.js ——
+//   DOMAIN_COMMENTS  按问题大类分池、关键词锚定回答正文，每条带实指；
+//   GENERIC_COMMENTS 跨领域兜底池（万能句白名单句式已剔除）；
+//   REPLIES          二级回复池（同上剔除）；
+//   GENERIC_WHITELIST 万能句白名单，供 fix 脚本与断言复用。
+const {
+  DOMAIN_COMMENTS,
+  GENERIC_COMMENTS: COMMENTS,
+  REPLIES,
+  GENERIC_WHITELIST,
+  anchoredTexts,
+  validate: validateCommentCorpus,
+} = require("./seed-data/comments");
+{
+  const problems = validateCommentCorpus();
+  if (problems.length) {
+    throw new Error(`seed-data/comments.js 语料不合规:\n  ${problems.join("\n  ")}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 回答收尾补记池（Z1091 / Z1108）：每第 6 条回答追加一句「作者本人口吻」的
@@ -365,32 +325,47 @@ function pickTail(cat, content) {
   return pool[i];
 }
 
-const REPLIES = [
-  "你说的情况我也遇到过，可能是执行顺序的问题。",
-  "这个补充很有价值，我加到正文里了。",
-  "同意，我原文写得太绝对了。",
-  "不完全是这样，得看具体场景。",
-  "能具体说说你当时的数据吗？",
-  "谢谢，这个点我确实没想到。",
-  "我的经验刚好相反，可能是行业差异。",
-  "对，而且成本这块还要再算一遍。",
-  "这个前提很重要，值得单独展开。",
-  "哈哈，同款经历。",
-  "有道理，我回去验证一下。",
-  "有一点我持保留态度。",
-  "收藏了，感谢补充。",
-  "这个问题我也想问。",
-  "我补充个案例：去年我们就是这么做的。",
-  "说得对，但落地时还得看团队配合。",
-  "受教了。",
-  "这个角度很新，之前没想过。",
-  "麻烦问下能再展开一点吗？",
-  "是的，尤其是人少的时候。",
-  "我按这个思路试了，确实有效。",
-  "那如果条件不满足呢？",
-  "赞同，方法本身没那么重要，执行才是。",
-  "这条应该置顶。",
-];
+// Z1147：同一 answer 下文案不重复、全站同一句占用率 <15%。
+// 一级评论优先取「关键词命中回答正文」的领域锚定句，锚定集为空退通用池；
+// 二级回复走 REPLIES。候选内取全站已用次数最少的一句（确定性打散后取最小）。
+const commentUse = new Map(); // text -> 全站写入次数
+const leastUsed = (cands) => {
+  let best = null;
+  let bestN = Infinity;
+  for (const t of shuffle(cands)) {
+    const n = commentUse.get(t) || 0;
+    if (n < bestN) {
+      best = t;
+      bestN = n;
+    }
+  }
+  return best;
+};
+const pickCommentText = (a, used, useCap) => {
+  // 候选顺序：关键词命中正文的锚定句优先；本大类兜底句(k=[])并入通用池
+  // 一起按最少使用取 —— 兜底池只有一两条时若独占一层会被反复命中。
+  const anchored = anchoredTexts(a.cat, a.content, { includeFallback: false });
+  const catFallback = (DOMAIN_COMMENTS[a.cat] || [])
+    .filter((e) => e.k.length === 0)
+    .map((e) => e.t);
+  for (const pool of [anchored, catFallback.concat(COMMENTS)]) {
+    const t = leastUsed(
+      pool.filter((x) => !used.has(x) && (commentUse.get(x) || 0) < useCap)
+    );
+    if (t) return t;
+  }
+  // 兜底：同 answer 去重仍优先；实在挑不出（理论上不发生）才允许撞占用上限。
+  return (
+    leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
+    leastUsed(REPLIES.filter((x) => !used.has(x))) ||
+    COMMENTS[ri(COMMENTS.length)]
+  );
+};
+const pickReplyText = (used, useCap) =>
+  leastUsed(REPLIES.filter((x) => !used.has(x) && (commentUse.get(x) || 0) < useCap)) ||
+  leastUsed(REPLIES.filter((x) => !used.has(x))) ||
+  leastUsed(COMMENTS.filter((x) => !used.has(x))) ||
+  REPLIES[ri(REPLIES.length)];
 
 
 // ---------------------------------------------------------------------------
@@ -705,7 +680,7 @@ function main() {
             bump("answer_revisions");
           }
         }
-        answerPlan.push({ aid, qid: q.qid, authorId: authors[k], createdMs, created: finalCreated });
+        answerPlan.push({ aid, qid: q.qid, authorId: authors[k], createdMs, created: finalCreated, cat, content });
       }
     }
 
@@ -751,6 +726,7 @@ function main() {
     // 按分层分配评论：每题预算取该层 comments 区间，再按回答票数加权摊到各回答。
     // scale=1 时预算合计约 9*20 + 15*6 + 22*2.5 + 14*0.5 ≈ 330。
     const commentTimes = new Map();
+    const commentTexts = new Map(); // aid -> Set(已用文案)，同 answer 去重（Z1147）
     const commentQueue = [];
     for (const q of questionPlan) {
       const list = byQuestion.get(q.qid) || [];
@@ -771,8 +747,11 @@ function main() {
         commentQueue.push(list[pickIdx]);
       }
     }
+    // 全站同一句占用率上限 15%（Z1147）：候选里只挑低于上限的句。
+    const commentUseCap = Math.max(2, Math.floor(commentQueue.length * 0.15));
     for (const a of commentQueue) {
       const existing = commentTimes.get(a.aid) || [];
+      const usedTexts = commentTexts.get(a.aid) || new Set();
       const author = userIds[ri(N_USERS)];
       const isReply = existing.length > 0 && g() < 0.34;
       let parentId = null;
@@ -780,12 +759,17 @@ function main() {
         const parents = existing.filter((c) => c.parentId === null);
         if (parents.length) parentId = parents[ri(parents.length)].id;
       }
-      const text = parentId ? pick(REPLIES) : pick(COMMENTS);
+      const text = parentId
+        ? pickReplyText(usedTexts, commentUseCap)
+        : pickCommentText(a, usedTexts, commentUseCap);
       const t = Math.min(NOW - 300000, a.createdMs + 1800000 + ri(9 * DAY));
       const info = insComment.run(a.aid, author, parentId, text, fmtTs(t));
       const cid = Number(info.lastInsertRowid);
       existing.push({ id: cid, parentId });
       commentTimes.set(a.aid, existing);
+      usedTexts.add(text);
+      commentTexts.set(a.aid, usedTexts);
+      commentUse.set(text, (commentUse.get(text) || 0) + 1);
       bump("comments");
     }
     // 少量软删除样本
@@ -1115,4 +1099,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { TOPICS, USERS, COMMENTS, REPLIES, STORIES, ANSWER_TAILS, clearAll };
+module.exports = { TOPICS, USERS, COMMENTS, REPLIES, DOMAIN_COMMENTS, GENERIC_WHITELIST, STORIES, ANSWER_TAILS, clearAll };

@@ -779,7 +779,10 @@
 
 ## 第十三轮待办（2026-11-17 20:35，第三十七轮走查）
 
-- [ ] Z1147 评论区语料模板化（P1，内容厚度）：`/question/6` 的 19 条评论抽 8 条，4 条撞同一批万能句（「有一个小细节我可能理解得不对，回头再读一遍。」×2、「我按这个思路试了，确实有效。」×2、「受教了。」），全部「16 小时前」，无一条指向回答里的具体点。要求：① 把 `scripts/seed-data` 的评论语料扩到 ≥40 条并按回答正文的关键词/领域分池，评论必须带实指（引用回答里的具体概念或做法，≥8 字）；② 同一 answer 下不得出现相同文案，全站同一句的占用率 ≤15%；③ 新增 `scripts/fix-comment-variety.js`（默认 dry-run，`--apply --prod` 需 `ZH_ALLOW_PROD_WRITE=1` 且先 `.backup()`，幂等，只改万能句命中的存量评论）；④ 断言 `scripts/assert/comment-variety.mjs`：抽样 ≥20 条未删除评论，同 answer 内重复文案 = 0、万能句白名单命中率 ≤20%、单条长度 ≥6 字、`--self-test` 副本库植入重复评论必须检出；反向自检线上必须 FAIL。
+- [x] Z1147 评论区语料模板化（P1，内容厚度）：`/question/6` 的 19 条评论抽样 8 条里 4 条撞同一批万能句（「有一个小细节我可能理解得不对，回头再读一遍。」山月不知/季小五各一条、「我按这个思路试了，确实有效。」余小光/青柠气泡各一条、「受教了。」海边的夜），全部时间戳「16 小时前」，无一条指向回答里的具体概念。要求：① `scripts/seed-data/` 评论语料扩到 ≥40 条，按回答正文关键词/领域分池（前端/后端/数据/职场/心理/生活/教育等），每条带实指、≥8 字、不口号收尾；② 同一 answer 下不得出现相同文案、全站同一句占用率 ≤15%，seed 写入时按 answer 内去重挑选；新增 `scripts/fix-comment-variety.js` 修存量（默认 dry-run，`--apply --prod` 需 `ZH_ALLOW_PROD_WRITE=1` 且先 `.backup()`，幂等，只重写命中万能句白名单的评论，保留作者/时间/父子关系）；③ 断言 `scripts/assert/comment-variety.mjs`：抽样 ≥20 条 `is_deleted=0` 评论（DB 直读 + API 双口径），同一 answer 内重复文案 = 0、万能句白名单命中率 ≤20%、单条正文长度 ≥6 字，`--self-test` 副本库植入同答重复评论必须检出。 ✅ (2026-11-17 devin swe-2-high：新增 `scripts/seed-data/comments.js`——8 大类 86 条关键词锚定句（`{k:[词],t}`，kw 命中回答正文才可被选）+ 41 条通用兜底 + 38 条二级回复 + `GENERIC_WHITELIST` 万能句白名单 20 条（含走查四句与全部存量同答重复句）；`seed.js` 评论改写为锚定优先 + 同 answer 去重 + 全站单句占用 <15% 最少使用取句；`fix-comment-variety.js` 只重写白名单精确命中行、按 `comment.id` 确定性轮转取域内锚定句、同答已用文案避让、`db.backup()` 后过 prod-write-gate，副本实测 130 条命中全重写且二跑 0 命中，作者/时间/parent_id/comment_count 零改动；`assert/comment-variety.mjs` 全量同答去重 + 单句占用 ≤15% + 抽样 24 条白名单 ≤20%/≥6 字/API 双口径 id+正文一致；反向自检对线上副本 FAIL「is_deleted=0 评论仍有 17 组同一 answer 重复文案」，本地 seed 后 PASS、self-test 检出、comment-count/comment-residue-clean/vote-comment 回归全绿）
+  verify: node scripts/assert/comment-variety.mjs
+  verify: node scripts/assert/comment-variety.mjs --self-test
+  risk: med
   verify: node scripts/assert/comment-variety.mjs
   risk: high
 
