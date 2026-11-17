@@ -6,8 +6,13 @@
 // 不被 is_test/邮箱域规则命中），残留会渲染在真实问题评论区。
 //
 // 命中规则（仅 is_deleted=0 的行参与扫描）：
-//   R1 正文以 ≥5 位纯数字结尾（允许尾随空格）——断言脚本的随机尾标形态；
-//   R2 正文含 巡检|走查评论|[e2e]|[assert]（大小写不敏感）——巡检/断言标记。
+//   R1  正文以 ≥5 位纯数字结尾（允许尾随空格）——断言脚本的随机尾标形态；
+//   R2a 正文含 巡检|走查评论|[e2e]|[assert]（大小写不敏感）——巡检/断言标记；
+//   R2b 第[一二三四五六七八九十百0-9]{1,4}轮走查 ——轮次走查探针（Z1130）；
+//   R2c 走查[0-9]{4,} ——带随机数的走查标记（Z1130）；
+//   R2d 行首「走查」（(?!表) 排除「走查表」开头）——短探针（Z1130）。
+//   注意 R2b/R2c/R2d 刻意不用裸子串「走查」：正文讨论「走查表」「代码走查」
+//   属正常内容，仅收窄到探针形态（Z1086 收窄时曾把走查形态整个丢掉）。
 //
 // 处理：软删除（is_deleted=1），不物理删除；同事务内按 syncCommentCount
 // 同口径（COUNT(*) WHERE is_deleted=0）重算受影响 answers.comment_count。
@@ -41,14 +46,22 @@ if (APPLY && process.env.FIX_ALLOW_PROD !== "1") {
 
 const RE_TRAILING_DIGITS = /\d{5,}\s*$/;
 const RE_MARKER = /巡检|走查评论|\[e2e\]|\[assert\]/i;
+const RE_WALK_ROUND = /第[一二三四五六七八九十百0-9]{1,4}轮走查/;
+const RE_WALK_DIGITS = /走查\d{4,}/;
+const RE_WALK_HEAD = /^\s*走查(?!表)/;
 
 function matchRules(content) {
   const rules = [];
   if (typeof content !== "string" || !content.trim()) return rules;
   if (RE_TRAILING_DIGITS.test(content)) rules.push("R1:尾部纯数字>=5位");
-  if (RE_MARKER.test(content)) rules.push("R2:巡检/e2e/assert标记");
+  if (RE_MARKER.test(content)) rules.push("R2a:巡检/走查评论/e2e/assert标记");
+  if (RE_WALK_ROUND.test(content)) rules.push("R2b:第N轮走查");
+  if (RE_WALK_DIGITS.test(content)) rules.push("R2c:走查+数字>=4位");
+  if (RE_WALK_HEAD.test(content)) rules.push("R2d:走查开头");
   return rules;
 }
+
+module.exports = { matchRules };
 
 async function main() {
   const db = new Database(DB_PATH, APPLY ? {} : { readonly: true });
@@ -118,7 +131,9 @@ async function main() {
   db.close();
 }
 
-main().catch((e) => {
-  console.error(`[clean-residue] FAIL: ${e.message || e}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`[clean-residue] FAIL: ${e.message || e}`);
+    process.exit(1);
+  });
+}
