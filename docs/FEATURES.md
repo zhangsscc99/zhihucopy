@@ -649,3 +649,12 @@
 - [ ] Z1112 历史条目 verify 失败 50 条（测试债，P2）：`scripts/report.sh` 本轮统计 `verify fails=50`（Z1058-Z1077 区间多条断言脚本缺失或口径过期），报告噪声掩盖真实回归。逐条三选一：补断言脚本 / 修正 verify 行 / 若功能已废弃则标 `~~` 并注明原因，目标降到 0。断言 `scripts/assert/verify-clean.mjs`：遍历 `verify.sh --list`，已勾选条目的 verify 命令退出码全为 0
   verify: node scripts/assert/verify-clean.mjs
   risk: med
+
+## 第二十六轮走查新增（2026-11-17 08:4x，来源 docs/PRODUCT-REVIEW.md 第二十六轮）
+
+- [ ] Z1113 信息流卡缺作者头像（P2，视觉保真）：`Home.tsx` 的 `FeedCard`/`AnswerResultCard` 元信息行只有 `feed__author` 文本链接，卡片内 `img`=0；真知乎每张卡左下是「24px 圆形头像 + 昵称」。后端 `q.author.avatar_url` 已有（`/u/27` 主页能显示），只需在卡片元信息左侧渲染头像（无 avatar_url 时用昵称首字占位圆），并与昵称同一链接跳 `/u/:id`；1440 与 390 都不许挤压元信息换行、不许横向溢出
+  verify: node scripts/assert/feed-card-avatar.mjs
+  risk: low
+- [ ] Z1114 推荐流话题偏科（P2，内容厚度）：干净会话 `/`（推荐 tab）首屏 20 条中 14 条属技术大类（JavaScript/前端开发/Python/数据库/编程），生活/心理/职场/教育只出现在第 15 条之后，首屏像技术社区不像知乎。需在推荐排序里加大类配额（单一领域 ≤50%，生活/心理/职场/教育各保底 ≥2 条）并对同话题做 MMR 去重，接口另返回 `diversity` 统计供断言读取
+  verify: node scripts/assert/feed-diversity.mjs
+  risk: med
