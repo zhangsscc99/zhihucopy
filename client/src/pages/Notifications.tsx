@@ -358,18 +358,20 @@ export function Notifications() {
         <div className="notify__tabs" role="tablist" aria-label="通知分类">
           {TABS.map((t) => {
             const n = counts?.[t.key];
+            const hasCount = typeof n === "number" && n > 0;
             return (
               <button
                 key={t.key}
                 type="button"
                 role="tab"
                 aria-selected={tab === t.key}
+                aria-label={hasCount ? `${t.label}，${n} 条` : `${t.label}，暂无`}
                 className={`notify__tab${tab === t.key ? " is-active" : ""}`}
                 onClick={() => switchTab(t.key)}
               >
                 {t.label}
-                {typeof n === "number" && (
-                  <span className="notify__tab-count">{n}</span>
+                {hasCount && (
+                  <span className="notify__tab-count"> {n}</span>
                 )}
               </button>
             );
