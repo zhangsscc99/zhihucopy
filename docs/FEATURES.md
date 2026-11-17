@@ -566,3 +566,18 @@
 - [x] Z1088 通知过滤过宽打红 e2e 通知链路（P0 回归，Z1082 引入） ✅ (2026-11-17 devin：`content-filter` 抽出 `residueNickConds()` 供 `userMatchSql` 与新 `testNotificationResidueSql()` 共用；`/notifications` 列表与 `unread-count` 同源改用窄口径，只挡 `巡检<小写随机串>`/`走查<纯数字>`/`巡检探针<拉丁串>` 三种残留昵称，不再按邮箱域/is_test/测试标题一刀切；`e2e/probe-round15.mjs` 的 A/B 昵称由「巡检探针<tag>」改为「r15探针<tag>」；新增 `assert/notification-residue-scope.mjs`（残留 actor 被挡 + 普通测试号 actor 放行 + unread-count 同口径，旧代码上 FAIL）。部署门禁 notifications.mjs 4.7s PASS、probe-round15.mjs 48.6s PASS，全量 15/16）
   verify: node scripts/e2e/notifications.mjs && node scripts/e2e/probe-round15.mjs
   risk: med
+
+## 第二十二轮待办（2026-11-17 04:4x，来源 docs/PRODUCT-REVIEW.md 第二十轮线上走查）
+
+- [ ] Z1090 信息流卡片只有标题可点，整卡空白区点了没反应（P1，操作手感/真知乎行为）：`Home.tsx` 里 `.feed__item` 是 `<li>`，只有 `.feed__title`/`.feed__author`/`.tag` 三个 `<a>`；鼠标点摘要下方或卡片右侧空白处（`elementFromPoint` 返回 `LI.feed__item`、`cursor:auto`）URL 完全不变，390px 移动端同样点不动。需让整卡可进 `/question/:id`（标题/作者/话题链接保持各自跳转、不冒泡错跳），`cursor:pointer`，hover 有 1px 位移或边框色变化；键盘可达（卡片内可 Tab 到标题、焦点框可见）
+  verify: node scripts/assert/feed-card-click.mjs
+  risk: med
+- [ ] Z1091 回答结尾模板尾巴（P1，内容真实感）：`scripts/seed.js:564` 给每 6 条回答追加同一句 `> 补充：${alpha}——任何方法都有适用边界，先确认你的约束和我的一致，再决定要不要照做。`，生产库 50/303 条命中（16%），其中 20 条写成「补充：补充一个反例」，变体「评论区有人问到成本」出现在 0 评论的回答上。需改为按话题/观点生成互不相同的收尾句（≥12 种句式池 + 不声称不存在的评论 + 禁用「补充：补充」重复词），并写一次生产库修正脚本（同时改写 `answers.content_md` 与其 `answer_revisions` 对应记录），断言任意两篇回答最长公共后缀 ≤20 字
+  verify: node scripts/assert/seed-tails-variety.mjs
+  risk: med
+- [ ] Z1092 回答卡作者行缺「+ 关注」入口（P2，社交回路）：关注作者目前只能点进 `/u/:id` 再点，回答卡作者行右侧空白。需在回答作者行加「+ 关注 / 已关注」小按钮（未登录点击跳 `/login?next=<当前路径>`），点击后 1.5s 内变「已关注」且刷新保持，自己的回答不显示该按钮
+  verify: node scripts/assert/answer-author-follow.mjs
+  risk: med
+- [ ] Z1093 登录成功后按浏览器后退回到登录页（P2，导航常识）：`/login?next=/question/6` 登录成功后是 push 到目标页，登录页仍留在历史栈，后退又看到一张登录表单。需在登录成功跳转时替换当前历史项（`navigate(dest,{replace:true})` 或 `history.replaceState` 后跳），注册成功同理；断言：登录 → 后退 → 不出现 `.authform`（或登录表单输入框数为 0），且回到落地页
+  verify: node scripts/assert/login-history-replace.mjs
+  risk: low
