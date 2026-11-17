@@ -658,3 +658,9 @@
 - [x] Z1114 推荐流话题偏科（P2，内容厚度）：干净会话 `/`（推荐 tab）首屏 20 条中 14 条属技术大类（JavaScript/前端开发/Python/数据库/编程），生活/心理/职场/教育只出现在第 15 条之后，首屏像技术社区不像知乎。需在推荐排序里加大类配额（单一领域 ≤50%，生活/心理/职场/教育各保底 ≥2 条）并对同话题做 MMR 去重，接口另返回 `diversity` 统计供断言读取 ✅ (2026-11-17 devin swe-2-high：新增 `server/feed-diversity.js`（话题→大类映射 + 大类配额重排 + 同话题 MMR 降权，纯内存排序无新依赖），`/feed/recommended` 返回 `diversity` 诊断字段，`Home.tsx` 推荐 tab 改调该端点（热榜/最新不变）；新增 `assert/feed-diversity.mjs`（limit=20 条数/tech_ratio≤0.5/非技术大类≥4/同 topic 连续≤2/两次请求同序/1440-390 浏览器级）；基线线上 tech_ratio 0.70 → FAIL，修后 0.30、非技术大类 7 个，全量 e2e 16/16 PASS)
   verify: node scripts/assert/feed-diversity.mjs
   risk: med
+
+## 第二十七轮走查新增（2026-11-17 09:5x，来源 docs/PRODUCT-REVIEW.md 第二十七轮）
+
+- [ ] Z1115 昵称批量生成感（P1，内容真实感）：生产库 370 个账号里 215 个昵称是「汉语名 + 1–3 位数字」（`陈默31`/`林间有风32`/`半山腰64`），另有 1 个带拉丁后缀（`沈知微gbw`）。这些名字同时出现在信息流卡作者行、回答作者行、通知行，是全站最刺眼的「合成感」。需改为真实感昵称池（无数字尾巴，重名用不同姓/词区分；不得与既有真实昵称重复），写幂等改名脚本（默认 dry-run，`FIX_ALLOW_PROD=1` 才写生产库，跑前 `.backup()`，同步改 `answer_revisions`/通知 actor 显示无需改名因按 user_id 关联），并断言「昵称以 1–4 位数字结尾的比例 ≤2%」且线上通知/回答作者行不再出现
+  verify: node scripts/assert/nickname-realism.mjs
+  risk: med
