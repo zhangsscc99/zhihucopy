@@ -2647,7 +2647,7 @@ a.ntf__title:hover {
   text-align: center;
 }
 .profile__stats dt {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-3);
 }
 .profile__stats dd {
@@ -3112,13 +3112,12 @@ a.ntf__title:hover {
 .profile__badges .medals {
   margin-top: 0;
 }
+/* 字号/白底/细边复用 .medals__pill（12px + var(--surface) + 1px var(--line)），
+   这里只写层级差异项：等高 24px + 灰色文字。 */
 .profile__badge {
   height: 24px;
   box-sizing: border-box;
-  font-size: 12px;
   color: var(--ink-3);
-  background: var(--surface);
-  border: 1px solid var(--line);
 }
 
 /* ---------- 收藏页 ---------- */
