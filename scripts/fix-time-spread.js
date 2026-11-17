@@ -7,31 +7,40 @@
  *   整屏「17 小时前」，一眼合成数据。
  *
  * 行为：
+ *   0. 模式：默认「外科式修复」——只重排需要修的分组，健康行一律不动。
+ *      需要修的口径：a) 塌缩——同题回答 COUNT(DISTINCT created_at) <
+ *      COUNT(*)，同答/同题评论 COUNT(DISTINCT created_at) < ceil(n*0.8)；
+ *      b) 时序违规——回答早于问题/晚于 now、评论早于锚点/晚于 now、
+ *      回复早于父评论。回答重排后其下评论早于新回答时间的组连带重排。
+ *      加 --all 退回旧版全库重排（reseed 后整库铺一遍用）。
  *   1. 参照时刻 T_ref = max(questions.created_at, questions.updated_at)。
  *      只取本脚本绝不改写的表做时间锚——同一库重复执行结果不变（幂等）；
  *      仅当 T_ref 超过 wall-clock NOW-5min 时才截到该值（此时同一分钟内
  *      重跑仍幂等）。
  *   2. 每个问题的回答按 id 升序由老到新落在
- *      [max(问题+1h, T_ref-45d), T_ref-30min] 上：首末锚定（含 ±小时级
- *      的 per-question 哈希偏移，避免全站同秒），中间等分 + id 哈希分钟
+ *      [max(问题+1h, T_ref-45d), T_ref-30min] 上：窗口整体按 hash(qid)
+ *      后移 0~12 天（分钟粒度相位，保证跨题不落同一批绝对时刻），首末
+ *      锚定含 ±小时级 per-question 哈希偏移，中间等分 + id 哈希分钟
  *      抖动；相邻 >=30min（窗口不足时按比例降级，仍保证两两不同且 > 问题）。
  *      窗口整体不可行（问题太新）依次退到 (问题+1min, T_ref-5min]、
  *      再从问题时间起 30min 步进顺延（仅极端数据，会打印警告）。
  *      answers.updated_at = max(新 created_at, 原 updated_at)。
  *   3. 每条回答的评论按 id 升序均匀落在 [回答+5min, T_ref-10min]：
- *      同答内两两不同且 >=3min（窗口不足按比例降级），parent_id 非空的
- *      回复必须晚于父评论 >=2min。target_type='question' 的评论以问题
- *      时间同法处理；找不到锚点对象（孤儿行）保持原样并警告。
+ *      窗口同样按 hash(锚点 id) 后移 0~3 天相位；同答内两两不同且
+ *      >=3min（窗口不足按比例降级），parent_id 非空的回复必须晚于父
+ *      评论 >=2min。target_type='question' 的评论以问题时间同法处理；
+ *      找不到锚点对象（孤儿行）保持原样并警告。
  *   4. 只 UPDATE answers.created_at / answers.updated_at 与
  *      comments.created_at；content/author/parent_id/vote/is_deleted
  *      及表结构一律不动。值无变化的行不执行 UPDATE（二跑 0 变化）。
- *   5. 默认 dry-run 打印每题计划；--apply 写库前 db.backup() 到
+ *   5. 默认 dry-run 打印塌缩统计与每题计划；--apply 写库前 db.backup() 到
  *      <db目录>/backups/zhihu-<YYYYMMDD-HHmm>-time-spread.db，
  *      生产库另须 --prod + ZH_ALLOW_PROD_WRITE=1（prod-write-gate 口径）。
  *
  * 用法：
- *   DB_PATH=/path/zhihu.db node scripts/fix-time-spread.js           # dry-run
+ *   DB_PATH=/path/zhihu.db node scripts/fix-time-spread.js           # dry-run（外科）
  *   DB_PATH=/path/zhihu.db node scripts/fix-time-spread.js --apply
+ *   DB_PATH=/path/zhihu.db node scripts/fix-time-spread.js --all     # 全库重排
  *   生产库：--apply --prod 且 ZH_ALLOW_PROD_WRITE=1
  */
 "use strict";
@@ -53,10 +62,15 @@ const DB_PATH = path.resolve(
   process.env.DB_PATH || path.join(__dirname, "..", "data", "zhihu.db")
 );
 const APPLY = process.argv.includes("--apply") || process.env.FIX_ALLOW_PROD === "1";
+// --all：全库重排（reseed 后铺底用）；缺省外科模式只动塌缩分组。
+const ALL = process.argv.includes("--all");
 
 const MIN = 60000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
+// 相位范围：回答窗按 hash(qid) 后移 0~12 天（分钟粒度），评论窗 0~3 天。
+const PHASE_ANS_MIN = 12 * 24 * 60;
+const PHASE_CMT_MIN = 3 * 24 * 60;
 
 const pad2 = (n) => String(n).padStart(2, "0");
 // 与 seed.js 同口径：UTC 时间戳 "YYYY-MM-DD HH:MM:SS"
@@ -112,6 +126,15 @@ function commentWindow(anchorMs, n, T) {
   lo = anchorMs + MIN;
   hi = anchorMs + Math.max(2 * MIN, (n + 1) * 3 * MIN);
   return { lo, hi, tier: "edge" };
+}
+
+// 相位平移：窗口整体后移 h % phaseMin 分钟（lo 不破 floorMs），移完
+// 不可行（新鲜锚点窗被挤没）则退回原窗。跨题/跨锚点绝对时刻因此错开。
+function phasedWindow(win, floorMs, h, phaseMin) {
+  const shift = (h % phaseMin) * MIN;
+  const hi = win.hi - shift;
+  const lo = Math.max(win.lo - shift, floorMs);
+  return lo < hi ? { lo, hi, tier: win.tier } : win;
 }
 
 // 在 [lo, hi] 上放 n 个点：n>1 时首末近似锚定（t0 后移 <=3h、tn-1 前移 <=30min
@@ -198,16 +221,99 @@ async function main() {
     m.get(c.target_id).push(c);
   }
 
+  // —— 塌缩检测：外科模式的处理清单（与 assert/time-spread.mjs DB 口径同则）——
+  const collapsedQ = new Set(); // 同题回答 created_at 去重 < 条数
+  const collapsedCA = new Set(); // 同答评论去重 < ceil(n*0.8)
+  const collapsedQC = new Set(); // 题下评论同口径
+  let collapsedQRows = 0;
+  let collapsedCRows = 0;
+  const distinctOf = (rows) => new Set(rows.map((r) => r.created_at)).size;
+  for (const [qid, list] of answersByQ) {
+    if (list.length > 1 && distinctOf(list) < list.length) {
+      collapsedQ.add(qid);
+      collapsedQRows += list.length;
+    }
+  }
+  for (const [aid, cs] of commentsByAnswer) {
+    if (cs.length > 1 && distinctOf(cs) < Math.ceil(cs.length * 0.8)) {
+      collapsedCA.add(aid);
+      collapsedCRows += cs.length;
+    }
+  }
+  for (const [qid, cs] of commentsByQuestion) {
+    if (cs.length > 1 && distinctOf(cs) < Math.ceil(cs.length * 0.8)) {
+      collapsedQC.add(qid);
+      collapsedCRows += cs.length;
+    }
+  }
+
+  // —— 时序违规检测：硬约束（晚于 now / 早于锚点 / 回复早于父评论）。
+  // 不塌缩但违规的分组同样列入外科清单，否则 assert 的层级时序档永远过不了。
+  const cById = new Map();
+  for (const [, cs] of commentsByAnswer) for (const c of cs) cById.set(c.id, c);
+  for (const [, cs] of commentsByQuestion) for (const c of cs) cById.set(c.id, c);
+  const violates = (cs, anchorMs) =>
+    cs.some((c) => {
+      const t = parseTs(c.created_at);
+      if (!Number.isFinite(t)) return false;
+      if (t > wallNow) return true;
+      if (Number.isFinite(anchorMs) && t < anchorMs) return true;
+      const p = c.parent_id != null ? cById.get(c.parent_id) : null;
+      if (p) {
+        const pt = parseTs(p.created_at);
+        if (Number.isFinite(pt) && t < pt) return true;
+      }
+      return false;
+    });
+  const violatedQ = new Set(); // 含「回答早于问题 / 晚于 now」的题
+  const violatedCA = new Set();
+  const violatedQC = new Set();
+  let violatedARows = 0;
+  let violatedCRows = 0;
+  for (const q of questions) {
+    const qcMs = parseTs(q.created_at);
+    const list = answersByQ.get(q.id) || [];
+    const bad = list.some((a) => {
+      const t = parseTs(a.created_at);
+      return Number.isFinite(t) && (t > wallNow || (Number.isFinite(qcMs) && t < qcMs));
+    });
+    if (bad) {
+      violatedQ.add(q.id);
+      violatedARows += list.length;
+    }
+    for (const a of list) {
+      const cs = commentsByAnswer.get(a.id) || [];
+      if (cs.length && violates(cs, parseTs(a.created_at))) {
+        violatedCA.add(a.id);
+        violatedCRows += cs.length;
+      }
+    }
+    const qcs = commentsByQuestion.get(q.id) || [];
+    if (qcs.length && violates(qcs, qcMs)) {
+      violatedQC.add(q.id);
+      violatedCRows += qcs.length;
+    }
+  }
+
   const answerPlan = []; // {id, created_at, updated_at, oldCreated, oldUpdated}
   const commentPlan = []; // {id, created_at, oldCreated}
   const warnings = [];
   const hardCap = wallNow - 5 * MIN;
+  let skippedAnswers = 0;
+  let skippedComments = 0;
+  let anchorForcedComments = 0; // 非塌缩、因回答前移被迫重排的评论条数
 
   // 给一组 comments 排时间并写入 commentPlan；返回打印用 span 文本。
-  const layoutComments = (list, anchorMs, tagOf) => {
-    const win = commentWindow(anchorMs, list.length, Tref);
+  const layoutComments = (list, anchorMs, seedKey, tagOf) => {
+    if (!Number.isFinite(anchorMs)) {
+      warnings.push(`${tagOf}锚点（#${seedKey}）created_at 无法解析，${list.length} 条评论保持原样`);
+      skippedComments += list.length;
+      return `x${list.length} 锚点不可解析(保持原样)`;
+    }
+    const win0 = commentWindow(anchorMs, list.length, Tref);
+    const win = phasedWindow(win0, anchorMs + MIN, hashIds(seedKey, 0xc0f1), PHASE_CMT_MIN);
     const sp = spread(win.lo, win.hi, list.length, 3 * MIN, 12 * MIN, (j) =>
-      hashIds(list[j].id, 0xc07)
+      hashIds(seedKey, list[j].id, 0xc07)
     );
     const times = applyReplyFloor(sp.times, list, sp.minGap);
     let mn = Infinity;
@@ -235,12 +341,28 @@ async function main() {
       for (const a of list) commentsByAnswer.delete(a.id);
       commentsByQuestion.delete(q.id);
     } else {
-      const win = answerWindow(qcMs, n, Tref);
-      const { times } = spread(win.lo, win.hi, n, 30 * MIN, 20 * MIN, (i) =>
-        hashIds(q.id, list[i].id)
-      );
+      const needAnswers = ALL || collapsedQ.has(q.id) || violatedQ.has(q.id);
+      let times = null;
+      let win = null;
+      if (needAnswers && n) {
+        win = phasedWindow(answerWindow(qcMs, n, Tref), qcMs + MIN, hashIds(q.id, 0xa51), PHASE_ANS_MIN);
+        times = spread(win.lo, win.hi, n, 30 * MIN, 20 * MIN, (i) => hashIds(q.id, list[i].id)).times;
+      }
       for (let i = 0; i < n; i++) {
         const a = list[i];
+        const cs = commentsByAnswer.get(a.id) || [];
+        commentsByAnswer.delete(a.id);
+        if (!times) {
+          // 外科模式且本题无需修：回答不动；评论仅塌缩/违规组重排。
+          skippedAnswers++;
+          if (!cs.length) continue;
+          if (ALL || collapsedCA.has(a.id) || violatedCA.has(a.id)) {
+            entry.cspans.push(`a#${a.id} ${layoutComments(cs, parseTs(a.created_at), a.id, "评论")}`);
+          } else {
+            skippedComments += cs.length;
+          }
+          continue;
+        }
         const t = times[i];
         entry.times.push(`a#${a.id}:${fmtTs(t)}`);
         if (t > hardCap) warnings.push(`answer#${a.id} q#${q.id} 超过 NOW-5min（${win.tier}）`);
@@ -254,16 +376,24 @@ async function main() {
           oldCreated: a.created_at,
           oldUpdated: a.updated_at,
         });
-        const cs = commentsByAnswer.get(a.id) || [];
-        if (cs.length) {
-          commentsByAnswer.delete(a.id);
-          entry.cspans.push(`a#${a.id} ${layoutComments(cs, t, "评论")}`);
+        if (!cs.length) continue;
+        // 回答重排后其评论早于新回答时间的组必须连带重排（层级时序）。
+        const anchorBroken = cs.some((c) => (parseTs(c.created_at) || 0) < t);
+        if (ALL || collapsedCA.has(a.id) || violatedCA.has(a.id) || anchorBroken) {
+          if (!ALL && !collapsedCA.has(a.id) && !violatedCA.has(a.id)) anchorForcedComments += cs.length;
+          entry.cspans.push(`a#${a.id} ${layoutComments(cs, t, a.id, "评论")}`);
+        } else {
+          skippedComments += cs.length;
         }
       }
       const qcs = commentsByQuestion.get(q.id) || [];
+      commentsByQuestion.delete(q.id);
       if (qcs.length) {
-        commentsByQuestion.delete(q.id);
-        entry.cspans.push(`q#${q.id} ${layoutComments(qcs, qcMs, "题评")}`);
+        if (ALL || collapsedQC.has(q.id) || violatedQC.has(q.id)) {
+          entry.cspans.push(`q#${q.id} ${layoutComments(qcs, qcMs, q.id, "题评")}`);
+        } else {
+          skippedComments += qcs.length;
+        }
       }
     }
     plans.push(entry);
@@ -286,14 +416,23 @@ async function main() {
   const cChanged = commentPlan.filter((p) => p.created_at !== p.oldCreated);
 
   console.log(
-    `[fix-spread] db=${DB_PATH} mode=${APPLY ? "apply" : "dry-run"} T_ref=${fmtTs(Tref)}`
+    `[fix-spread] db=${DB_PATH} mode=${APPLY ? "apply" : "dry-run"}` +
+      `${ALL ? "(--all 全库)" : "(外科)"} T_ref=${fmtTs(Tref)}`
   );
   console.log(
-    `[fix-spread] 回答 ${answerPlan.length} 条（待改 ${aChanged.length}），` +
-      `评论 ${commentPlan.length} 条（待改 ${cChanged.length}）`
+    `[fix-spread] 塌缩问题 ${collapsedQ.size} 个（涉回答 ${collapsedQRows} 条）；` +
+      `塌缩评论组 ${collapsedCA.size + collapsedQC.size} 个（涉评论 ${collapsedCRows} 条，` +
+      `回答下 ${collapsedCA.size} 组 / 题下 ${collapsedQC.size} 组）；` +
+      `时序违规：问题 ${violatedQ.size} 个（涉回答 ${violatedARows} 条）、` +
+      `评论组 ${violatedCA.size + violatedQC.size} 个（涉评论 ${violatedCRows} 条）`
+  );
+  console.log(
+    `[fix-spread] 计划：回答待改 ${aChanged.length} 条（共 ${answerPlan.length + skippedAnswers}，` +
+      `跳过 ${skippedAnswers}）；评论待改 ${cChanged.length} 条（共 ${commentPlan.length + skippedComments}，` +
+      `跳过 ${skippedComments}，其中锚点连带重排 ${anchorForcedComments}）`
   );
   for (const e of plans) {
-    if (!e.n && !e.cspans.length) continue;
+    if (!e.times.length && !e.cspans.length) continue;
     console.log(`  q#${e.qid} qc=${e.qc} 回答${e.n}条`);
     if (e.times.length) console.log(`    ${e.times.join("  ")}`);
     for (const s of e.cspans) console.log(`    评论 ${s}`);
