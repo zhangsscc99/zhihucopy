@@ -3697,3 +3697,22 @@ a.ntf__title:hover {
 .related__item .tag {
   margin-right: 0;
 }
+
+/* ---------- Z1150 赞同态文案「已赞同」窄屏保护 ---------- */
+/* 已赞同态按钮文案多一个「已」字，390px 下单行放不下时先收 gap/内边距，
+   再让末尾「发布于 …」日期截断省略，保证 .answer__actions 单行不横向溢出。 */
+@media (max-width: 767px) {
+  .answer__actions {
+    gap: 10px;
+  }
+  .answer__vote {
+    padding: 4px 10px;
+  }
+  .answer__date {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
