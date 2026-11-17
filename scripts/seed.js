@@ -65,6 +65,9 @@ const {
   domainsOf,
   authorFitsTopic,
 } = require("./persona-domains");
+// Z1115：clone 用户不再追加 `${i+1}` 数字后缀（机器生成感），改用
+// nickname-pool 的真实感别名；persona-domains 按别名还原原型领域。
+const { cloneNickname } = require("./nickname-pool");
 
 // ---------------------------------------------------------------------------
 // 随机数：固定种子 -> 内容可复现（便于对比两次执行的结果）
@@ -497,8 +500,10 @@ function main() {
     const userIds = [];
     for (let i = 0; i < N_USERS; i++) {
       const [nick, bio] = USERS[i % USERS.length];
-      const suffix = i >= USERS.length ? `${i + 1}` : "";
-      const nickname = nick + suffix;
+      // Z1115：clone 用真实感别名（round=1..7 对应第 1..7 轮复用人设），
+      // 原型用户（i < USERS.length）直接用本名。
+      const nickname =
+        i < USERS.length ? nick : cloneNickname(nick, Math.floor(i / USERS.length));
       const isAdmin = i === 0 ? 1 : 0;
       const email = i === 0 ? "admin@zhihucopy.dev" : `user${i + 1}@zhihucopy.dev`;
       const avatar = `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname)}&size=200`;

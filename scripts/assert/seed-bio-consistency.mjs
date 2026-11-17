@@ -26,7 +26,7 @@ const reqScripts = createRequire(new URL("./seed-bio-consistency.mjs", import.me
 const {
   PERSONA_DOMAINS,
   TOPIC_DOMAINS,
-  baseNickname,
+  personaBaseOf,
   bioDomains,
   domainsOf,
   acceptedForTopics,
@@ -83,7 +83,8 @@ await main("seed-bio-consistency", async () => {
     }
     const mine = domainsOf(r.nickname, r.bio);
     const bioDs = bioDomains(r.bio);
-    const persona = PERSONA_DOMAINS[baseNickname(r.nickname)] || [];
+    // Z1115：昵称可能是真实感别名——personaBaseOf 同时覆盖数字尾与别名还原。
+    const persona = PERSONA_DOMAINS[personaBaseOf(r.nickname)] || [];
     const hitDs = [...mine].filter((dm) => acc.domains.has(dm));
     const hit = hitDs.length > 0;
     judged.push(r);
@@ -97,7 +98,7 @@ await main("seed-bio-consistency", async () => {
           `on q#${r.qid}<${topicNames.join("/")}>[${[...acc.domains].join("+")}]`
       );
     }
-    if (CROSS_PERSONAS.includes(baseNickname(r.nickname))) {
+    if (CROSS_PERSONAS.includes(personaBaseOf(r.nickname))) {
       crossAnswers.push(
         `  ${hit ? "✓" : "✗"} #${r.answer_id} ${r.nickname}[${[...mine].join("+") || "∅"}] ` +
           `on q#${r.qid}<${topicNames.join("/")}>`
