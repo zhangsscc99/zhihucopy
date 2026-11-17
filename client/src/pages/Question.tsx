@@ -196,6 +196,9 @@ export function Question() {
   const [commentsError, setCommentsError] = useState<Record<number, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [commentSending, setCommentSending] = useState<Record<number, boolean>>({});
+  // 刚发布成功的评论 id：滚入视口 + 1.2s 浅蓝淡出高亮（Z1159）。
+  const [flashCommentId, setFlashCommentId] = useState<number | null>(null);
+  const flashCommentTimerRef = useRef(0);
   const [favFor, setFavFor] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[] | null>(null);
   const [favNewName, setFavNewName] = useState("");
@@ -657,6 +660,30 @@ export function Question() {
     return () => window.clearTimeout(t);
   }, [newId]);
 
+  // 刚发布的评论：按 data-comment-id 定位行（不猜「列表最后一条」），
+  // 滚入视口中央 + 浅蓝淡出高亮；定时器挂 ref，answers/comments 重建
+  // 触发的重跑不会误清淡出。prefers-reduced-motion 时禁用平滑滚动。
+  useEffect(() => {
+    if (flashCommentId === null) return;
+    const el = document.querySelector<HTMLElement>(
+      `li.answer__comment[data-comment-id="${flashCommentId}"]`
+    );
+    if (el) {
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      el.scrollIntoView({
+        block: "center",
+        behavior: reduced ? "auto" : "smooth",
+      });
+    }
+    window.clearTimeout(flashCommentTimerRef.current);
+    flashCommentTimerRef.current = window.setTimeout(
+      () => setFlashCommentId(null),
+      1400
+    );
+  }, [flashCommentId]);
+
   // 渲染序列 = 本人置顶池 + 排序列表（按 id 去重兜底，正常两池不相交）。
   // 本人回答固定在 .answerlist 最前，不参与排序/翻页；Z1154「收起回答」
   // 也只截排序池 answers，置顶条目始终保留。
@@ -920,6 +947,7 @@ export function Question() {
       }));
       setCommentDrafts((d) => ({ ...d, [a.id]: "" }));
       bumpCommentCount(a.id, 1);
+      setFlashCommentId(comment.id);
       toast("评论已发布");
     } catch (e) {
       toast((e as Error).message, "error");
@@ -988,6 +1016,7 @@ export function Question() {
       });
       bumpCommentCount(a.id, 1);
       closeReplyForm();
+      setFlashCommentId(comment.id);
       toast("回复已发布");
     } catch (e) {
       setReplyError((e as Error).message || "回复失败，请重试");
@@ -1638,9 +1667,10 @@ export function Question() {
                                   return (
                                   <li
                                     key={c.id}
+                                    data-comment-id={c.id}
                                     className={`answer__comment${
                                       c.parent_id ? " answer__comment--child" : ""
-                                    }`}
+                                    }${c.id === flashCommentId ? " answer__comment--flash" : ""}`}
                                   >
                                     <div className="answer__comment-head">
                                       <span className="answer__comment-name">
