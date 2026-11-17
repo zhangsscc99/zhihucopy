@@ -3,11 +3,13 @@
 //
 // 契约：
 //   收起态「N 条评论」与展开态「收起评论（N）」的 N 严格相等，且 N ===
-//   非删除可见行数（不含「该评论已删除」占位行）；占位行仍照常渲染。
+//   非删除可见行数（不含「该评论已删除」占位行）；已删除但仍有存活子
+//   回复的评论照常渲染占位行（无存活子回复的整条不渲染，Z1101）。
 //   发布 +1、删除 -1 即时回写，两态同步。
 //
-// 场景里刻意埋一条已删除占位行：渲染行数 = 3，非删除可见行数 = 2。
-// 旧口径（展开态回显渲染行数）会 N=3 vs 收起态 2 在此暴露。
+// 场景里刻意埋一条「发后即删 + 存活子回复」的占位行：渲染行数 = 4，
+// 非删除可见行数 = 3。旧口径（展开态回显渲染行数）会 N=4 vs 收起态 3
+// 在此暴露。
 //
 // 通用守卫：body.innerText>200（防整站白屏假绿）、window.__errs 为空、
 // 每一步都同时断言「新文案存在」与「行数相等」。
@@ -64,8 +66,9 @@ run("comment-count", async ({ browser }) => {
   });
   const aid = answer.id;
 
-  // 预埋：1 条一级 + 1 条二级回复 + 1 条发后即删（占位行）。
-  //   渲染行数 = 3；非删除可见行数 = 2 = 服务端 comment_count。
+  // 预埋：1 条一级 + 1 条二级回复 + 1 条发后即删（带 1 条存活子回复 →
+  //   按 Z1101 契约保留占位行）。渲染行数 = 4；非删除可见行数 = 3 =
+  //   服务端 comment_count。
   const { comment: parent } = await apiOk("POST", "/comments", {
     token: me.token,
     body: { target_type: "answer", target_id: aid, body: `计数断言一级 ${Date.now()}` },
@@ -78,6 +81,10 @@ run("comment-count", async ({ browser }) => {
     token: me.token,
     body: { target_type: "answer", target_id: aid, body: `计数断言待删 ${Date.now()}d` },
   });
+  await apiOk("POST", "/comments", {
+    token: me.token,
+    body: { target_type: "answer", target_id: aid, parent_id: doomed.id, body: `计数断言待删子 ${Date.now()}dr` },
+  });
   await apiOk("DELETE", `/comments/${doomed.id}`, { token: me.token });
 
   const page = await authedPage(browser, me.token);
@@ -88,19 +95,20 @@ run("comment-count", async ({ browser }) => {
   const ans = page.locator(`#answer-${aid}`);
   const toggle = ans.getByRole("button", { name: /条评论|收起评论/ });
 
-  // 收起态：「N 条评论」（N=非删除可见行数 2，占位不计）。
+  // 收起态：「N 条评论」（N=非删除可见行数 3，占位不计）。
   const closedText = (await toggle.innerText()).trim();
-  // [Z1069] 锚定全等：includes("2 条评论")/未锚定匹配会被「12 条评论」误配 →
+  // [Z1069] 锚定全等：includes("3 条评论")/未锚定匹配会被「13 条评论」误配 →
   // trimmed 全等 + 锚定正则双断言。
-  expect(closedText === "2 条评论", `收起态文案异常：「${closedText}」期望恰为「2 条评论」`);
+  expect(closedText === "3 条评论", `收起态文案异常：「${closedText}」期望恰为「3 条评论」`);
   const mClosed = RE_CLOSED.exec(closedText);
-  expect(mClosed && Number(mClosed[1]) === 2, `收起态文案异常：「${closedText}」期望 2 条评论`);
+  expect(mClosed && Number(mClosed[1]) === 3, `收起态文案异常：「${closedText}」期望 3 条评论`);
 
   // ---- 通用守卫：页面非白屏 ----
   const bodyLen = await page.evaluate(() => document.body.innerText.length);
   expect(bodyLen > 200, `页面内容过少：innerText=${bodyLen}`);
 
-  // 展开后：文案「收起评论（N）」，N === 非删除可见行数；占位行仍渲染。
+  // 展开后：文案「收起评论（N）」，N === 非删除可见行数；带存活子回复的
+  // 删除占位行仍渲染但不计入。
   const readOpenCount = async () => {
     const text = (await toggle.innerText()).trim();
     const m = RE_OPEN.exec(text);
@@ -115,8 +123,8 @@ run("comment-count", async ({ browser }) => {
   await ans.locator("li.answer__comment").first().waitFor();
   let st = await readOpenCount();
   expect(st.n !== null, `展开后计数消失：「${st.text}」不匹配 收起评论（N）`);
-  expect(st.rows === 3, `展开后渲染行数=${st.rows}，期望 3（含删除占位）`);
-  expect(st.n === st.visible && st.n === 2, `展开后 N=${st.n} 可见=${st.visible}，期望均为 2（不含删除占位）`);
+  expect(st.rows === 4, `展开后渲染行数=${st.rows}，期望 4（含删除占位）`);
+  expect(st.n === st.visible && st.n === 3, `展开后 N=${st.n} 可见=${st.visible}，期望均为 3（不含删除占位）`);
 
   // ---- 发布一条（UI）：N +1 且与可见行数同步 ----
   const marker = `计数断言自发 ${Date.now()}s`;
@@ -125,7 +133,7 @@ run("comment-count", async ({ browser }) => {
   await form.getByRole("button", { name: /发布/ }).click();
   await page.locator("li.answer__comment", { hasText: marker }).waitFor();
   st = await readOpenCount();
-  expect(st.n !== null && st.n === st.visible && st.n === 3, `发布后 N=${st.n} 可见=${st.visible}，期望均为 3`);
+  expect(st.n !== null && st.n === st.visible && st.n === 4, `发布后 N=${st.n} 可见=${st.visible}，期望均为 4`);
 
   // ---- 删除刚发的评论：N -1 且与可见行数同步 ----
   const myRow = page.locator("li.answer__comment", { hasText: marker });
@@ -133,16 +141,16 @@ run("comment-count", async ({ browser }) => {
   await myRow.getByRole("button", { name: "确认删除" }).click();
   await page.locator("li.answer__comment", { hasText: marker }).waitFor({ state: "detached" });
   st = await readOpenCount();
-  expect(st.n !== null && st.n === st.visible && st.n === 2, `删除后 N=${st.n} 可见=${st.visible}，期望均为 2`);
+  expect(st.n !== null && st.n === st.visible && st.n === 3, `删除后 N=${st.n} 可见=${st.visible}，期望均为 3`);
 
   // ---- 奇偶一致性：收起后「N 条评论」的 N 与展开态严格相等 ----
   const openN = st.n;
   await toggle.click();
   const closedAgain = (await toggle.innerText()).trim();
-  expect(closedAgain === "2 条评论", `收起后文案异常：「${closedAgain}」期望恰为「2 条评论」`);
+  expect(closedAgain === "3 条评论", `收起后文案异常：「${closedAgain}」期望恰为「3 条评论」`);
   const mAgain = RE_CLOSED.exec(closedAgain);
   expect(mAgain !== null, `收起后文案异常：「${closedAgain}」不匹配 N 条评论`);
-  expect(Number(mAgain[1]) === openN && openN === 2, `收起后 N=${mAgain[1]}，期望与展开态一致 =2`);
+  expect(Number(mAgain[1]) === openN && openN === 3, `收起后 N=${mAgain[1]}，期望与展开态一致 =3`);
 
   // ---- 重载页面（排序切换等价路径）后两态仍一致 ----
   await page.reload();
@@ -150,15 +158,15 @@ run("comment-count", async ({ browser }) => {
   const ans2 = page.locator(`#answer-${aid}`);
   const toggle2 = ans2.getByRole("button", { name: /条评论|收起评论/ });
   const closedReload = (await toggle2.innerText()).trim();
-  expect(closedReload === "2 条评论", `重载后收起态文案异常：「${closedReload}」期望恰为「2 条评论」`);
+  expect(closedReload === "3 条评论", `重载后收起态文案异常：「${closedReload}」期望恰为「3 条评论」`);
   const mReload = RE_CLOSED.exec(closedReload);
-  expect(mReload && Number(mReload[1]) === 2, `重载后收起态文案异常：「${closedReload}」期望 2 条评论`);
+  expect(mReload && Number(mReload[1]) === 3, `重载后收起态文案异常：「${closedReload}」期望 3 条评论`);
   await toggle2.click();
   await ans2.locator("li.answer__comment").first().waitFor();
   const openText2 = (await toggle2.innerText()).trim();
-  expect(openText2 === "收起评论（2）", `重载后展开态文案异常：「${openText2}」期望恰为「收起评论（2）」`);
+  expect(openText2 === "收起评论（3）", `重载后展开态文案异常：「${openText2}」期望恰为「收起评论（3）」`);
   const mOpen2 = RE_OPEN.exec(openText2);
-  expect(mOpen2 && Number(mOpen2[1]) === 2, `重载后展开态文案异常：「${openText2}」期望 收起评论（2）`);
+  expect(mOpen2 && Number(mOpen2[1]) === 3, `重载后展开态文案异常：「${openText2}」期望 收起评论（3）`);
 
   const errs = await pageErrs(page);
   expect(errs.length === 0, `计数流程出现页面错误：${errs.join(" | ")}`);
