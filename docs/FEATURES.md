@@ -943,7 +943,7 @@
   verify: node scripts/assert/comment-button-state.mjs
   risk: low
 
-- [ ] Z1183 个人主页「回答 0」tab 选中后直接列出「TA 最近关注的问题」，无空态无分区标题（P1，结构错位，Z1085 的延续）：2026-11-18 06:52 实测 `/u/214`（望山的人，`回答 0` / `提问 1` / 获赞 0 / 关注 2 / 粉丝 4）：tab 区「回答 0」带蓝色下划线（选中），紧接着出现的却是「TA 最近关注的问题」列表与「TA 最近赞同的回答」，既没有「TA 还没有写过回答」空态，也没有把后两块标成独立分区，vision 判「像 tab 渲错了内容」。同一屏「关注 2」与右上「关注」按钮同词不同义，也让人瞬间歧义。证据 `docs/runs/walk-0629-m10-profile.png`。要求：① `回答` tab 在 count=0 时渲染空态「TA 还没有写过回答」+ 一个「邀请 TA 回答」次要入口；② 「TA 最近关注的问题 / TA 最近赞同的回答」移出 tab 面板，加明确的二级标题（`h2`）与分隔，tab 未选中时不渲染；③ 数据条里的「关注 2」改为「关注者 2」，与按钮「关注」区分；④ 断言 `scripts/assert/profile-tabs.mjs`：`回答 0` 用户的回答面板含空态文本且不含「TA 最近关注的问题」；点击「提问」tab 后面板只含提问；两块推荐区的标题为 `h2` 且不在 tabpanel 内；390/1440 无横向溢出、`window.__errs` 为空。
+- [x] Z1183 个人主页「回答 0」tab 选中后直接列出「TA 最近关注的问题」，无空态无分区标题（P1，结构错位，Z1085 的延续）：2026-11-18 06:52 实测 `/u/214`（望山的人，`回答 0` / `提问 1` / 获赞 0 / 关注 2 / 粉丝 4）：tab 区「回答 0」带蓝色下划线（选中），紧接着出现的却是「TA 最近关注的问题」列表与「TA 最近赞同的回答」，既没有「TA 还没有写过回答」空态，也没有把后两块标成独立分区，vision 判「像 tab 渲错了内容」。同一屏「关注 2」与右上「关注」按钮同词不同义，也让人瞬间歧义。证据 `docs/runs/walk-0629-m10-profile.png`。要求：① `回答` tab 在 count=0 时渲染空态「TA 还没有写过回答」+ 一个「邀请 TA 回答」次要入口；② 「TA 最近关注的问题 / TA 最近赞同的回答」移出 tab 面板，加明确的二级标题（`h2`）与分隔，tab 未选中时不渲染；③ 数据条里的「关注 2」改为「关注者 2」，与按钮「关注」区分；④ 断言 `scripts/assert/profile-tabs.mjs`：`回答 0` 用户的回答面板含空态文本且不含「TA 最近关注的问题」；点击「提问」tab 后面板只含提问；两块推荐区的标题为 `h2` 且不在 tabpanel 内；390/1440 无横向溢出、`window.__errs` 为空。 ✅ (2026-11-18 第四十六轮 devin swe-2-medium：`Profile.tsx` 拆出 `EmptyAnswers`（他人空态标题「TA 还没有写过回答」+「邀请 TA 回答」→ `/ask?invite=<id>`，自己仍「还没有回答」）与 `ProfileHighlightsCard`（两块轨迹 `h2` 移出 tabpanel，独立 `Card.phl`，仅 `tab==="answers"` 且非空渲染）；tab 内容包 `div[role=tabpanel]`；数据条 `dt` 「关注」→「关注者」。新增 `scripts/assert/profile-tabs.mjs`（动态挑 answers=0 且非 is_test 用户，不硬编码 id；19 项含 panel 空态/无轨迹、h2 不在 tabpanel 内、invite href 非空、dt 含「关注者」、提问 tab 面板干净、390/1440 无横向溢出、`__errs` 空）。自检 19/19 + home 冒烟；线上 verify PASS 5.6s，home/ask-answer 冒烟连跑 2/2 PASS，ci-deploy 20 pass / 0 gate-fail / 0 pending；公网 200)
   verify: node scripts/assert/profile-tabs.mjs
   risk: low
 
@@ -959,4 +959,10 @@
 
 - [ ] Z1186 is_test 空号持续累积（235/594 账号，40%）没人回收（P2，数据卫生，Z1178 收尾）：Z1178 已让「沈舟拾NNNN」类昵称注册即落 `is_test=1`、并从公开用户列表消失，但外部走查任务仍每 ~10 分钟注册一个新号，`users` 表 `is_test=1` 已达 235 行且全部零产出（0 问 0 答 0 可见评论），长期会让用户表与 `/api/users` 扫描无谓变大。要求：① 新增 `scripts/prune-test-users.js`（默认 dry-run，`--apply` 前 `db.backup()`，生产走 `prod-write-gate.js` 闸门）：物理删除 `is_test=1` 且零产出且 `created_at` 早于 7 天的账号（保留最近 7 天供走查回溯），打印命中清单与汇总；② 幂等，重复跑输出 `0 条需处理`；③ 断言 `scripts/assert/prune-test-users.mjs`：`--self-test` 在副本库植入 3 个过期 is_test 空号 + 1 个有产出的 is_test 号 + 1 个真人号，跑 `--apply --db 副本` 后仅 3 个过期空号被删、其余保留；线上 dry-run 不写库（退出后 `is_test` 计数不变）。
   verify: node scripts/assert/prune-test-users.mjs
+  risk: low
+
+## 第二十轮待办（2026-11-18 07:55，Z1183 附带发现）
+
+- [ ] Z1187 轨迹卡（TA 最近关注的问题 / TA 最近赞同的回答）现在对**所有**主页的回答 tab 渲染，不再只限 0 回答页主（P2，产品决策 + 加载态）：Z1183 把轨迹块拆成独立 `Card.phl` 后，任何有轨迹的用户主页底部都会多出 1~2 个 section 和一次 `/users/:id/highlights` 请求；原实现只在「回答为空」时作为空态补厚度出现，现在变成常驻信息块，页面变长且与「回答 1 条的用户」信息主次不明。另外该卡无 loading 占位（`hl===null` 时直接 `null`），慢网络下会迟到出现。要求：① 产品口径二选一并写明理由：仅 `stats.answers===0` 时渲染（恢复原意图），或对所有主页保留但改名「TA 的关注与赞同」并在有回答时限制为 1 个 section；② 无论哪种，`hl===null` 期间给 `min-height` 骨架（避免内容跳动），失败时静默不渲染空壳（保持现状）；③ 断言 `scripts/assert/profile-highlights-scope.mjs`：按口径断言（`answers>0` 的主页是否出现 `.phl`）、骨架存在时长 < 8s 后消失、1440/390 无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/profile-highlights-scope.mjs
   risk: low
