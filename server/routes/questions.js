@@ -264,7 +264,7 @@ router.get("/:id", (req, res) => {
   const db = getDb();
   const q = db
     .prepare(
-      `SELECT q.*, ${AUTHOR_COLS} FROM questions q JOIN users u ON u.id = q.author_id WHERE q.id = ?`
+      `SELECT q.*, ${AUTHOR_COLS} FROM questions q JOIN users u ON u.id = q.author_id WHERE q.id = ? AND q.is_fixture = 0`
     )
     .get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
@@ -323,6 +323,12 @@ router.get("/:id", (req, res) => {
   ];
   const my_answers = myAnswerRows.map((a) => item(a, true));
 
+  // answer_count 与已过滤的 answers 同源（is_deleted=0 AND is_fixture=0）：
+  // 列存计数仍含被读路径滤掉的夹具回答，详情页「N 个回答」必须按同口径现算。
+  const answer_count = db
+    .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0 AND is_fixture = 0")
+    .get(q.id).c;
+
   const followed = req.user
     ? !!db
         .prepare(
@@ -332,7 +338,7 @@ router.get("/:id", (req, res) => {
     : false;
 
   res.json({
-    question: { ...questionRow({ ...q, topics }), followed },
+    question: { ...questionRow({ ...q, answer_count, topics }), followed },
     answers,
     my_answers,
   });
@@ -344,7 +350,7 @@ router.get("/:id", (req, res) => {
 router.get("/:id/related", (req, res) => {
   const db = getDb();
   const q = db
-    .prepare("SELECT id FROM questions WHERE id = ?")
+    .prepare("SELECT id FROM questions WHERE id = ? AND is_fixture = 0")
     .get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 12);
@@ -379,7 +385,7 @@ router.get("/:id/related", (req, res) => {
 // GET /questions/:id/answers?sort=default|newest&page=&limit=
 router.get("/:id/answers", (req, res) => {
   const db = getDb();
-  const qid = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  const qid = db.prepare("SELECT id FROM questions WHERE id = ? AND is_fixture = 0").get(req.params.id);
   if (!qid) return res.status(404).json({ error: "问题不存在" });
   const { page, limit, offset } = parsePage(req);
   // 两种排序都是公开口径：default 纯赞数序，newest 纯时间序；
@@ -427,7 +433,7 @@ router.post("/:id/answers", requireAuth, (req, res) => {
     return badRequest(res, "回答内容需要 1–50000 个字符");
   }
   const db = getDb();
-  const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  const q = db.prepare("SELECT id FROM questions WHERE id = ? AND is_fixture = 0").get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
 
   const recentAnswers = db
@@ -468,7 +474,7 @@ function questionFollowerCount(db, qid) {
 // POST /questions/:id/follow — 关注问题（幂等，只在真正新插入时 follower_count +1）。
 router.post("/:id/follow", requireAuth, (req, res) => {
   const db = getDb();
-  const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  const q = db.prepare("SELECT id FROM questions WHERE id = ? AND is_fixture = 0").get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
 
   db.transaction(() => {
@@ -490,7 +496,7 @@ router.post("/:id/follow", requireAuth, (req, res) => {
 // DELETE /questions/:id/follow — 取消关注（幂等，真的删掉了才 follower_count -1）。
 router.delete("/:id/follow", requireAuth, (req, res) => {
   const db = getDb();
-  const q = db.prepare("SELECT id FROM questions WHERE id = ?").get(req.params.id);
+  const q = db.prepare("SELECT id FROM questions WHERE id = ? AND is_fixture = 0").get(req.params.id);
   if (!q) return res.status(404).json({ error: "问题不存在" });
 
   db.transaction(() => {

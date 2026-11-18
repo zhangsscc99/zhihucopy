@@ -56,7 +56,7 @@ router.get("/", (req, res) => {
       `SELECT t.*, (SELECT COUNT(*) FROM question_topics qt
                     JOIN questions q ON q.id = qt.question_id
                     JOIN users u ON u.id = q.author_id
-                    WHERE qt.topic_id = t.id AND ${testQuestionSql("q", "u")}) AS question_count
+                    WHERE qt.topic_id = t.id AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")}) AS question_count
        FROM topics t ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(limit, offset)
@@ -90,7 +90,7 @@ router.get("/:key", (req, res) => {
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
        JOIN question_topics qt ON qt.question_id = q.id
-       WHERE qt.topic_id = ? AND ${testQuestionSql("q", "u")}
+       WHERE qt.topic_id = ? AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")}
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(t.id, limit, offset);
@@ -104,7 +104,7 @@ router.get("/:key", (req, res) => {
       `SELECT COUNT(*) c FROM question_topics qt
        JOIN questions q ON q.id = qt.question_id
        JOIN users u ON u.id = q.author_id
-       WHERE qt.topic_id = ? AND ${testQuestionSql("q", "u")}`
+       WHERE qt.topic_id = ? AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")}`
     )
     .get(t.id).c;
 

@@ -115,7 +115,7 @@ router.get("/", (req, res) => {
     EXISTS (SELECT 1 FROM question_topics qt JOIN topics t ON t.id = qt.topic_id
             WHERE qt.question_id = q.id AND t.name LIKE ? ESCAPE '\\')
   )`;
-  const qWhere = `q.is_collapsed = 0 AND ${testQuestionSql("q", "u")} AND (${words
+  const qWhere = `q.is_collapsed = 0 AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")} AND (${words
     .map(() => qCond)
     .join(" OR ")})`;
   const qWhereParams = pats.flatMap((p) => [p, p, p]);
@@ -125,7 +125,8 @@ router.get("/", (req, res) => {
     JOIN questions q ON q.id = a.question_id
     JOIN users u ON u.id = a.author_id
     JOIN users qu ON qu.id = q.author_id`;
-  const aWhere = `a.is_deleted = 0 AND (${words.map(() => aCond).join(" OR ")})
+  const aWhere = `a.is_deleted = 0 AND a.is_fixture = 0 AND q.is_fixture = 0
+    AND (${words.map(() => aCond).join(" OR ")})
     AND ${testQuestionSql("q", "qu")} AND ${testUserSql("u")}`;
   const aWhereParams = [...pats];
 
@@ -159,7 +160,7 @@ router.get("/", (req, res) => {
            (SELECT COUNT(*) FROM question_topics qt
             JOIN questions q ON q.id = qt.question_id
             JOIN users u ON u.id = q.author_id
-            WHERE qt.topic_id = t.id AND ${testQuestionSql("q", "u")}) AS question_count,
+            WHERE qt.topic_id = t.id AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")}) AS question_count,
            (${tHit}) AS hit_cnt
          FROM topics t
          WHERE ${tOr}

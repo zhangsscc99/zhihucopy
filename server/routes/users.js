@@ -91,7 +91,7 @@ router.get("/:id", (req, res) => {
     questions: db
       .prepare(
         `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-         WHERE ${selfView ? "1=1" : testQuestionSql("q", "u")} AND ${AUTHOR_QUESTIONS_WHERE}`
+         WHERE ${selfView ? "1=1" : testQuestionSql("q", "u")} AND q.is_fixture = 0 AND ${AUTHOR_QUESTIONS_WHERE}`
       )
       .get(user.id).c,
     followers: countFollowers(db, user.id),
