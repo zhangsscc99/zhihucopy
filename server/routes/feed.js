@@ -25,14 +25,15 @@ const AUTHOR_COLS =
 const FOLLOWING_CANDIDATES = `
   SELECT q.id AS qid, q.created_at AS ts
   FROM follows f
-  JOIN questions q ON q.author_id = f.target_id
+  JOIN questions q ON q.author_id = f.target_id AND q.is_fixture = 0
   WHERE f.follower_id = ? AND f.target_type = 'user'
 
   UNION ALL
 
   SELECT a.question_id AS qid, a.created_at AS ts
   FROM follows f
-  JOIN answers a ON a.author_id = f.target_id AND a.is_deleted = 0
+  JOIN answers a ON a.author_id = f.target_id AND a.is_deleted = 0 AND a.is_fixture = 0
+  JOIN questions fq ON fq.id = a.question_id AND fq.is_fixture = 0
   WHERE f.follower_id = ? AND f.target_type = 'user'
 
   UNION ALL
@@ -40,7 +41,7 @@ const FOLLOWING_CANDIDATES = `
   SELECT qt.question_id AS qid, q.created_at AS ts
   FROM follows f
   JOIN question_topics qt ON qt.topic_id = f.target_id
-  JOIN questions q ON q.id = qt.question_id
+  JOIN questions q ON q.id = qt.question_id AND q.is_fixture = 0
   WHERE f.follower_id = ? AND f.target_type = 'topic'
 
   UNION ALL
@@ -48,10 +49,10 @@ const FOLLOWING_CANDIDATES = `
   SELECT q.id AS qid,
          MAX(q.updated_at,
              COALESCE((SELECT MAX(a.created_at) FROM answers a
-                       WHERE a.question_id = q.id AND a.is_deleted = 0),
+                       WHERE a.question_id = q.id AND a.is_deleted = 0 AND a.is_fixture = 0),
                       q.updated_at)) AS ts
   FROM follows f
-  JOIN questions q ON q.id = f.target_id
+  JOIN questions q ON q.id = f.target_id AND q.is_fixture = 0
   WHERE f.follower_id = ? AND f.target_type = 'question'
 `;
 
@@ -63,13 +64,14 @@ const FOLLOWING_CANDIDATES = `
 const NEW_ANSWERS_SQL = `
   SELECT COUNT(*) AS c
   FROM (
-    SELECT id, question_id, author_id, content_md AS content, created_at, is_deleted
+    SELECT id, question_id, author_id, content_md AS content, created_at, is_deleted, is_fixture
     FROM answers
   ) a
-  JOIN questions q ON q.id = a.question_id
+  JOIN questions q ON q.id = a.question_id AND q.is_fixture = 0
   JOIN users qu ON qu.id = q.author_id
   JOIN users au ON au.id = a.author_id
   WHERE a.is_deleted = 0
+    AND a.is_fixture = 0
     AND a.created_at > ?
     AND a.author_id <> ?
     AND ${testQuestionSql("q", "qu")}
@@ -117,7 +119,7 @@ router.get("/following", requireAuth, (req, res) => {
        FROM (${FOLLOWING_CANDIDATES}) c
        JOIN questions q ON q.id = c.qid
        JOIN users u ON u.id = q.author_id
-       WHERE ${testUserSql("u")}
+       WHERE ${testUserSql("u")} AND q.is_fixture = 0
        GROUP BY c.qid
        ORDER BY activity_ts DESC, c.qid DESC
        LIMIT ? OFFSET ?`
@@ -134,7 +136,7 @@ router.get("/following", requireAuth, (req, res) => {
          SELECT c.qid FROM (${FOLLOWING_CANDIDATES}) c
          JOIN questions q ON q.id = c.qid
          JOIN users u ON u.id = q.author_id
-         WHERE ${testUserSql("u")}
+         WHERE ${testUserSql("u")} AND q.is_fixture = 0
          GROUP BY c.qid
        )`
     )
@@ -161,7 +163,7 @@ router.get("/recommended", (req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS} FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${testQuestionSql("q", "u")} AND q.is_fixture = 0
        ORDER BY q.created_at DESC, q.id DESC`
     )
     .all();
@@ -189,7 +191,7 @@ router.get("/recommended", (req, res) => {
   const total = db
     .prepare(
       `SELECT COUNT(*) c FROM questions q JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}`
+       WHERE ${testQuestionSql("q", "u")} AND q.is_fixture = 0`
     )
     .get().c;
   res.json({
@@ -208,7 +210,7 @@ router.get("/hot", (_req, res) => {
     .prepare(
       `SELECT q.*, ${AUTHOR_COLS}, ${HOT_SCORE_SQL} AS hot_score FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE ${testQuestionSql("q", "u")}
+       WHERE ${testQuestionSql("q", "u")} AND q.is_fixture = 0
        ORDER BY ${HOT_SCORE_SQL} DESC, q.created_at DESC
        LIMIT 20`
     )
