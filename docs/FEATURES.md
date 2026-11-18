@@ -972,3 +972,37 @@
 - [ ] Z1187 轨迹卡（TA 最近关注的问题 / TA 最近赞同的回答）现在对**所有**主页的回答 tab 渲染，不再只限 0 回答页主（P2，产品决策 + 加载态）：Z1183 把轨迹块拆成独立 `Card.phl` 后，任何有轨迹的用户主页底部都会多出 1~2 个 section 和一次 `/users/:id/highlights` 请求；原实现只在「回答为空」时作为空态补厚度出现，现在变成常驻信息块，页面变长且与「回答 1 条的用户」信息主次不明。另外该卡无 loading 占位（`hl===null` 时直接 `null`），慢网络下会迟到出现。要求：① 产品口径二选一并写明理由：仅 `stats.answers===0` 时渲染（恢复原意图），或对所有主页保留但改名「TA 的关注与赞同」并在有回答时限制为 1 个 section；② 无论哪种，`hl===null` 期间给 `min-height` 骨架（避免内容跳动），失败时静默不渲染空壳（保持现状）；③ 断言 `scripts/assert/profile-highlights-scope.mjs`：按口径断言（`answers>0` 的主页是否出现 `.phl`）、骨架存在时长 < 8s 后消失、1440/390 无横向溢出、`window.__errs` 为空。
   verify: node scripts/assert/profile-highlights-scope.mjs
   risk: low
+
+## 第四十六轮待办（2026-11-18 09:47，走查实测）
+
+- [ ] Z1188 首屏读路径仍混入夹具问题：前 5 张卡 3 张是「走查问题220834？」「走查问题654709？」「关注流新回答场景的提问 mwli8tyu」，且本轮 09:14 仍观测到新写入（P0，生产写污染 Z1173 续报；core-loop「奖励是假的」/ PX modeler「Story 被占位符击穿」）：走查与所有自动化写入必须先落 `is_fixture=1`，读路径（`/api/questions`、首页 feed、搜索、热榜）默认过滤 `is_fixture=1`，仅走查专用账号 query 参数可见。要求：① 首页 feed 前 20 条中 `title` 匹配 `/走查问题\d+？|巡检|mwli[a-z0-9]{6}|zzz|test/i` 的条数 = 0；② 走查结束前后 `GET /api/stats` 的 `users_new_24h`/`comments_new_24h` 不得因走查自增（走查只读）；③ 断言 `scripts/assert/feed-fixture-filter.mjs`：匿名 + 登录两态各取首页 20 条，命中占位正则 0 条，`/search?q=走查` 结果 0 条，`window.__errs` 为空。
+  verify: node scripts/assert/feed-fixture-filter.mjs
+  risk: med
+
+- [ ] Z1189 评论区的四处失控（P1，细节及格线 game-detail-bar「反馈存在但失控」）：① 发布成功 toast「评论已发布」连弹 2 次（DOM 里同时存在两个同文案节点）；② toast 叠在底部导航上、压住「发布」入口；③ 空输入时「发布评论」仍是蓝色实心可点，点了只冒一句提示；④ `textarea` 计算样式 `resize: vertical`，390 下出现原生斜线角标。要求：① toast 以 `code+文案` 为 key，1.5s 内只弹一次；② toast 容器 `bottom: calc(var(--tabbar-h) + 12px)`，不覆盖底栏；③ 输入 trim 为空时按钮 `disabled`（灰色）且 `aria-disabled=true`；④ 评论 `textarea { resize: none }`。断言 `scripts/assert/comment-ux-guard.mjs`（390×844）：连发 3 条评论后 `.toast` 同时可见数 ≤1；toast 与底部导航 `getBoundingClientRect` 不相交；空输入时按钮 `disabled===true`；`getComputedStyle(textarea).resize==='none'`；`window.__errs` 为空；连跑 3 次结果一致。
+  verify: node scripts/assert/comment-ux-guard.mjs
+  risk: low
+
+- [ ] Z1190 390 宽下回答操作栏挤成两排，「反对」被压成竖排（P1，视觉细节；game-detail-bar「UI 不许溢出框架」）：实测 390×844 回答卡操作栏渲染为两排：`已赞同 12 / 反对 / 收起评论(1) / 收藏 / 分享 / 发布于 2…` 中「反对」二字竖排、发布时间被截。要求：① 操作栏改为 `display:flex; gap:8px; overflow-x:auto; white-space:nowrap`（或把「收藏/分享」收进「…」溢出菜单），任一条目 `width < 40px` 视为失败；② 时间戳改用相对时间（「2 小时前」）避免截断；③ 断言 `scripts/assert/answer-actionbar-390.mjs`：390 下操作栏 `getBoundingClientRect().height` ≤ 同行高度×1.2（不换行）、每个按钮 `scrollWidth<=clientWidth`、`document.body.scrollWidth===390`、`window.__errs` 为空。
+  verify: node scripts/assert/answer-actionbar-390.mjs
+  risk: low
+
+- [ ] Z1191 登录/注册页 `document.title` 串成来源问题标题（P2，元信息/分享卡片）：匿名点赞跳转 `/login?next=%2Fquestion%2F54` 后，`document.title` 仍是「独居四年，怎么对抗「下班回家后的虚无感」？ · 知乎（仿）」，注册页同样如此，分享/收藏链接时标题误导。要求：`/login` 与 `/register` 路由在 `useEffect` 里设置 `document.title='登录 · 知乎（仿）' / '注册 · 知乎（仿）'`，并在离开时还原。断言 `scripts/assert/login-meta-title.mjs`：① 访问 `/login?next=/question/54` 后 `document.title` 含「登录」且不含问题标题；② `/register` 同理；③ 登录成功回跳后 `document.title` 恢复为问题标题；④ `window.__errs` 为空。
+  verify: node scripts/assert/login-meta-title.mjs
+  risk: low
+
+- [ ] Z1192 注册表单校验失败零提示（P2，可用性/反馈真空）：本轮实测在昵称/邮箱格式不合法时点击「注册」按钮，页面**无任何反应**——无 toast、无内联错误、按钮不变灰，用户只会以为按钮坏了（core-loop「Feedback vacuum」）。要求：① 提交前跑客户端校验，逐字段在 input 下方渲染 `.field-error`（邮箱格式、密码≥6、昵称 2–20 字）；② 服务端 4xx 也映射到首个出错字段，并保留已填内容；③ 提交中按钮 `disabled` + loading 文案「注册中…」。断言 `scripts/assert/register-validation.mjs`：故意填非法邮箱提交 → `.field-error` 可见且文案含「邮箱」、URL 仍停在 `/register`、页面无未捕获错误；填合法数据 → 3s 内跳回 `next` 且顶栏出现昵称；`window.__errs` 为空。
+  verify: node scripts/assert/register-validation.mjs
+  risk: low
+
+- [ ] Z1193 搜索「用户」分面恒为 0 结果（P1，dead option；game-balance-analyst「任何永远打不开的选项都是死选项」）：连续多轮实测 `/search?q=useEffect` 均为「问题 7 / 回答 13 / 用户 0」，而库内用户数上百；点「用户 0」tab 恒空，属于把门做成永远打不开。要求：① 后端 `/api/search` 增加用户维度（nickname/bio ILIKE），返回 `users[]` 与 `counts.users`；② 若确有意图不搜索用户，则**移除该分面**并在输入框提示「仅搜索问题与回答」，二者选一并在 PR 说明理由；③ 断言 `scripts/assert/search-users-facet.mjs`：搜索一个已知存在的昵称子串（取 `/api/users` 第 1 条昵称前 2 字），`counts.users ≥ 1` 且 `.search__tab--user` 角标数字与列表条数一致；搜索随机串时三面均为 0 且显示统一空态；`window.__errs` 为空。
+  verify: node scripts/assert/search-users-facet.mjs
+  risk: med
+
+- [ ] Z1194 主页资料卡成就胶囊竖排、数据条未均分（P2，视觉层级）：实测 390 下 `/u/223` 资料卡里「首个粉丝 / 首个提问」竖排堆叠把卡片撑高，下方「获赞 0 / 关注者 2 / 粉丝 8」三项未均分（右侧留白大），同屏还并列 3 个蓝色主按钮（提问 / 关注 / 邀请 TA 回答）抢主视觉。要求：① 成就改为横向 `flex-wrap` 小胶囊，最多 2 行；② 数据条 `display:grid; grid-template-columns:repeat(3,1fr)` 居中；③ 页面主按钮只保留 1 个实心（关注），「邀请 TA 回答」降为描边。断言 `scripts/assert/profile-card-layout.mjs`：390 下成就容器高度 ≤ 两行胶囊高、数据三项 `offsetWidth` 极差 <8px、实心主按钮数 =1、`document.body.scrollWidth===390`、`window.__errs` 为空。
+  verify: node scripts/assert/profile-card-layout.mjs
+  risk: low
+
+- [ ] Z1195 同页三个「关注」按钮无语义区分（P2，可访问性/可测性）：问题页同时存在「关注问题」「+ 关注」（作者）「+ 关注」（另一作者），实测点击后读数 `['关注问题','已关注','+ 关注','+ 关注']` 无法判定改动的是哪一个，走查与读屏用户都会混淆。要求：给三者加 `aria-label`（「关注该问题」/`关注作者 ${nickname}`）并至少在作者按钮前渲染作者名；关注成功统一改为「已关注」+ `aria-pressed="true"`。断言 `scripts/assert/follow-aria.mjs`：问题页内 `aria-label` 含「关注」的按钮 ≥2 且文案互不相同、无两个按钮 `aria-label` 完全相等；点击作者按钮后该按钮 `aria-pressed` 由 false→true 且「关注问题」按钮状态不变；`window.__errs` 为空。
+  verify: node scripts/assert/follow-aria.mjs
+  risk: low
