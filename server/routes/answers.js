@@ -17,7 +17,7 @@ function authorAnswersSql({ selfView = false } = {}) {
   JOIN users u ON u.id = a.author_id
   JOIN questions q ON q.id = a.question_id
   JOIN users qu ON qu.id = q.author_id
-  WHERE a.author_id = ? AND a.is_deleted = 0${selfView ? "" : `
+  WHERE a.author_id = ? AND a.is_deleted = 0 AND a.is_fixture = 0${selfView ? "" : `
     AND ${testUserSql("u")} AND ${testQuestionSql("q", "qu")}`}`;
 }
 
@@ -31,6 +31,7 @@ function answerRow(a) {
     vote_down: a.vote_down,
     comment_count: a.comment_count,
     is_collapsed: a.is_collapsed,
+    is_fixture: a.is_fixture === undefined ? 0 : a.is_fixture,
     created_at: a.created_at,
     updated_at: a.updated_at,
     author: {

@@ -41,6 +41,7 @@ function questionRow(q) {
     answer_count: q.answer_count,
     follower_count: q.follower_count,
     view_count: q.view_count,
+    is_fixture: q.is_fixture === undefined ? 0 : q.is_fixture,
     // hot 分支 SQL 里才算出的热度分，其他出口不夹带。
     ...(q.hot_score === undefined ? {} : { hot_score: q.hot_score }),
     author: {
@@ -84,6 +85,7 @@ function answerRow(a) {
     vote_down: a.vote_down,
     comment_count: a.comment_count,
     is_collapsed: a.is_collapsed,
+    is_fixture: a.is_fixture === undefined ? 0 : a.is_fixture,
     created_at: a.created_at,
     updated_at: a.updated_at,
     author: {
@@ -206,6 +208,7 @@ router.get("/", (req, res) => {
     params.push(authorId);
   }
   if (!selfView) conds.unshift(testQuestionSql("q", "u"));
+  conds.push("q.is_fixture = 0");
   if (tab === "unanswered") {
     conds.push("q.answer_count = 0");
   }
@@ -277,7 +280,7 @@ router.get("/:id", (req, res) => {
   const answerRows = db
     .prepare(
       `${ANSWER_SELECT}
-       WHERE a.question_id = ? AND a.is_deleted = 0
+       WHERE a.question_id = ? AND a.is_deleted = 0 AND a.is_fixture = 0
        ORDER BY a.vote_up DESC, a.created_at ASC, a.id ASC LIMIT 5`
     )
     .all(q.id);
@@ -289,7 +292,7 @@ router.get("/:id", (req, res) => {
     ? db
         .prepare(
           `${ANSWER_SELECT}
-           WHERE a.question_id = ? AND a.is_deleted = 0 AND a.author_id = ?
+           WHERE a.question_id = ? AND a.is_deleted = 0 AND a.is_fixture = 0 AND a.author_id = ?
            ORDER BY a.created_at DESC, a.id DESC`
         )
         .all(q.id, req.user.id)
@@ -349,7 +352,7 @@ router.get("/:id/related", (req, res) => {
     .prepare(
       `SELECT q.id, q.title, q.answer_count, q.view_count FROM questions q
        JOIN users u ON u.id = q.author_id
-       WHERE q.id != ? AND q.is_collapsed = 0 AND ${testQuestionSql("q", "u")}
+       WHERE q.id != ? AND q.is_collapsed = 0 AND q.is_fixture = 0 AND ${testQuestionSql("q", "u")}
          AND EXISTS (
            SELECT 1 FROM question_topics qt
            WHERE qt.question_id = q.id
@@ -388,7 +391,7 @@ router.get("/:id/answers", (req, res) => {
   const answerRows = db
     .prepare(
       `${ANSWER_SELECT}
-       WHERE a.question_id = ? AND a.is_deleted = 0
+       WHERE a.question_id = ? AND a.is_deleted = 0 AND a.is_fixture = 0
        ORDER BY ${order} LIMIT ? OFFSET ?`
     )
     .all(req.params.id, limit, offset);
@@ -412,7 +415,7 @@ router.get("/:id/answers", (req, res) => {
     return row;
   });
   const total = db
-    .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0")
+    .prepare("SELECT COUNT(*) c FROM answers WHERE question_id = ? AND is_deleted = 0 AND is_fixture = 0")
     .get(req.params.id).c;
   res.json(pageResult(items, total, page, limit));
 });
