@@ -8,6 +8,7 @@
   - 现场：`scripts/e2e/probe-round15.mjs:87` 断言 `count() >= 10`；消息先取到 20，断言内再取时 <10 → 列表被某 effect 整批重置（`client/src/pages/Home.tsx:425` 同模式 `setItems([])`）后重拉。截图 `/root/logs/e2e-probe15-01-fail.png`，报告 `docs/runs/e2e-20261118T0838Z.md`
   - 附带工具缺陷：`run-all.mjs:70` 用输出最后一行当失败摘要，probe 的 cleanup 统计行会把真正的 `[PROBE15] FAIL — …` 吞掉，gate-fail 只剩 `[api] 合计删除 …`
   - 疑与 `bd6ebda`（个人主页回答 tab / 轨迹卡分层，改 `Profile.tsx`/`styles.css`）同期引入的卡片渲染路径变更相关，需排查
+  - 2026-11-18T08:56 全量复跑（commit `8f5d65c`）probe-round15 PASS，20/20 全绿；单轮绿不足以判定偶发已消除，保持阻塞，待连续多轮全绿再收。
  
 - [x] ZE2E-20261118 回归失败：评论发布被 Z1169 写入守卫拦死（probe-round15「发布评论未回写: 20->20」，行数 20→20，前端静默吞 403）｜verify: `cd /www/zhihucopy && env -u E2E_BASE -u E2E_API -u API_BASE -u DB_PATH node scripts/e2e/probe-round15.mjs`｜risk: high
   - 现场：`POST /comments` 因 `req.user.is_test === 1`（e2e 用 `@test.dev` 邮箱注册）返回 403「该内容不符合社区规范」，内容未入库、comment_count 未重算；截图 `/root/logs/e2e-probe15-01-fail.png`，报告 `docs/runs/e2e-20261118T0419.md`
