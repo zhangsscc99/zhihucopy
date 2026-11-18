@@ -224,16 +224,16 @@ const TOPICS = [
 ];
 
 const USERS = [
-  ["陈默", "写后端，也读点书。"],
+  ["陈默", "写后端七年，最近在读社会学。"],
   ["林间有风", "前端工程师，关注可访问性。"],
   ["阿澈", "在做一个很小的产品，什么都得自己来。"],
   ["半山腰", "数据分析师，喜欢把不确定说清楚。"],
   ["老周写代码", "十年 CRUD，见过太多重写。"],
   ["苏晚", "产品经理，负责把话说清楚。"],
-  ["不加班的周五", "努力不加班的运营。"],
+  ["不加班的周五", "做用户运营，努力把加班控制住。"],
   ["白露", "两个孩子的妈妈，兼职做设计。"],
   ["何人在此", "研究生在读，方向是认知科学。"],
-  ["麦田守望", "中学老师，教语文。"],
+  ["麦田守望", "中学语文老师，教了九年。"],
   ["南栀", "自由职业，做内容也做咨询。"],
   ["一叶知秋", "刚工作两年，什么都想学。"],
   ["周吴郑王", "工程效率团队，专治流程。"],
@@ -243,7 +243,7 @@ const USERS = [
   ["山月", "喜欢整理房间，也喜欢整理代码。"],
   ["陆离", "架构师，做过支付和风控。"],
   ["余光", "HR，看简历看到眼花。"],
-  ["程一", "创业者，第二次了。"],
+  ["程一", "第二次创业，做企业服务。"],
   ["夏至未至", "护士，值夜班第七年。"],
   ["温故", "统计出身，现在做增长。"],
   ["青柠", "产品设计师，专注阅读类产品。"],
@@ -589,14 +589,21 @@ function main() {
        VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?)`
     );
     const userIds = [];
+    // Z1161：同一领域的 clone 不能拿同一个 round（否则同句首重复），
+    // 改为按领域递增计数取句，池子用尽才进「池 × 补语」组合。
+    const domainRound = new Map();
     for (let i = 0; i < N_USERS; i++) {
       const [nick, bio] = USERS[i % USERS.length];
       // Z1115：clone 用真实感别名（round=1..7 对应第 1..7 轮复用人设），
       // 原型用户（i < USERS.length）直接用本名。
       const round = Math.floor(i / USERS.length);
       const nickname = i < USERS.length ? nick : cloneNickname(nick, round);
-      // 原型本人保留 base bio；clone 按领域取差异化简介（round 保证同领域内不撞）。
-      const userBio = i < USERS.length ? bio : cloneBio(PERSONA_DOMAINS[nick] || [], round);
+      // 原型本人保留 base bio；clone 按领域取池内序号递增的简介（Z1161）。
+      const doms = PERSONA_DOMAINS[nick] || [];
+      const domKey = Array.isArray(doms) && doms.length ? doms[0] : "work";
+      const seq = (domainRound.get(domKey) || 0) + 1;
+      domainRound.set(domKey, seq);
+      const userBio = i < USERS.length ? bio : cloneBio(doms, seq);
       const isAdmin = i === 0 ? 1 : 0;
       const email = i === 0 ? "admin@zhihucopy.dev" : `user${i + 1}@zhihucopy.dev`;
       const avatar = `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(nickname)}&size=200`;
