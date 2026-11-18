@@ -941,7 +941,7 @@
   verify: node scripts/assert/no-live-fixture.mjs
   risk: high
 
-- [ ] Z1181 评论发布成功的 toast 弹两次，用户会怀疑自己发重了（P1，手感/反馈）：2026-11-18 06:47 实测，390×844 下在 `/question/6` 首条回答发布「「把 useEffect 当成租赁而不是执行」这个说法一下就通了，谢谢。」，网络 200、评论数 19→20、`/api/comments?target_id=18` 共 49 条且我的内容仅 1 条（id 1754），**但页面同时出现两个「评论已发布」toast**（`document.querySelectorAll('[class*=toast]')` 返回 2 个同文案节点，一上一下叠在底栏上方）。数据层只写一次，纯前端重复提示，但会让用户以为发重。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① toast 去重：相同 `code+message` 在 1.5s 内只渲染一个（按 key 覆盖而非追加）；② 评论成功后只由一个层（页面或全局 provider）调用 `toast.success`，移除重复调用点；③ 断言 `scripts/assert/toast-dedupe.mjs`：连发 2 条评论，每次成功后 `[class*=toast]` 可见节点数 = 1，且 2.5s 后自动关闭；`window.__errs` 为空。
+- [x] Z1181 评论发布成功的 toast 弹两次，用户会怀疑自己发重了（P1，手感/反馈）：2026-11-18 06:47 实测，390×844 下在 `/question/6` 首条回答发布「「把 useEffect 当成租赁而不是执行」这个说法一下就通了，谢谢。」，网络 200、评论数 19→20、`/api/comments?target_id=18` 共 49 条且我的内容仅 1 条（id 1754），**但页面同时出现两个「评论已发布」toast**（`document.querySelectorAll('[class*=toast]')` 返回 2 个同文案节点，一上一下叠在底栏上方）。数据层只写一次，纯前端重复提示，但会让用户以为发重。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① toast 去重：相同 `code+message` 在 1.5s 内只渲染一个（按 key 覆盖而非追加）；② 评论成功后只由一个层（页面或全局 provider）调用 `toast.success`，移除重复调用点；③ 断言 `scripts/assert/toast-dedupe.mjs`：连发 2 条评论，每次成功后 `[class*=toast]` 可见节点数 = 1，且 2.5s 后自动关闭；`window.__errs` 为空。 ✅ (2026-11-18 devin swe-2-medium：根因=toast 堆栈容器类名 `notify-stack toast-stack` 含 `toast` 子串，`[class*=toast]` 把它数成第二条；`toast-stack` 全仓零 CSS。容器改为 `notify-stack` + `data-toast-host="1"`，手机端 `.notify-stack{bottom:65px}` 抬到 tabbar 之上；新增 `scripts/assert/toast-dedupe.mjs`（1440/390 发评论后 `[class*=toast]`/`[role=status]` 双口径均=1、≤4s 消失、零溢出、toast.bottom≤tabbar.top，反向自检基线 FAIL）；顺带修复 `toast-single.mjs` 场景 C 触发点（「邀请回答」自 Z1141 起是弹层，改「分享」连点）。连跑 3/3 PASS，prod verify PASS，ci-deploy 20/20 全绿）
   verify: node scripts/assert/toast-dedupe.mjs
   risk: low
 
@@ -1005,4 +1005,8 @@
 
 - [ ] Z1195 同页三个「关注」按钮无语义区分（P2，可访问性/可测性）：问题页同时存在「关注问题」「+ 关注」（作者）「+ 关注」（另一作者），实测点击后读数 `['关注问题','已关注','+ 关注','+ 关注']` 无法判定改动的是哪一个，走查与读屏用户都会混淆。要求：给三者加 `aria-label`（「关注该问题」/`关注作者 ${nickname}`）并至少在作者按钮前渲染作者名；关注成功统一改为「已关注」+ `aria-pressed="true"`。断言 `scripts/assert/follow-aria.mjs`：问题页内 `aria-label` 含「关注」的按钮 ≥2 且文案互不相同、无两个按钮 `aria-label` 完全相等；点击作者按钮后该按钮 `aria-pressed` 由 false→true 且「关注问题」按钮状态不变；`window.__errs` 为空。
   verify: node scripts/assert/follow-aria.mjs
+  risk: low
+
+- [ ] Z1196 验证脚本被环境里泄漏的 `E2E_API` 打偏，verify 假 FAIL（P2，测试基建）：本轮 `bash scripts/verify.sh Z1181` 连跑 3 次 FAIL（`locator(‘#answer-18 … textarea’) timeout`），同一脚本裸跑 PASS——原因是 shell 环境残留 `E2E_API=http://127.0.0.1:3030/zhihucopy/api`（指向线上 3030），页面在新实例 3169 而 API 调向生产，注册出的 token 在本地实例无效 → 评论表单不出现。`scripts/e2e/lib.mjs` 优先取 `E2E_API`，而 `verify.sh` 原样继承环境，任何「临时实例验证」都会被静默打偏。要求：① `scripts/verify.sh` 在 `bash -c` 前显式 `unset E2E_API E2E_BASE E2E_BASE_URL API_BASE DB_PATH`（或全部依据 `ZH_TARGET_BASE` 重新推导）；② `lib.mjs` 起跑打印最终 `BASE/API` 两行并在 `E2E_API` 与 `E2E_BASE` 不同源时打 warning；③ 新增断言 `scripts/assert/verify-env-isolation.mjs`：在 `E2E_API` 指向不可达端口的污染环境下跑一个最小 verify，必须 PASS（证明脚本不继承外部 API 地址）。
+  verify: node scripts/assert/verify-env-isolation.mjs
   risk: low
