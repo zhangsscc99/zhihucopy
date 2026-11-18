@@ -154,6 +154,12 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
         <FeedAuthor author={q.author} />
         <span className="feed__answers">{q.answer_count} 个回答</span>
         <span className="feed__answers-short">{q.answer_count} 答</span>
+        {typeof q.follower_count === "number" ? (
+          <>
+            <span className="feed__follows">{q.follower_count} 人关注</span>
+            <span className="feed__follows-short">{q.follower_count} 关注</span>
+          </>
+        ) : null}
         <span className="feed__views">{q.view_count} 次浏览</span>
         <span className="feed__views-short">{viewsShort(q.view_count)}</span>
       </div>
@@ -290,6 +296,12 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
             )}
             <span className="feed__answers">{q.answer_count} 个回答</span>
             <span className="feed__answers-short">{q.answer_count} 答</span>
+            {typeof q.follower_count === "number" ? (
+              <>
+                <span className="feed__follows">{q.follower_count} 人关注</span>
+                <span className="feed__follows-short">{q.follower_count} 关注</span>
+              </>
+            ) : null}
             <span className="feed__views">{q.view_count} 次浏览</span>
             <span className="feed__views-short">{viewsShort(q.view_count)}</span>
           </div>

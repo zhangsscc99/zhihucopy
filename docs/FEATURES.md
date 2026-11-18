@@ -850,8 +850,8 @@
   verify: node scripts/assert/search-empty-consistency.mjs
   risk: low
 
-- [ ] Z1163 信息流卡缺「赞同数」，读不出内容分量（P2，信息密度/品牌视觉）：首页 `.feed__item` 只有 标题 / 两行摘要 / 作者 / 「10 答」/「6857 浏览」/ 话题胶囊，没有真知乎卡片底行的赞同数；同一张卡在热榜与推荐里信息完全一致。要求：① 卡底 `feed__meta` 内补「赞同 N」（取接口已有 `vote_up`，与详情页赞同数同口径；缺失字段才隐藏，不得前端假造）；② 只做**信息行**，不加点击/弹层等任何交互，不新增独立模块、不改卡片高度节奏（标题→摘要→元信息→胶囊 顺序不变）；③ 热榜 tab 的排名色块与「N 热度」保留；④ 390 下元信息仍在单行内、不换行、不溢出。断言 `scripts/assert/feed-card-votes.mjs`：首页 20 张 `.feed__item` 中 ≥18 张的元信息含「赞同 」且数字与该题 `/api/questions` 的 `vote_up` 一致（抽样 5 张 API 双口径）；卡片内 `button` 数不变（0 个新增）；热榜 tab 仍有排名块与「热度」；1440/390 `scrollWidth-clientWidth=0`、`window.__errs` 为空；反向自检线上 FAIL（元信息不含「赞同」）。
-  verify: node scripts/assert/feed-card-votes.mjs
+- [ ] Z1163 信息流卡元信息缺「关注者数」，读不出内容分量（P2，信息密度/品牌视觉）：首页 `.feed__item` 只有 标题 / 两行摘要 / 作者 / 「10 答」/「6857 浏览」/ 话题胶囊，没有真知乎卡片底行的关注者数；同一张卡在热榜与推荐里信息完全一致。**口径修正（第四十轮实测）**：`questions.vote_up` 全库恒 0（赞属于回答，`questionRow` 也从未外传），故不做「赞同 N」，改补真实可用的 `follower_count`。要求：① 卡底 `feed__meta` 内补「N 人关注」（取接口已有 `follower_count`，与问题页「N 人关注」同口径；字段缺失才隐藏，不得前端假造）；② 只做**信息行**，不加点击/弹层等任何交互，不新增独立模块、不改卡片高度节奏（标题→摘要→元信息→胶囊 顺序不变）；③ 热榜 tab 的排名色块与「N 热度」保留；④ 390 下元信息仍在单行内（长文案换「N 关注」紧凑形态）、不换行、不溢出。断言 `scripts/assert/feed-card-meta.mjs`：首页 20 张 `.feed__item` 中 ≥18 张元信息含「人关注」且数字与该题 `/api/questions` 的 `follower_count` 一致（抽样 5 张双口径）；卡片内 `button` 数为 0（无新增交互）；热榜 tab 仍有排名块与「热度」且同样带关注者数；390 下长文案隐藏、紧凑文案可见、元信息单行、无溢出；1440/390 `window.__errs` 为空；反向自检线上 FAIL（元信息不含「人关注」）。
+  verify: node scripts/assert/feed-card-meta.mjs
   risk: low
 
 - [ ] Z1164 顶栏「注册」入口丢 `next`，从那儿注册会落首页（P3，可预期性）：登录页表单内「注册一个」正确带 `?next=`，但顶栏/底栏导航的「注册」是裸 `/register`；用户在 `/login?next=/question/6` 点顶栏「注册」注册成功后回到 `/`，原本的点赞/关注意图丢失。要求：`/login`、`/register` 两页的顶栏（及移动端底栏）在 URL 有合法 `next` 时，所有站内登录/注册导航链接统一透传 `next`（沿用现有 `next.startsWith("/") && !next.startsWith("//")` 校验，非法值不透传），不改变已登录用户看到的导航，不改守卫动作的 push/replace 语义。断言 `scripts/assert/register-nav-next.mjs`：`/login?next=%2Fquestion%2F6` 上顶栏与表单内的注册链接均含 `next=%2Fquestion%2F6`；`/register?next=%2Fquestion%2F6` 上顶栏登录链接同样带 `next`；`/login?next=https://evil.com` 时链接不带 `next`；从 `/login?next=/question/6` 走顶栏注册并完成注册后落到 `/question/6`；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上 FAIL（顶栏 href 为 `/register`）。
