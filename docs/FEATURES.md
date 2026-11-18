@@ -1127,3 +1127,25 @@
 - [ ] Z1225 回答页同时出现「关注问题」与多个「+ 关注」同名按钮，无对象上下文（P2，认知负荷；balance/intuitive「按钮必须说明作用对象」）｜verify: node scripts/assert/follow-button-label.mjs｜risk: low｜2026-11-18 21:39 实测 `/question/6`：`document.querySelectorAll('button')` 的可关注项文本为 `["关注问题","已关注","+ 关注","+ 关注"]`——4 个"关注"，用户无法判断哪个关注问题、哪个关注答主；点完后 `+ 关注`→`已关注` 的反馈也只有一个字面变化。要求：① 答主按钮文案带对象（「关注 阿罗」或按钮内加作者名 tooltip `aria-label="关注阿罗"`）；② 问题级按钮固定在问题头卡且文案为「关注问题」；③ 已关注态与关注态用同一按钮不同 `aria-pressed`，不要出现两个不同文案的同类按钮并存。断言 `scripts/assert/follow-button-label.mjs`（390×844）：`/question/:id` 页内所有关注类按钮的 `aria-label` 或文本均含明确对象（作者名或「问题」），不存在文本完全相同的两个关注按钮；点击后 `aria-pressed` 为 `true` 且按钮仍在原位（`getBoundingClientRect` 位移 <2px）；`window.__errs` 为空。
   verify: node scripts/assert/follow-button-label.mjs
   risk: low
+
+## 第五十三轮待办（2026-11-18 22:09，走查；HEAD 2c7b641）
+
+- [ ] Z1226 评论发布被内容规则**误杀**，连续第二轮：37 字自然评论在手机与桌面均 `403 该内容不符合社区规范`，评论功能全站不可用（P0，功能阻断；Z1220 未修）｜verify: node scripts/assert/comment-publish-ok.mjs｜risk: med｜2026-11-18 22:13–22:16 实测（干净 context，注册 `walk530034655@example.com` 后）：「这个心智模型挺形象的，想请教一下取消订阅和清理定时器有没有先后顺序的讲究？」（37 字，无链接无数字）→ 手机 `POST /api/comments` **403**，桌面同一句同样 403；评论数 0→0，输入框内容保留。截图 `docs/runs/walk-2212-m6.png`、`walk-2212-d6.png`（vision：红条压在「白小露」回答正文上，质感 2/5）。要求：① 规则改为「明确命中违规词才 403 并回传命中词」，其余 201 落库进审核态；② 断言同时覆盖 390×844 与 1440×900；③ 不要放宽成长度/链接数都不校验。断言 `scripts/assert/comment-publish-ok.mjs`：3 句自然文本 `POST /api/comments` 全 200/201，`GET /api/comments?target_type=answer&target_id=18` 的 `total` +3；含 3 个 `http://` 的文本返回 4xx 且 `error` 含命中原因；`window.__errs` 空；连跑 2 次一致。
+  verify: node scripts/assert/comment-publish-ok.mjs
+  risk: med
+
+- [ ] Z1227 评论计数三套口径 + `limit` 参数失效：页面「23 条评论 / 收起评论（23）」，API `total: 69`，且 `?limit=1` 实际返回 62 条（P1，文本质量/可信度；Z1221 未修并新增分页缺陷）｜verify: node scripts/assert/comment-count-api.mjs｜risk: low｜2026-11-18 22:20 实测：`curl /api/comments?target_type=answer&target_id=18&limit=1` → `{"total":69,...}` 返回 `items.length=62`；页面 `m2` 按钮文本 `23 条评论`、展开后 `收起评论（23）`。要求：① 页面计数一律取 `total`；② `limit` 生效（`limit=1` → 1 条）并返回 `page/page_size/has_more`；③ 展开按钮文案与面板总数同源。断言 `scripts/assert/comment-count-api.mjs`：对 3 个 target，`limit=1` 返回 `items.length===1`；页面「收起评论（N）」的 N 等于 API `total`；同一回答展开前后计数一致；连跑 2 次一致。
+  verify: node scripts/assert/comment-count-api.mjs
+  risk: low
+
+- [ ] Z1228 评论失败提示仍不贴在输入框处：红色提示 `position:static` 出现在正文区（手机 `y=711,w=195`），压住回答正文，且「发布评论」无 loading/禁用（P2，视觉；game-detail-bar「反馈贴在动作发生处」）｜verify: node scripts/assert/inline-error-hint.mjs｜risk: low｜2026-11-18 22:14 视觉复核 `docs/runs/walk-2212-m6.png`（vision 2/5）：「错误提示位于底部，覆盖正文；未贴近输入框；文案不指出哪句违规；按钮仍蓝色可点」。要求：① 失败提示渲染在 textarea 下方 24px 内（`role="alert"`，13px 红字）；② 提交中按钮 `disabled` + 「发布中…」；③ 全局 toast 只用于系统级消息。断言 `scripts/assert/inline-error-hint.mjs`：`page.route` 注入 403 后，`.answer__comment-form [role=alert]` 存在且与 textarea 间距 <24px；该元素 `position !== 'fixed'` 且不覆盖正文（与 `article` 的 rect 不相交）；textarea 值未清空；`window.__errs` 空。
+  verify: node scripts/assert/inline-error-hint.mjs
+  risk: low
+
+- [ ] Z1229 通知空态两个同权重 CTA + 说明文字孤字换行「里」（P2，视觉/可负担性；intuitive-game-design「affordance：主行动唯一」）｜verify: node scripts/assert/empty-state-cta.mjs｜risk: low｜2026-11-18 22:17 视觉复核 `docs/runs/walk-2212-m9.png`（vision 3/5）：「两个蓝色描边按钮同尺寸同权重；『会出现在这里』的『里』被挤到下一行」。要求：① 空态仅一个实心主按钮「去首页看看热门讨论」，第二个降为文字链接；② 说明文案 `text-wrap: pretty` 或缩短至一行；③ 关闭/移除多余辅助句。断言 `scripts/assert/empty-state-cta.mjs`（390×844）：`/notifications` 空态容器内 `.btn--primary` 计数为 1；两个 CTA 宽度差 >8px；说明文字 `getClientRects().length === 1`；`document.body.scrollWidth === 390`。
+  verify: node scripts/assert/empty-state-cta.mjs
+  risk: low
+
+- [ ] Z1230 问题页 6 个「关注」按钮无对象：`关注问题` + 5 个文本完全相同的 `+ 关注`，`aria-label` 全为 null（P2，认知负荷/无障碍；balance「选项必须可辨识」）｜verify: node scripts/assert/follow-button-label.mjs｜risk: low｜2026-11-18 22:15 实测 `/question/6`（手机与桌面一致）：`[{t:"关注问题",aria:null},{t:"+ 关注",aria:null}×5]`；点击后变为 `已关注`、`aria-pressed=true`，但按钮身份仍不唯一。要求：① 答主按钮文本或 `aria-label` 含作者名（「关注 阿罗」）；② 问题级按钮固定文案「关注问题」；③ 同一页面不存在两个文本与 aria-label 均相同的关注按钮。断言 `scripts/assert/follow-button-label.mjs`（390×844 + 1440×900）：页内所有关注按钮的可访问名两两不同；每个 `aria-label` 或文本含「问题」或作者昵称；点击后 `aria-pressed=true` 且 `getBoundingClientRect` 位移 <2px；`window.__errs` 空。
+  verify: node scripts/assert/follow-button-label.mjs
+  risk: low
