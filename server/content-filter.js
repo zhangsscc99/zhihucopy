@@ -469,6 +469,35 @@ function testNotificationResidueSql(nAlias = "n") {
   return `NOT EXISTS (SELECT 1 FROM users na WHERE na.id = ${n}.actor_id AND ${residueActorSql("na")})`;
 }
 
+// ---- 走查探针正文收窄规则（Z1169） ------------------------------------------
+// 与 scripts/purge-walk-comments.js、scripts/assert/no-walk-comments.mjs 共用
+// 同一份判定（单一来源，防两处漂移）。刻意收窄：裸子串「走查」会误杀讨论
+// 「代码走查」「走查表」的正常评论，只锚定线上实测的探针模板形态：
+//   R1  ^第\d+条走查感想          「第NNNN条走查感想：…」沈舟拾NNNN 批量模板
+//   R2a 走查：                     「走查：…」开头探针
+//   R2b 走查[0-9]{2,}              「走查42」式编号标记
+//   R3  \be2e\b 或 \[e2e\]         e2e 脚本标记（大小写不敏感）
+//   R4  走查第[0-9]+轮             「走查第42轮：…」走查轮次探针（走查42 在
+//                                  answer#1512 的 2 条实测残留即此形态）
+const WALK_PROBE_RULES = [
+  ["R1:第N条走查感想", /^第\d+条走查感想/],
+  ["R2a:走查冒号", /走查：/],
+  ["R2b:走查+数字", /走查[0-9]{2,}/],
+  ["R3:e2e标记", /\be2e\b|\[e2e\]/i],
+  ["R4:走查第N轮", /走查第[0-9]+轮/],
+];
+
+// 返回命中的规则名列表（脚本打印用）；空数组 = 未命中。
+function walkProbeRules(text) {
+  const v = String(text || "");
+  if (!v) return [];
+  return WALK_PROBE_RULES.filter(([, re]) => re.test(v)).map(([n]) => n);
+}
+
+function isWalkProbeContent(text) {
+  return walkProbeRules(text).length > 0;
+}
+
 module.exports = {
   TEST_TITLE_PATTERNS,
   TEST_NICK_PATTERNS,
@@ -496,4 +525,7 @@ module.exports = {
   testNotificationSql,
   residueActorSql,
   testNotificationResidueSql,
+  WALK_PROBE_RULES,
+  walkProbeRules,
+  isWalkProbeContent,
 };
