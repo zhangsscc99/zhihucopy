@@ -2859,6 +2859,11 @@ a.ntf__title:hover {
   .topnav__links {
     display: none;
   }
+  /* Z1181 — 底部 tabbar 高 57px（56 + 1px 边框），toast 栈抬到其上方，
+     避免遮住所点 tab 且与桌面「贴底居中」语义一致。 */
+  .notify-stack {
+    bottom: 65px;
+  }
   .bottomnav {
     display: flex;
     position: fixed;

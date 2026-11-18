@@ -10,7 +10,9 @@
 //   A. 重复邮箱注册 →「该邮箱已注册」可见节点数 = 1（且错误 toast 为 error 级）；
 //      表单内联错误若存在不得被误删（数量 ≤1 且与 toast 不重复计）。
 //   B. 种子号在某问题回答下发布评论 →「评论已发布」可见节点数 = 1。
-//   C. 同一操作（邀请回答复制链接）1.5s 内连点两次 → 同文案节点数 ≤ 1。
+//   C. 同一操作（回答卡「分享」复制链接）1.5s 内连点两次 → 同文案节点数 ≤ 1。
+//      （原触发点「邀请回答」在 Z1141 改为弹层：首击即开全屏遮罩，二击不可达；
+//      「分享」仍是单击即出 toast 的同文案入口，语义不变。）
 //
 // Env: API_BASE（缺省 3030）、E2E_BASE（缺省 API_BASE 去 /api）。
 // 反向自检：未修基线 stack 容器带 role=status，场景 A/B 实测节点数 = 2 必 FAIL。
@@ -107,13 +109,13 @@ run("toast-single", async ({ browser }) => {
   expect(bCount === 1, `B:「评论已发布」可见节点数=${bCount}，期望 1`);
 
   // ---- 场景 C：1.5s 内连点两次同一操作 ---------------------------------------
-  const invite = bPage.locator(".question__invite");
-  await invite.click();
-  await invite.click();
-  // 成功路径文案「链接已复制，发给你想邀请的人吧」；剪贴板被拒时退化为 URL 本体。
-  const cSuccess = await visibleToastNodes(bPage, "链接已复制，发给你想邀请的人吧");
-  const cFallback = await visibleToastNodes(bPage, `${BASE}/question/${question.id}`);
-  console.log(`  [scene C] 连点两次「邀请回答」同文案节点=${Math.max(cSuccess, cFallback)}（期望 ≤1）`);
+  const shareBtn = ans.locator(".answer__action", { hasText: "分享" });
+  await shareBtn.click();
+  await shareBtn.click();
+  // 成功路径文案「链接已复制，去分享吧」；剪贴板被拒时退化为 URL 本体。
+  const cSuccess = await visibleToastNodes(bPage, "链接已复制，去分享吧");
+  const cFallback = await visibleToastNodes(bPage, `/zhihucopy/question/${question.id}`);
+  console.log(`  [scene C] 连点两次「分享」同文案节点=${Math.max(cSuccess, cFallback)}（期望 ≤1）`);
   expect(
     cSuccess <= 1 && cFallback <= 1,
     `C: 1.5s 内重复触发同 key toast，可见节点数=${Math.max(cSuccess, cFallback)}，期望 ≤1`
