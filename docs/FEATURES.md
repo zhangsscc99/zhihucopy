@@ -2,6 +2,12 @@
 
 规则：每跳做 4 条（互不重叠区域）；勾选时追加 `✅ (YYYY-MM-DD lane)`。
 
+## [BLOCKING] 阻塞回归（全量 E2E 守门，需优先于新功能）
+
+- [ ] ZE2E-20261118 回归失败：评论发布被 Z1169 写入守卫拦死（probe-round15「发布评论未回写: 20->20」，行数 20→20，前端静默吞 403）｜verify: `cd /www/zhihucopy && env -u E2E_BASE -u E2E_API -u API_BASE -u DB_PATH node scripts/e2e/probe-round15.mjs`｜risk: high
+  - 现场：`POST /comments` 因 `req.user.is_test === 1`（e2e 用 `@test.dev` 邮箱注册）返回 403「该内容不符合社区规范」，内容未入库、comment_count 未重算；截图 `/root/logs/e2e-probe15-01-fail.png`，报告 `docs/runs/e2e-20261118T0419.md`
+  - 附带的闸门盲区：probe-round15 不在 run-all MANIFEST → 失败被降级 PENDING，退出码仍 0
+
 ## 品牌与视觉（最高优先，先于一切功能）
 - [x] Z900 品牌改名：全站「知海」→「知乎（仿）」（页面 title、顶部 logo 文案、页脚、meta description、空态文案） ✅ (2026-11-15 devin)
   verify: node scripts/assert/brand.mjs
