@@ -31,6 +31,9 @@ const MANIFEST = {
   "topic.mjs":         { fids: ["Z031", "Z033"] },
   "admin.mjs":         { fids: ["Z042", "Z044"] },
   "a11y.mjs":          { fids: ["Z054"] },
+  // Z1173：第十五轮巡检探针进硬门禁 —— 覆盖评论展开/发布/删除回写链路，
+  // Z1169 守卫过宽（is_test 一刀切）曾把它整体打死且 run-all 不报 FAIL。
+  "probe-round15.mjs": { core: true, fids: [] },
 };
 
 function doneFids() {
