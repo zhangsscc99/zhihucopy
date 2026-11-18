@@ -965,7 +965,12 @@ export function Question() {
       setFlashCommentId(comment.id);
       toast("评论已发布");
     } catch (e) {
-      toast((e as Error).message, "error");
+      // 非 2xx：透出服务端 error 文案（如社区规范拦截），无 error 字段给
+      // 兜底文案；输入框内容保留，发送按钮由 finally 复位可点。
+      toast(
+        e instanceof ApiError && e.serverError ? e.serverError : "评论发布失败，请稍后再试",
+        "error"
+      );
     } finally {
       setCommentSending((s) => ({ ...s, [a.id]: false }));
     }
@@ -1034,7 +1039,9 @@ export function Question() {
       setFlashCommentId(comment.id);
       toast("回复已发布");
     } catch (e) {
-      setReplyError((e as Error).message || "回复失败，请重试");
+      setReplyError(
+        e instanceof ApiError && e.serverError ? e.serverError : "回复失败，请重试"
+      );
     } finally {
       setReplySending(false);
     }

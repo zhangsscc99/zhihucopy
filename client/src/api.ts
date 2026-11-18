@@ -3,9 +3,13 @@ export const TOKEN_KEY = "zhihu_token";
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  // 服务端响应体里的 error 原文（无 error 字段时为 undefined）——调用方
+  // 据此决定是透出服务端文案还是用自己的兜底文案。
+  serverError?: string;
+  constructor(message: string, status: number, serverError?: string) {
     super(message);
     this.status = status;
+    this.serverError = serverError;
   }
 }
 
@@ -49,7 +53,7 @@ export async function api<T = unknown>(
     if (opts?.onUnauthorized !== false) unauthorizedHandler?.();
   }
   if (!res.ok) {
-    throw new ApiError(data.error || `请求失败（${res.status}）`, res.status);
+    throw new ApiError(data.error || `请求失败（${res.status}）`, res.status, data.error);
   }
   return data as T;
 }

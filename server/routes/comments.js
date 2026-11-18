@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { requireAuth } = require("../auth");
 const { badRequest } = require("../util");
-const { testCommentSql, isWalkProbeContent } = require("../content-filter");
+const { testCommentSql, isWalkProbeContent, isWalkAccount } = require("../content-filter");
 
 const router = express.Router();
 
@@ -179,9 +179,13 @@ router.post("/", requireAuth, (req, res) => {
     if (parentRow.parent_id != null) return badRequest(res, "只支持两级评论，不能回复二级回复");
   }
 
-  // Z1169 写入守卫：走查/e2e 探针模板正文、或 is_test 作者，一律拒写 ——
-  // 不入库、不重算 comment_count、不发通知（不依赖前端/脚本自觉）。
-  if (req.user.is_test || isWalkProbeContent(content)) {
+  // Z1169 写入守卫：走查/e2e 探针模板正文一律拒写 —— 不入库、不重算
+  // comment_count、不发通知（不依赖前端/脚本自觉）。
+  // Z1173 收窄：is_test 不能一刀切 —— e2e/assert 探针账号全部是 is_test=1
+  // （@test.dev 注册域），一刀切会把整条 e2e 评论链路打死。只对「走查
+  // 流水号」形态的测试昵称（isWalkAccount：沈舟拾NNNN/走查NN/巡检NN 等）
+  // 拒写；正文模板规则（isWalkProbeContent）对任何账号都生效，仍是主防线。
+  if (isWalkProbeContent(content) || (req.user.is_test && isWalkAccount(req.user))) {
     return res.status(403).json({ error: "该内容不符合社区规范，请修改后再发布" });
   }
 

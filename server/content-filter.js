@@ -498,6 +498,20 @@ function isWalkProbeContent(text) {
   return walkProbeRules(text).length > 0;
 }
 
+// ---- 走查账号收窄规则（Z1173） -----------------------------------------------
+// Z1169 的 POST /comments 守卫曾按 is_test 一刀切拒写 —— 但所有 e2e/assert
+// 探针账号都以 @test.dev/@zhihucopy.dev 域注册、is_test=1，一刀切把整条 e2e
+// 评论链路打死（probe-round15 恒 FAIL，自动化失去评论覆盖）。收窄为：
+// is_test=1 且昵称是「走查流水号」形态才拦 —— 批量走查脚本的注册号
+// （沈舟拾NNNN/走查NN/巡检NN/真人<latin>+数字）；普通 e2e 账号
+// （u2965/e2e-xxx/B-xxx/z1169guard…）不命中，正常发评论。
+// 正文模板规则（isWalkProbeContent）不变，仍是任何账号都拦的主防线。
+const WALK_ACCOUNT_NICK_RE = /^(沈舟拾\d{4}|走查\d+|巡检\d*|真人?[a-z]{4,}\d)/;
+
+function isWalkAccount(user) {
+  return WALK_ACCOUNT_NICK_RE.test(String((user && user.nickname) || ""));
+}
+
 module.exports = {
   TEST_TITLE_PATTERNS,
   TEST_NICK_PATTERNS,
@@ -528,4 +542,5 @@ module.exports = {
   WALK_PROBE_RULES,
   walkProbeRules,
   isWalkProbeContent,
+  isWalkAccount,
 };

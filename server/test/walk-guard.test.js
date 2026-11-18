@@ -15,6 +15,8 @@ const { createApp } = require("../app");
 let server;
 let base;
 let token;
+let walkToken;
+let e2eToken;
 let answerId;
 
 async function api(method, p, body, tok) {
@@ -71,6 +73,23 @@ before(async () => {
   assert.equal(reg.status, 201);
   token = reg.json.token;
 
+  // Z1173：is_test=1 的两种账号 —— 走查流水号昵称（应仍被拦）与普通 e2e
+  // 昵称（应放行）。@test.dev 注册域自动落 is_test=1。
+  const wreg = await api("POST", "/auth/register", {
+    email: "walk-probe@test.dev",
+    password: "secret1",
+    nickname: "沈舟拾1234",
+  });
+  assert.equal(wreg.status, 201);
+  walkToken = wreg.json.token;
+  const ereg = await api("POST", "/auth/register", {
+    email: "e2e-u2965@test.dev",
+    password: "secret1",
+    nickname: "u2965",
+  });
+  assert.equal(ereg.status, 201);
+  e2eToken = ereg.json.token;
+
   const q = await api("POST", "/questions", { title: "守卫测试问题" }, token);
   assert.equal(q.status, 201);
   const a = await api("POST", `/questions/${q.json.question.id}/answers`, { content_md: "回答正文" }, token);
@@ -109,6 +128,31 @@ test("POST /comments 正常正文 -> 201 入库", async () => {
     "/comments",
     { target_type: "answer", target_id: answerId, body: "这条回答讲得挺清楚，收藏了" },
     token
+  );
+  assert.equal(r.status, 201);
+  assert.ok(r.json.comment && r.json.comment.id);
+  assert.equal(commentCount(), before + 1);
+});
+
+test("POST /comments is_test=1 + 走查流水号昵称（沈舟拾1234）+ 正常正文 -> 403", async () => {
+  const before = commentCount();
+  const r = await api(
+    "POST",
+    "/comments",
+    { target_type: "answer", target_id: answerId, body: "这条回答讲得挺清楚，收藏了" },
+    walkToken
+  );
+  assert.equal(r.status, 403);
+  assert.equal(commentCount(), before);
+});
+
+test("POST /comments is_test=1 + 普通 e2e 昵称（u2965）+ 正常正文 -> 201", async () => {
+  const before = commentCount();
+  const r = await api(
+    "POST",
+    "/comments",
+    { target_type: "answer", target_id: answerId, body: "这条回答讲得挺清楚，收藏了" },
+    e2eToken
   );
   assert.equal(r.status, 201);
   assert.ok(r.json.comment && r.json.comment.id);
