@@ -2741,7 +2741,15 @@ a.ntf__title:hover {
   color: var(--ink-3);
 }
 
-/* 0 回答主页的空态补块（Z1111）：页主关注/赞同轨迹，卡内分节标题 + 复用 .plist 行 */
+/* 页主关注/赞同轨迹（Z1183 起独立于 tabpanel 成卡）：卡内分节标题 + 复用 .plist 行，
+   节间 hairline 分隔，与站内其它 Card 同款边框/圆角。 */
+.phl {
+  margin-top: 8px;
+  padding: 0;
+}
+.phl__sec + .phl__sec {
+  border-top: 1px solid var(--line);
+}
 .phl__title {
   margin: 0;
   padding: 16px 20px 4px;

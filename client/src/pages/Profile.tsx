@@ -127,8 +127,8 @@ function QuestionItem({ q }: { q: Question }) {
   );
 }
 
-// 0 回答空态的原始文案（无关注/赞同轨迹可展示时兜底；Z1111 前形态）。
-function EmptyAnswers({ isMe }: { isMe: boolean }) {
+// 0 回答空态：panel 内始终出现语义化标题；他人主页附「邀请 TA 回答」次要入口。
+function EmptyAnswers({ isMe, userId }: { isMe: boolean; userId: number }) {
   return isMe ? (
     <Empty
       title="还没有回答"
@@ -146,15 +146,15 @@ function EmptyAnswers({ isMe }: { isMe: boolean }) {
     />
   ) : (
     <Empty
-      title="还没有回答"
-      hint="TA 还没有写过回答，先去别处逛逛。"
+      title="TA 还没有写过回答"
+      hint="可以邀请 TA 来回答你感兴趣的问题。"
       action={
         <div className="empty__actions">
-          <Link to="?tab=questions" className="btn btn--primary">
-            浏览 TA 的提问
+          <Link to={`/ask?invite=${userId}`} className="btn btn--primary">
+            邀请 TA 回答
           </Link>
-          <Link to="/" className="btn btn--outline">
-            去逛逛推荐
+          <Link to="?tab=questions" className="btn btn--outline">
+            浏览 TA 的提问
           </Link>
         </div>
       }
@@ -162,63 +162,29 @@ function EmptyAnswers({ isMe }: { isMe: boolean }) {
   );
 }
 
-// 空态的下一步出口，与 EmptyAnswers 的 action 同源（有轨迹块时保留在页尾）。
-function EmptyActions({ isMe }: { isMe: boolean }) {
-  return (
-    <div className="phl__actions">
-      {isMe ? (
-        <>
-          <Link to="/unanswered" className="btn btn--primary">
-            写回答
-          </Link>
-          <Link to="/ask" className="btn btn--outline">
-            去提问
-          </Link>
-        </>
-      ) : (
-        <>
-          <Link to="?tab=questions" className="btn btn--primary">
-            浏览 TA 的提问
-          </Link>
-          <Link to="/" className="btn btn--outline">
-            去逛逛推荐
-          </Link>
-        </>
-      )}
-    </div>
-  );
-}
-
-// Z1111 空态补厚度：0 回答时改展示页主的关注/赞同轨迹（一次 /highlights 请求）。
-// 轨迹为空或接口失败时回落 EmptyAnswers 原文案；有轨迹则不出现「还没有回答」
-// —— 该文案只允许在没有任何可展示内容时出现。
-function ProfileAnswersEmpty({ userId, isMe }: { userId: number; isMe: boolean }) {
+// Z1183：页主关注/赞同轨迹移出 tabpanel，独立成卡（tab 卡之后的另一块），
+// 仅「回答」tab 选中且有轨迹数据时渲染；无数据不渲染空壳。
+function ProfileHighlightsCard({ userId }: { userId: number }) {
   const [hl, setHl] = useState<ProfileHighlights | null>(null);
-  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let dead = false;
     setHl(null);
-    setFailed(false);
     get<ProfileHighlights>(`/users/${userId}/highlights?limit=5`)
       .then((d) => {
         if (!dead) setHl(d);
       })
-      .catch(() => {
-        if (!dead) setFailed(true);
-      });
+      .catch(() => {});
     return () => {
       dead = true;
     };
   }, [userId]);
 
-  if (!hl && !failed) return <Spinner />;
   const followed = hl?.followed_questions ?? [];
   const upvoted = hl?.upvoted_answers ?? [];
-  if (followed.length === 0 && upvoted.length === 0)
-    return <EmptyAnswers isMe={isMe} />;
+  if (followed.length === 0 && upvoted.length === 0) return null;
   return (
-    <div className="phl">
+    <Card className="phl">
       {followed.length > 0 && (
         <section className="phl__sec">
           <h2 className="phl__title">TA 最近关注的问题</h2>
@@ -261,8 +227,7 @@ function ProfileAnswersEmpty({ userId, isMe }: { userId: number; isMe: boolean }
           </ul>
         </section>
       )}
-      <EmptyActions isMe={isMe} />
-    </div>
+    </Card>
   );
 }
 
@@ -272,7 +237,7 @@ function ProfileAnswers({ userId, isMe }: { userId: number; isMe: boolean }) {
   if (list.error && list.items.length === 0)
     return <ErrorBox message={list.error} onRetry={list.retry} />;
   if (list.items.length === 0)
-    return <ProfileAnswersEmpty userId={userId} isMe={isMe} />;
+    return <EmptyAnswers isMe={isMe} userId={userId} />;
   return (
     <>
       <ul className="plist">
@@ -555,7 +520,7 @@ export function Profile() {
             <dd>{stats.vote_up}</dd>
           </div>
           <div>
-            <dt>关注</dt>
+            <dt>关注者</dt>
             <dd>{stats.following}</dd>
           </div>
           <div>
@@ -584,12 +549,16 @@ export function Profile() {
             </Link>
           )}
         </div>
-        {tab === "answers" ? (
-          <ProfileAnswers userId={user.id} isMe={isMe} />
-        ) : (
-          <ProfileQuestions userId={user.id} isMe={isMe} />
-        )}
+        <div role="tabpanel" className="profile__panel">
+          {tab === "answers" ? (
+            <ProfileAnswers userId={user.id} isMe={isMe} />
+          ) : (
+            <ProfileQuestions userId={user.id} isMe={isMe} />
+          )}
+        </div>
       </Card>
+
+      {tab === "answers" && <ProfileHighlightsCard userId={user.id} />}
     </>
   );
 }
