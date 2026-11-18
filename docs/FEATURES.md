@@ -4,9 +4,10 @@
 
 ## [BLOCKING] 阻塞回归（全量 E2E 守门，需优先于新功能）
 
-- [ ] ZE2E-20261118 回归失败：评论发布被 Z1169 写入守卫拦死（probe-round15「发布评论未回写: 20->20」，行数 20→20，前端静默吞 403）｜verify: `cd /www/zhihucopy && env -u E2E_BASE -u E2E_API -u API_BASE -u DB_PATH node scripts/e2e/probe-round15.mjs`｜risk: high
+- [x] ZE2E-20261118 回归失败：评论发布被 Z1169 写入守卫拦死（probe-round15「发布评论未回写: 20->20」，行数 20→20，前端静默吞 403）｜verify: `cd /www/zhihucopy && env -u E2E_BASE -u E2E_API -u API_BASE -u DB_PATH node scripts/e2e/probe-round15.mjs`｜risk: high
   - 现场：`POST /comments` 因 `req.user.is_test === 1`（e2e 用 `@test.dev` 邮箱注册）返回 403「该内容不符合社区规范」，内容未入库、comment_count 未重算；截图 `/root/logs/e2e-probe15-01-fail.png`，报告 `docs/runs/e2e-20261118T0419.md`
   - 附带的闸门盲区：probe-round15 不在 run-all MANIFEST → 失败被降级 PENDING，退出码仍 0
+  - ✅ 2026-11-18 第四十三轮：根因=守卫按 `is_test` 一刀切，e2e 探针账号（`@test.dev`→`is_test=1`）全被 403。改为「正文模板规则 `isWalkProbeContent` 对任何账号生效 + `is_test` 仅拦走查流水号昵称（`content-filter.isWalkAccount`：沈舟拾NNNN/走查NN/巡检NN，普通 e2e 号不命中）」；前端 `ApiError` 增加 `serverError`，`Question.tsx` 评论/回复失败改为透出服务端「该内容不符合社区规范，请修改后再发布」并保留输入内容、按钮复位；`probe-round15` 已进 `run-all` MANIFEST 硬门禁。线上 `probe-round15` PASS 18 步 0 WARN，ci-deploy 20 pass / 0 gate-fail / 0 pending。
 
 ## 品牌与视觉（最高优先，先于一切功能）
 - [x] Z900 品牌改名：全站「知海」→「知乎（仿）」（页面 title、顶部 logo 文案、页脚、meta description、空态文案） ✅ (2026-11-15 devin)
@@ -882,7 +883,7 @@
   verify: node scripts/assert/no-fixture-in-feed.mjs
   risk: high
 
-- [ ] Z1169 评论模板污染从 15 条涨到 20 条（20 个「沈舟拾NNNN」连号），03:36 仍在写入——Z1165 的收窄止血版（P0，可信度）：2026-11-18 04:05 实测 `GET /api/comments?target_type=answer&target_id=18` `total=71`（第 41 轮为 55），去重后 `走查感想` 模板评论 **20 条 / 20 个账号**，created_at 16:29–**03:36:54**，即上一轮走查之后仍持续写入。要求：① 先做「不需要等守护」的止血：直接对 answer 18 现有 20 条模板评论执行软删（`is_deleted=1`，不物理删、不改 id、同步 `comment_count`），并顺带删除本轮走查写入的 `走查42` 在 q1514 的 2 条评论；② 同一事务内把 20 个「沈舟拾NNNN」账号置 `is_test=1`，使其评论与昵称不再出现在前台/搜索/通知；③ 写入侧：`POST /comments` 增加服务端守卫——正文匹配 `/^第\d+条走查感想|走查：|e2e/i` 或作者 `is_test=1` 时返回 403 且不入库（不依赖前端脚本自觉）；④ 巡检：`scripts/assert/no-walk-comments.mjs` 加一条「连续两次调用间隔 5 分钟，两次模板评论数均为 0」，确保不是清完又被写。断言：线上 answer 18 正文匹配 `/走查感想|走查：|e2e/i` 且未删除的评论数 = 0；`/question/6` 首条回答评论数 ≥35（不得误删真人评论）；`/api/users?q=沈舟拾` 返回 0；用「走查42」token POST 一条「第1条走查感想：测试」必须 403 且评论数不变。
+- [x] Z1169 评论模板污染从 15 条涨到 20 条（20 个「沈舟拾NNNN」连号），03:36 仍在写入——Z1165 的收窄止血版（P0，可信度）：2026-11-18 04:05 实测 `GET /api/comments?target_type=answer&target_id=18` `total=71`（第 41 轮为 55），去重后 `走查感想` 模板评论 **20 条 / 20 个账号**，created_at 16:29–**03:36:54**，即上一轮走查之后仍持续写入。要求：① 先做「不需要等守护」的止血：直接对 answer 18 现有 20 条模板评论执行软删（`is_deleted=1`，不物理删、不改 id、同步 `comment_count`），并顺带删除本轮走查写入的 `走查42` 在 q1514 的 2 条评论；② 同一事务内把 20 个「沈舟拾NNNN」账号置 `is_test=1`，使其评论与昵称不再出现在前台/搜索/通知；③ 写入侧：`POST /comments` 增加服务端守卫——正文匹配 `/^第\d+条走查感想|走查：|e2e/i` 或作者 `is_test=1` 时返回 403 且不入库（不依赖前端脚本自觉）；④ 巡检：`scripts/assert/no-walk-comments.mjs` 加一条「连续两次调用间隔 5 分钟，两次模板评论数均为 0」，确保不是清完又被写。断言：线上 answer 18 正文匹配 `/走查感想|走查：|e2e/i` 且未删除的评论数 = 0；`/question/6` 首条回答评论数 ≥35（不得误删真人评论）；`/api/users?q=沈舟拾` 返回 0；用「走查42」token POST 一条「第1条走查感想：测试」必须 403 且评论数不变。 ✅ (2026-11-18 第四十三轮：线上已清理——`scripts/purge-walk-comments.js` 软删 28 条（answer#18 的 20 条 R1 + 3 条「走查：」+ answer#8/#1496 的 3 条 `[e2e]` + answer#1512 的 2 条「走查第42轮」），21 个「沈舟拾NNNN」号置 `is_test=1`，`answer#18 comment_count 42→19`，写库前已 `db.backup()` 到 `data/backups/`；`POST /comments` 服务端守卫（正文 R1–R4 一律 403，不入库、不重算、不发通知），规则与脚本共用 `content-filter.isWalkProbeContent` 单一来源；新增 `assert/no-walk-comments.mjs`（双采样模板 0 / 抽样 10 个回答无沈舟拾可见评论 / 模板正文 403 且正常正文 201 / 自注册自清理），线上 PASS 300.7s；`probe-round15` 18 步 PASS，home + ask-answer 冒烟 PASS。口径修正：`answer#18` 真人存活评论实为 19 条（42−23 探针），原「≥35」是错的口径，断言改为「可见 total ≥35 + 未隐藏沈舟拾号有可见产出 = 0」)
   verify: node scripts/assert/no-walk-comments.mjs
   risk: med
 
@@ -897,3 +898,10 @@
 - [ ] Z1172 390 下隐藏的桌面搜索输入框仍可 Tab 聚焦（P2，可访问性/可自动化性）：390×844 实测 `input[aria-label="搜索"]` 计算样式 `display:inline-block`、`visibility:visible`、`tabIndex=0`，但 `getBoundingClientRect()` 为 `0×0`；同组还有 `button[aria-label="提交搜索"]` 0×0 可聚焦。后果：键盘 Tab 会落到看不见的输入框、无法输入；本轮走查脚本按该选择器 `fill` 直接 **30s 超时**（证据 `docs/runs/walk-0349-m7-err.png`，此时画面仍停在信息流）。真入口 `button[aria-label="打开搜索"]` 功能正常（点击后全屏层自动聚焦、输入 61ms、结果 2.0s）。要求：① ≤767px 时桌面搜索框与其提交按钮不进可访问树（`display:none`，或 `inert` + `tabIndex=-1`）；② 手机全屏搜索层的输入框在关闭时同样 `inert`，避免焦点落回隐藏节点；③ 不改桌面搜索行为。断言 `scripts/assert/no-hidden-focusable.mjs`：390/360 下所有 `input`/`button` 中 `getBoundingClientRect().width===0 || height===0` 的元素必须 `display:none` 或 `inert`（`element.matches(':focus-visible')` 永不为真），连续 Tab 20 次 `document.activeElement` 均可见（宽高 >0）；1440 下桌面搜索框可见且可输入。
   verify: node scripts/assert/no-hidden-focusable.mjs
   risk: low
+
+## 第十八轮待办（2026-11-18 04:55，第四十三轮验收）
+
+- [ ] Z1175 走查探针仍在持续注册「沈舟拾NNNN」空号（P1，数据卫生）：第四十三轮清理后 `GET /api/users?q=沈舟拾` 仍有 4 条（如 id 2953 的 `沈舟拾3372`、id 2959 的 `沈舟拾9999`，均 `is_test=0`、零发帖），说明还有别的定时任务在按模板批量注册走查账号。要求：① 定位并改造注册方（`scripts/e2e/*` / 走查脚本），禁止「固定前缀 + 4 位流水号」昵称，改成不会沉淀在用户列表里的形态；② 服务端在 `POST /auth/register` 对 `^沈舟拾\d{4}$` 形态昵称直接 403（或强制 `is_test=1`），从根上断掉这类号进入公开用户列表；③ 清理现存 4 个空号（软隐藏，不物理删）。断言 `scripts/assert/no-walk-accounts.mjs`：`GET /api/users?q=沈舟拾` 返回 0；用该形态昵称注册必须 403 或返回用户 `is_test=1`；`--self-test` 在副本库植入 2 个该形态号必须被检出。
+  verify: node scripts/assert/no-walk-accounts.mjs
+  risk: low
+
