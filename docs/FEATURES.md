@@ -1134,7 +1134,7 @@
   verify: node scripts/assert/comment-publish-ok.mjs
   risk: med
 
-- [ ] Z1227 评论计数三套口径 + `limit` 参数失效：页面「23 条评论 / 收起评论（23）」，API `total: 69`，且 `?limit=1` 实际返回 62 条（P1，文本质量/可信度；Z1221 未修并新增分页缺陷）｜verify: node scripts/assert/comment-count-api.mjs｜risk: low｜2026-11-18 22:20 实测：`curl /api/comments?target_type=answer&target_id=18&limit=1` → `{"total":69,...}` 返回 `items.length=62`；页面 `m2` 按钮文本 `23 条评论`、展开后 `收起评论（23）`。要求：① 页面计数一律取 `total`；② `limit` 生效（`limit=1` → 1 条）并返回 `page/page_size/has_more`；③ 展开按钮文案与面板总数同源。断言 `scripts/assert/comment-count-api.mjs`：对 3 个 target，`limit=1` 返回 `items.length===1`；页面「收起评论（N）」的 N 等于 API `total`；同一回答展开前后计数一致；连跑 2 次一致。
+- [x] Z1227 评论计数三套口径 + `limit` 参数失效：✅ (2026-11-18 第六十六轮 devin swe-2-medium：`GET /comments` 的 `total` 改为「公共可见过滤 + is_deleted=0 的全部行（含各级回复、不含删除占位）」，与页面同源（answer#18: 69/62/23 三套 → 统一 23）；新增 `limit`(1–100，作用于顶层)/`offset` 与 `page/page_size/has_more`，非法参数 400；前端 `Question.tsx` 删掉 `visibleCommentCount` 本地重算，`displayCommentCount` 一律取接口 `total`（兜底 comment_count），发布/删除乐观同步。新增 `scripts/assert/comment-count-api.mjs`（临时实例+库副本，3 个 target limit=1/分页/非法参数/页面 N=M=total/三态不跳变/__errs 空），连跑 2× PASS，verify 3.78s；回归 comment-count-parity / comment-count / comment-publish-ok / comment-assert-hardening / ask-answer 全 PASS。另修 `comment-assert-hardening.mjs` 基线遗留的错字面量守卫（`=== "2 条评论"` → `\d+ 条评论` 正则，夹具早已 3 条）。原始描述：页面「23 条评论 / 收起评论（23）」，API `total: 69`，且 `?limit=1` 实际返回 62 条（P1，文本质量/可信度；Z1221 未修并新增分页缺陷）｜verify: node scripts/assert/comment-count-api.mjs｜risk: low｜2026-11-18 22:20 实测：`curl /api/comments?target_type=answer&target_id=18&limit=1` → `{"total":69,...}` 返回 `items.length=62`；页面 `m2` 按钮文本 `23 条评论`、展开后 `收起评论（23）`。要求：① 页面计数一律取 `total`；② `limit` 生效（`limit=1` → 1 条）并返回 `page/page_size/has_more`；③ 展开按钮文案与面板总数同源。断言 `scripts/assert/comment-count-api.mjs`：对 3 个 target，`limit=1` 返回 `items.length===1`；页面「收起评论（N）」的 N 等于 API `total`；同一回答展开前后计数一致；连跑 2 次一致。
   verify: node scripts/assert/comment-count-api.mjs
   risk: low
 
@@ -1148,4 +1148,22 @@
 
 - [ ] Z1230 问题页 6 个「关注」按钮无对象：`关注问题` + 5 个文本完全相同的 `+ 关注`，`aria-label` 全为 null（P2，认知负荷/无障碍；balance「选项必须可辨识」）｜verify: node scripts/assert/follow-button-label.mjs｜risk: low｜2026-11-18 22:15 实测 `/question/6`（手机与桌面一致）：`[{t:"关注问题",aria:null},{t:"+ 关注",aria:null}×5]`；点击后变为 `已关注`、`aria-pressed=true`，但按钮身份仍不唯一。要求：① 答主按钮文本或 `aria-label` 含作者名（「关注 阿罗」）；② 问题级按钮固定文案「关注问题」；③ 同一页面不存在两个文本与 aria-label 均相同的关注按钮。断言 `scripts/assert/follow-button-label.mjs`（390×844 + 1440×900）：页内所有关注按钮的可访问名两两不同；每个 `aria-label` 或文本含「问题」或作者昵称；点击后 `aria-pressed=true` 且 `getBoundingClientRect` 位移 <2px；`window.__errs` 空。
   verify: node scripts/assert/follow-button-label.mjs
+  risk: low
+
+## 第五十四轮待办（2026-11-18 23:33，走查；HEAD 3bf4041）
+
+- [ ] Z1231 评论计数在**同一页面内**也不一致：刷新后折叠按钮「26 条评论」、展开面板「收起评论（24）」、API `total=69`，`?limit=1` 仍返回 62 条（P1，文本质量/可信度；Z1227 未修，本轮新增同屏矛盾证据）｜verify: node scripts/assert/comment-count-api.mjs｜risk: low｜2026-11-18 23:12 实测（`walk-2309-d17-comment-reload.png`）：发评论 201 后刷新，`document.body.innerText` 同时含 `26 条评论` 与 `收起评论（24）`；`GET /api/comments?target_type=answer&target_id=18&limit=1` → `{total:69, items:62}`，响应键只有 `[target_type,target_id,total,items]`。要求：① 页面折叠按钮与展开面板标题取同一字段，且等于 `total`；② `limit` 生效并返回 `page/page_size/has_more`；③ 不引入新的第四个数字（元信息区不重复回答/评论数）。断言 `scripts/assert/comment-count-api.mjs`：对 3 个 target，`limit=1 → items.length===1`、`limit=5 → items.length===5`；页面「N 条评论」=「收起评论（N）」= API `total`；两视口各跑一次、连跑 2 次一致；`window.__errs` 空。
+  verify: node scripts/assert/comment-count-api.mjs
+  risk: low
+
+- [ ] Z1232 评论成功提示是**底部悬浮 toast，遮住下方正文**，且「发布评论」按钮贴容器右缘 ~8px；新评论在列表中无任何高亮（P2，视觉；game-detail-bar「反馈贴在动作发生处」）｜verify: node scripts/assert/comment-success-inline.mjs｜risk: low｜2026-11-18 23:11 视觉复核 `docs/runs/walk-2309-m6.png`（vision 3/5）：「黑色『评论已发布』toast 位于底栏上方、压住作者正文；『发布评论』右侧与输入卡片右边缘齐平，内边距不足；新评论与普通评论混在一起，无背景/分割强调」。要求：① 成功反馈改为输入框下方内联状态条（`role="status"`，绿色 13px，2s 淡出），不得 `position: fixed`；② 「发布评论」与输入框右缘对齐，容器内边距 ≥12px；③ 刚发布的评论加 `data-new="1"` 并在 2s 内浅蓝底高亮；④ 同时让 Z1228 的失败态复用同一容器。断言 `scripts/assert/comment-success-inline.mjs`：提交一条自然评论后，`.answer__comment-form [role=status]` 存在、与 textarea 间距 <24px、`position !== 'fixed'`、与 `article` 的 rect 不相交；新评论节点 `data-new` 存在且 `getBoundingClientRect` 落在评论列表内；「发布评论」右缘与 textarea 右缘差值 <2px；`document.body.scrollWidth === 390`；`window.__errs` 空。
+  verify: node scripts/assert/comment-success-inline.mjs
+  risk: low
+
+- [ ] Z1233 写回答「发布回答」**禁用态与可用态同为浅蓝**，空文本与有内容肉眼不可分辨；手机版编辑器下方塞「热榜」列表并被底栏截断（P2，视觉/可负担性；intuitive-game-design「affordance：状态必须可读」）｜verify: node scripts/assert/answer-editor-state.mjs｜risk: low｜2026-11-18 23:26 视觉复核 `docs/runs/walk-2309-m20-write-editor-detail.png`（vision 3/5）：「发布按钮呈浅蓝禁用态，填入文字后颜色无变化；编辑器下方出现热榜，第二条被底栏截断」；`d20` 桌面版另有「发布按钮右缘距卡片 8px、下方留白 80–90px」。要求：① 空文本时按钮 `disabled` 且文案为「写点什么才能发布」，有内容时恢复「发布回答」且为实心 `btn--primary` 深蓝（对比度差 ≥ 3:1）；② 手机版编辑器区域不渲染热榜侧栏内容，底部留 ≥24px 安全间距；③ 桌面版发布按钮右缘与 textarea 右缘对齐。断言 `scripts/assert/answer-editor-state.mjs`：打开 `/question/6` 点「写回答」后，空 textarea 时按钮 `disabled===true` 且文本含「写点什么」；`fill` 40 字后 `disabled===false`、`backgroundColor` 与空态不同、`getComputedStyle` 对比度 ≥3；390×844 下编辑器 `getBoundingClientRect().bottom + 24 <= innerHeight` 且其后无 `aside`/热榜节点；两视口 `window.__errs` 空；连跑 2 次一致。
+  verify: node scripts/assert/answer-editor-state.mjs
+  risk: low
+
+- [ ] Z1234 两处标题/说明**孤字成行**：桌面首页首帖标题「…能举个真会出 bug 的例子吗？」的「吗？」独占一行；通知空态「会出现在这里」的「里」独占一行（P2，视觉/排版；game-detail-bar「UI 不许溢出/断裂」）｜verify: node scripts/assert/text-wrap-orphan.mjs｜risk: low｜2026-11-18 23:27 视觉复核 `docs/runs/walk-2309-d1.png`（vision 3/5）与 `walk-2309-m9.png`（vision 3/5）：「首帖标题末尾『吗？』孤字成行」「『里』被单独折行悬挂」。要求：① 信息流标题与空态说明统一加 `text-wrap: pretty`（不支持时 `balance`），标题 `line-clamp` 不为 1；② 空态说明短文缩短或在 `max-width` 内换行，禁止末行 <2 字；③ 不靠写死 `<br>` 规避。断言 `scripts/assert/text-wrap-orphan.mjs`：对首页前 10 个标题与 `/notifications` 说明文字，用 `Range` 逐字测量 `getClientRects()`，末行字符数 ≥2（否则 FAIL）；两视口 `document.body.scrollWidth === innerWidth`；`window.__errs` 空。
+  verify: node scripts/assert/text-wrap-orphan.mjs
   risk: low
