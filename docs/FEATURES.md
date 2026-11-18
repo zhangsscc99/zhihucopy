@@ -905,3 +905,21 @@
   verify: node scripts/assert/no-walk-accounts.mjs
   risk: low
 
+
+## 第十八轮待办（2026-11-18 05:26，第四十三轮走查）
+
+- [ ] Z1173 生产库夹具在走查进行中仍在新增（「巡检回答 r-mwlnfhs0-114q」发布于走查的 6 分钟内），Z1168 的写入闸门仍未落地（P0，可信度，最高优先）：2026-11-18 04:53–05:26 走查实测，推荐流第 1 条 `q1647`「走查问题220834？」（作者「真人nmwll1ltv060r」，created_at **03:49:41**，即上一轮走查结束后 15 分钟，0 关注 / 1 回答 / 42 浏览 / 无摘要），第 3 条 `q1514`「关注流新回答场景的提问 mwli8tyu」，第 4 条 `q1493`「走查问题654709？」；更关键的是 04:56（手机遍）与 05:02（桌面遍）之间，`/question/1647` 下新增第二个回答「巡检用户 · 巡检回答 r-mwlnfhs0-114q：先说结论，再给依据。 · 发布于 刚刚」——由别的自动化在**走查期间**写入生产库。证据 `docs/runs/walk-0510-m1-home.png`、`walk-0510-1-home.png`、`walk-0510-3-scrolled.png`。要求：① 先落写入闸门（这是根因，优先于清理）：所有 `scripts/assert/*`、`scripts/e2e/*`、`scripts/seed*`、`scripts/*clean*` 写库前必须显式 `ZH_ALLOW_PROD_WRITE=1` 且目标库路径非生产，否则退出并打印目标库；② 夹具一律打 `is_fixture=1`，读路径（`/feed/recommended`、`/feed/hot`、`/search`、问题详情、用户页）默认过滤；③ 新增巡检 `scripts/assert/no-live-fixture.mjs`：连续两次调用间隔 5 分钟，两次都要求 `GET /feed/recommended?page_size=20` 前 20 条中标题匹配 `/[a-z]{4,}\d[a-z0-9]{2,}|走查|巡检/` 或作者昵称匹配 `/^(真人|巡检|走查)[a-z]?\d/` 的条数 = 0，且两次之间新增问题数（`created_at` 在窗口内且命中上述模式）= 0；④ 清理脚本覆盖 `q1647`、`q1493`、`q1514` 与 `巡检用户`/`真人nmwll1ltv060r` 等账号（软删 + `is_test=1`，不物理删），并保留真人内容（「独居四年…」「写了三年 React…」）。断言：巡检脚本两次调用均 PASS；`GET /api/users?q=巡检`、`?q=nmwll` 返回 0；390/1440 首屏 vision 抽检无流水号标题。
+  verify: node scripts/assert/no-live-fixture.mjs
+  risk: high
+
+- [ ] Z1174 评论发布对正常用户 100% 失败，且错误文案指控性错误「该内容不符合社区规范」（P0，核心功能断链）：2026-11-18 05:0x 实测，新注册账号「走查43」（id 3010）在 `/question/1647` 与 `/question/6` 下各发一次「第43轮走查：这条回答的思路我记住了，回头在自己项目里试一下。」，两次都返回 403，前端弹红色 toast「该内容不符合社区规范，请修改后再发布」，输入框保留原文、按钮文案仍是「发布评论」（无失败态、无「为什么/怎么改」），console 记录 1 条 403。Z1169 的服务端守卫把「正文匹配 `/走查：/`」和 `is_test=1` 账号一并拦死，副作用是把正常句子（只要含「走查」）和所有 API 注册账号一起拒了。证据 `docs/runs/walk-0510-m5-comment.png`。要求：① 守卫收窄为**强模板匹配**（`/^第\d+条走查感想/` 等以模板开头的整句）或 `author.is_test=1`，普通含「走查」字样的正文放行；② 前端区分错误类型：403 且 `code=CONTENT_REJECTED` → toast 说明具体规则并给出「修改后重试」，其它 4xx/5xx → 「发布失败，请稍后重试」，按钮在请求中进 loading、失败后可再次点击；③ 输入框内容在失败时保留（现状正确，勿回退）；④ 守护 `scripts/assert/comment-post.mjs`：新建普通账号（非 `@test.dev`）发「第43轮走查：这条思路我记住了」必须 200 且 1.5s 内出现在评论区；发「第1条走查感想：测试」必须 403 且前端 toast 含「社区规范」以外的具体原因；`window.__errs` 为空。
+  verify: node scripts/assert/comment-post.mjs
+  risk: high
+
+- [ ] Z1175 手机端问题页元信息逐字断行，被拆成「望山的/人」「1/天前」「19 人关/注」（P1，视觉硬伤，本轮最严重排版问题）：390×844 下 `/question/6` 刷新后截图显示作者行「望山的人 提问于 1 天前 · 19 人关注 · 11 个回答 · 7154 次浏览」被拆成两行碎片，昵称在「的/人」处断开、数字与单位断开（「19 人关 / 注」「11 个回 / 答」「7154 次 / 浏览」），vision 判为「像乱码，2.5/5」。证据 `docs/runs/walk-0510-m11-persist.png`。要求：① 元信息容器 `display:flex; flex-wrap:wrap; gap:4px 8px`，每个片段包一层 `white-space:nowrap`（或整行 `white-space:nowrap` + `overflow:hidden;text-overflow:ellipsis`），保证「数字+单位」「昵称」不被拆开；② 昵称超长时只在昵称内部截断（`max-width:8em` + ellipsis），不带垮后面的数值；③ 不改文案与顺序、不改桌面端（1440 原本正常）。断言 `scripts/assert/question-meta-mobile.mjs`：390/360 下 `?/question/6` 的作者行每个 `span`（昵称/时间/关注/回答/浏览）`getClientRects().length===1`（不换行成两行）；`document.body.scrollWidth===clientWidth`；该行总高 ≤ 2 行（`getBoundingClientRect().height < 2.2 倍行高`）；1440 下该行仍是单行。
+  verify: node scripts/assert/question-meta-mobile.mjs
+  risk: low
+
+- [ ] Z1176 手机回答操作栏「反对」被压成竖排两字、评论框带 PC resize 角标、错误 toast 压住底栏（P2，视觉/手感）：390×844 下 `/question/1647` 评论区展开后，「已赞同 1 / 反对 / 1 条评论 / 收藏 / 分享」一行里「反对」两个字被挤成上下两行（vision 判「视觉观感极差」）；`textarea` 右下角出现浏览器原生拖拽缩放角标（PC 端控件混入移动端）；失败 toast 直接叠在固定底栏之上，遮住「通知/我」。证据 `docs/runs/walk-0510-m5-comment.png`。要求：① 操作栏在 ≤767px 下改为可换行网格或收进「…」更多菜单，保证任一按钮内文字 `getClientRects().length===1`；② 移动端 `textarea { resize: none }`（或 CSS `resize:vertical` 且隐藏角标）；③ toast 定位抬到底栏之上（`bottom: calc(var(--tabbar-h) + 12px)`）或有底栏时改为顶部下滑条，不遮挡任何可点元素。断言 `scripts/assert/answer-actions-mobile.mjs`：390/360 下每个操作按钮 `innerText.trim().length>1` 时 `getClientRects().length===1`；`getComputedStyle(textarea).resize === "none"`；toast 可见时其 `getBoundingClientRect().bottom <= 底栏 top` 或 `top >= 0`（不重叠）；无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/answer-actions-mobile.mjs
+  risk: low
