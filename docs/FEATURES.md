@@ -901,7 +901,7 @@
 
 ## 第十八轮待办（2026-11-18 04:55，第四十三轮验收）
 
-- [ ] Z1178 走查探针仍在持续注册「沈舟拾NNNN」空号（P1，数据卫生）：第四十三轮清理后 `GET /api/users?q=沈舟拾` 仍有 4 条（如 id 2953 的 `沈舟拾3372`、id 2959 的 `沈舟拾9999`，均 `is_test=0`、零发帖），说明还有别的定时任务在按模板批量注册走查账号。要求：① 定位并改造注册方（`scripts/e2e/*` / 走查脚本），禁止「固定前缀 + 4 位流水号」昵称，改成不会沉淀在用户列表里的形态；② 服务端在 `POST /auth/register` 对 `^沈舟拾\d{4}$` 形态昵称直接 403（或强制 `is_test=1`），从根上断掉这类号进入公开用户列表；③ 清理现存 4 个空号（软隐藏，不物理删）。断言 `scripts/assert/no-walk-accounts.mjs`：`GET /api/users?q=沈舟拾` 返回 0；用该形态昵称注册必须 403 或返回用户 `is_test=1`；`--self-test` 在副本库植入 2 个该形态号必须被检出。
+- [x] Z1178 走查探针仍在持续注册「沈舟拾NNNN」空号（P1，数据卫生）：① `POST /auth/register` 昵称命中 `isWalkAccount()`（复用 `content-filter.js` 的 `WALK_ACCOUNT_NICK_RE` 单一来源）即落 `is_test=1` —— 选 is_test 而非 403，因为外部走查任务依赖注册成功；② 新增 `scripts/hide-walk-accounts.js`（默认 dry-run；`--apply` 前 `db.backup()` 到 `data/backups/`；事务内置 `is_test=1` 软隐藏，不物理删；命中 `^沈舟拾\d{4}$` 且零产出的号，有产出打印 SKIP；支持 `--db`）；③ 存量清理：生产库命中 12 / 置 is_test 12 / 剩余未隐藏 0（33 个沈舟拾号全部 is_test=1），备份 `data/backups/zhihu-20261118-0641.db`；④ 新增 `scripts/assert/no-walk-accounts.mjs`（5 项：`/users?q=沈舟拾` 为 0、注册探针 201 且 `is_test===1`、探针号搜索不可见、`q=review` 不含该形态、`--self-test` 副本库植入 2 号必须被隐藏） ✅ (2026-11-18 第四十五轮 devin swe-2-medium：`auth.js` 注册落 is_test + `util.selfUser` 透出 `is_test`（仅本人视角）；线上 verify PASS、home/ask-answer 冒烟 PASS、`npm --prefix server test` 57 pass；`no-walk-comments.mjs` 线上 PASS 300.6s)
   verify: node scripts/assert/no-walk-accounts.mjs
   risk: low
 
@@ -953,4 +953,10 @@
 
 - [ ] Z1185 桌面首页右栏「热榜」10 条全部单行省略截断，卡片高矮不齐（P2，视觉/信息密度）：2026-11-18 06:55 实测 1440×900 首页，右栏热榜每条标题被 `text-overflow: ellipsis` 截成单行（如「JavaScript 的 event loop 到底该怎么理解？Promise 和 set…」），#3/#4/#5 中长标题信息直接丢失；左栏同时出现「有摘要卡片（3 行高）」与「无摘要卡片（1 行高）」交替，节奏不齐。vision 判「层级 3/5、质感 2/5，右栏热榜过密且截断多」。证据 `docs/runs/walk-0629-d1-home.png`。要求：① 热榜条目允许最多 2 行（`-webkit-line-clamp:2`）并保留序号列对齐；② 左栏卡片统一最小高度，无摘要时用单行 `摘要缺失` 兜底不渲染空白，或统一改为「标题 + 元信息」两段式；③ 断言 `scripts/assert/home-desktop-rhythm.mjs`：1440 下右栏前 10 条中 `scrollHeight>clientHeight`（被截断）的条数 ≤2；左栏前 8 张卡片高度标准差 < 12px；`document.body.scrollWidth===clientWidth`；`window.__errs` 为空。
   verify: node scripts/assert/home-desktop-rhythm.mjs
+  risk: low
+
+## 第十九轮待办（2026-11-18 07:05，Z1178 收尾回填）
+
+- [ ] Z1186 is_test 空号持续累积（235/594 账号，40%）没人回收（P2，数据卫生，Z1178 收尾）：Z1178 已让「沈舟拾NNNN」类昵称注册即落 `is_test=1`、并从公开用户列表消失，但外部走查任务仍每 ~10 分钟注册一个新号，`users` 表 `is_test=1` 已达 235 行且全部零产出（0 问 0 答 0 可见评论），长期会让用户表与 `/api/users` 扫描无谓变大。要求：① 新增 `scripts/prune-test-users.js`（默认 dry-run，`--apply` 前 `db.backup()`，生产走 `prod-write-gate.js` 闸门）：物理删除 `is_test=1` 且零产出且 `created_at` 早于 7 天的账号（保留最近 7 天供走查回溯），打印命中清单与汇总；② 幂等，重复跑输出 `0 条需处理`；③ 断言 `scripts/assert/prune-test-users.mjs`：`--self-test` 在副本库植入 3 个过期 is_test 空号 + 1 个有产出的 is_test 号 + 1 个真人号，跑 `--apply --db 副本` 后仅 3 个过期空号被删、其余保留；线上 dry-run 不写库（退出后 `is_test` 计数不变）。
+  verify: node scripts/assert/prune-test-users.mjs
   risk: low
