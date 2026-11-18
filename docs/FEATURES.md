@@ -839,3 +839,21 @@
 - [x] Z1160 全站 `document.title` 恒定，标签页与分享无区分（P2，可预期性/品牌）：首页、`/question/6`、`/search?q=…`、`/u/27`、`/notifications` 的 `document.title` 全是「知乎（仿） · 有问题，就会有答案」，多开标签或分享链接时无法分辨。要求：新增轻量 `usePageTitle(title?)` hook，按路由设置「<主体> · 知乎（仿）」——问题页 `问题标题`（>30 字截断加「…」）、用户页 `昵称`、搜索页 `“关键词” 的相关结果`、话题页 `话题名`、热榜 `热榜`、通知 `通知`、未匹配回落站点默认标题；加载中/失败回落到默认标题，不得出现「undefined」「null」；不改 `index.html` 静态 title（首屏 SEO 保持）、不改路由结构。断言 `scripts/assert/page-titles.mjs`：五类页面 `document.title` 互不相同且均以「 · 知乎（仿）」结尾；问题页含该题标题前 8 个字；搜索页含关键词；返回首页后 title 恢复默认；任何页面 title 不含 `undefined`/`null`；双端无横向溢出、`window.__errs` 为空；反向自检线上 FAIL（五处 title 相同）。 ✅ (2026-11-17 第三十九轮：新增 `client/src/lib/usePageTitle.ts`（`主体 · 知乎（仿）`、>30 字截断补「…」、空值回落站点默认标题、卸载不恢复），接入 Question/Profile/Topic/Notifications/Home（搜索页 `“关键词” 的相关结果`、热榜 `热榜`）与 Me；新增 `assert/page-titles.mjs` 3 连跑 PASS（首页默认标题 / 问题含标题前 8 字 / 搜索含关键词 / 用户页以昵称开头 / 六页 title 两两不同 / 回首页恢复默认 / 无 undefined），反向自检线上 FAIL「title 去重后仅 1 个」，home/notifications/search-recall 无回归)
   verify: node scripts/assert/page-titles.mjs
   risk: low
+
+## 第十六轮待办（2026-11-18 00:40，第四十轮走查）
+
+- [ ] Z1161 用户简介「句首」重复，身份仍像造出来的（P1，内容厚度，Z1158 收尾）：DB 直读 240 个有 bio 用户里有 **12 组句首重复 ≥4 人**（最多 7 人同句：「在做内部平台，一半时间写代码一半时间开会。」「做用户研究，擅长把抱怨翻译成需求。」「做业务系统，最怕接手没人敢改的祖传代码。」各 7 人），另有 **167 个空 bio**；线上 `?q=阿罗&type=user` 里「阿罗夜读」「阿罗笔记」开头同为「做 SaaS 后端，接口文档写得比代码还细。」。要求：① 扩 `scripts/seed-data/user-bios.js` 主句池到 ≥160 句（按 10 领域 × ≥16 句，句句带具体职业实指，禁止「在做 X，一半时间…」这类同一句式批量复制）并保留补语池做差异化；② 新增 `scripts/fix-bio-variety.js`（默认 dry-run，`--apply` 先 `db.backup()`，生产须 `--prod` + `ZH_ALLOW_PROD_WRITE=1`，幂等）：对「句首相同 ≥3 人」的组，保留组内最小 id，其余从池中取**全库未被占用**的新主句重写 bio；空 bio 用户（排除 `@test.dev`/`is_test`）一律补一句与昵称语义相容的简介；只改 `users.bio`，不动 id/昵称/密码/发帖关系；③ 同步 `seed.js` 的 bio 分配（写库前按全库句首去重挑选）；④ 用户搜索与邀请弹窗的行副行信息保持不变。断言 `scripts/assert/bio-variety.mjs`：DB 直读「句首（到第一个「。」）重复 ≥3 人」的组数 = 0、空 bio（非测试号）占比 ≤2%、抽样 30 条 bio 两两首句不同且长度 ≥10 字；线上 `?q=阿罗&type=user` 前 7 行首句两两不同；`--self-test`（副本库植入 6 个同句首用户 + 3 个空 bio）必须检出；1440/390 无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/bio-variety.mjs
+  risk: high
+
+- [ ] Z1162 搜索空态否认自己 tab 里的命中（P2，状态一致性）：`/search?q=租约` 页面 headline 写「“租约” 的相关结果 · 0 条」、空态写「没有找到与“租约”相关的内容」，而同一页 tab 写「问题 0 / **回答 1** / 用户 0」——接口 `counts.answer=1`，唯一命中被默认 tab（问题）吞掉且没有引导；用户会直接判定「搜不到」。要求：① headline 数字改用**全部类型命中合计**（`counts.question+answer+user`），为 0 时才写「0 条」；② 当前分类为空但其它分类有命中时，空态文案改为「问题里没有匹配，回答中有 1 条」+ 一个可直接切到该分类的按钮（复用现有 tab 切换，不改路由结构）；③ 真正零命中时保持现有空态与「换个关键词 / 去提问」双出口；④ 分类 tab 的计数口径与列表条数保持现有语义（不改后端）。断言 `scripts/assert/search-empty-consistency.mjs`：`?q=租约` headline 数字 ≥1 且空态含「回答中有 1 条」、点该引导后落到 `type=answer` 且列表 ≥1 条、headline 与列表条数一致；`?q=zzzzqqq`（零命中）headline 为 0 且保留双出口；`?q=useEffect 清理`（问题有命中）不出现「回答中有」引导；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上 FAIL（headline 写 0）。
+  verify: node scripts/assert/search-empty-consistency.mjs
+  risk: low
+
+- [ ] Z1163 信息流卡缺「赞同数」，读不出内容分量（P2，信息密度/品牌视觉）：首页 `.feed__item` 只有 标题 / 两行摘要 / 作者 / 「10 答」/「6857 浏览」/ 话题胶囊，没有真知乎卡片底行的赞同数；同一张卡在热榜与推荐里信息完全一致。要求：① 卡底 `feed__meta` 内补「赞同 N」（取接口已有 `vote_up`，与详情页赞同数同口径；缺失字段才隐藏，不得前端假造）；② 只做**信息行**，不加点击/弹层等任何交互，不新增独立模块、不改卡片高度节奏（标题→摘要→元信息→胶囊 顺序不变）；③ 热榜 tab 的排名色块与「N 热度」保留；④ 390 下元信息仍在单行内、不换行、不溢出。断言 `scripts/assert/feed-card-votes.mjs`：首页 20 张 `.feed__item` 中 ≥18 张的元信息含「赞同 」且数字与该题 `/api/questions` 的 `vote_up` 一致（抽样 5 张 API 双口径）；卡片内 `button` 数不变（0 个新增）；热榜 tab 仍有排名块与「热度」；1440/390 `scrollWidth-clientWidth=0`、`window.__errs` 为空；反向自检线上 FAIL（元信息不含「赞同」）。
+  verify: node scripts/assert/feed-card-votes.mjs
+  risk: low
+
+- [ ] Z1164 顶栏「注册」入口丢 `next`，从那儿注册会落首页（P3，可预期性）：登录页表单内「注册一个」正确带 `?next=`，但顶栏/底栏导航的「注册」是裸 `/register`；用户在 `/login?next=/question/6` 点顶栏「注册」注册成功后回到 `/`，原本的点赞/关注意图丢失。要求：`/login`、`/register` 两页的顶栏（及移动端底栏）在 URL 有合法 `next` 时，所有站内登录/注册导航链接统一透传 `next`（沿用现有 `next.startsWith("/") && !next.startsWith("//")` 校验，非法值不透传），不改变已登录用户看到的导航，不改守卫动作的 push/replace 语义。断言 `scripts/assert/register-nav-next.mjs`：`/login?next=%2Fquestion%2F6` 上顶栏与表单内的注册链接均含 `next=%2Fquestion%2F6`；`/register?next=%2Fquestion%2F6` 上顶栏登录链接同样带 `next`；`/login?next=https://evil.com` 时链接不带 `next`；从 `/login?next=/question/6` 走顶栏注册并完成注册后落到 `/question/6`；1440/390 无横向溢出、`window.__errs` 为空；反向自检线上 FAIL（顶栏 href 为 `/register`）。
+  verify: node scripts/assert/register-nav-next.mjs
+  risk: low
