@@ -960,7 +960,7 @@
   verify: node scripts/assert/profile-tabs.mjs
   risk: low
 
-- [ ] Z1184 问题页评论区顶部「35 条评论已删除」暴露大规模清理痕迹（P2，可信度）：2026-11-18 06:46 实测 `/question/6` 首条回答展开评论后，列表顶端出现「35 条评论已删除」一行；对照 `GET /api/comments?target_type=answer&target_id=18` 返回 49 条（总数 20 可见 + 大量软删），说明历史夹具清理只做了软删、前端仍把删除数量展示给普通用户。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① 前端「N 条评论已删除」仅在 `N<=3` 且当前用户是内容作者/管理员时展示，普通访客与 N 很大时隐藏（或折叠进「查看全部」）；② 清理脚本对夹具评论改为物理删除或 `is_fixture=1` + 读路径过滤（与 Z1180 ②口径一致），不靠前端隐藏兜底；③ 断言 `scripts/assert/deleted-comments-badge.mjs`：匿名访问 `/question/6` 首答展开评论后，页面不含 `/\d+ 条评论已删除/`；管理员视角若展示，数字与 DB 软删数一致。
+- [x] Z1184 问题页评论区顶部「35 条评论已删除」暴露大规模清理痕迹（P2，可信度）：2026-11-18 06:46 实测 `/question/6` 首条回答展开评论后，列表顶端出现「35 条评论已删除」一行；对照 `GET /api/comments?target_type=answer&target_id=18` 返回 49 条（总数 20 可见 + 大量软删），说明历史夹具清理只做了软删、前端仍把删除数量展示给普通用户。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① 前端「N 条评论已删除」仅在 `N<=3` 且当前用户是内容作者/管理员时展示，普通访客与 N 很大时隐藏（或折叠进「查看全部」）；② 清理脚本对夹具评论改为物理删除或 `is_fixture=1` + 读路径过滤（与 Z1180 ②口径一致），不靠前端隐藏兜底；③ 断言 `scripts/assert/deleted-comments-badge.mjs`：匿名访问 `/question/6` 首答展开评论后，页面不含 `/\d+ 条评论已删除/`；管理员视角若展示，数字与 DB 软删数一致。 ✅ (2026-11-18 第四十八轮 devin swe-2-medium：`Question.tsx` 新增 `showMerged = mergedCount>0 && mergedCount<=3 && user && a.author.id===user.id`，合并行只对回答作者本人且 N≤3 渲染，匿名/普通访客一律不渲染；空态条件与 `visibleCommentCount` 未动，计数口径不变。新增 `scripts/assert/deleted-comments-badge.mjs`（匿名 1440/390 + 登录非作者三态均断言无「N 条评论已删除」、390 无横向溢出、含非空断言自检与 `__errs` 守卫）；副本库 3131 实例 verify PASS 5.5s、反向自检线上 FAIL 1.8s，冒烟 home/ask-answer PASS)
   verify: node scripts/assert/deleted-comments-badge.mjs
   risk: low
 
