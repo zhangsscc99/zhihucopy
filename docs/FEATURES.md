@@ -990,9 +990,11 @@
   verify: node scripts/assert/comment-ux-guard.mjs
   risk: low
 
-- [ ] Z1190 390 宽下回答操作栏挤成两排，「反对」被压成竖排（P1，视觉细节；game-detail-bar「UI 不许溢出框架」）：实测 390×844 回答卡操作栏渲染为两排：`已赞同 12 / 反对 / 收起评论(1) / 收藏 / 分享 / 发布于 2…` 中「反对」二字竖排、发布时间被截。要求：① 操作栏改为 `display:flex; gap:8px; overflow-x:auto; white-space:nowrap`（或把「收藏/分享」收进「…」溢出菜单），任一条目 `width < 40px` 视为失败；② 时间戳改用相对时间（「2 小时前」）避免截断；③ 断言 `scripts/assert/answer-actionbar-390.mjs`：390 下操作栏 `getBoundingClientRect().height` ≤ 同行高度×1.2（不换行）、每个按钮 `scrollWidth<=clientWidth`、`document.body.scrollWidth===390`、`window.__errs` 为空。
+- [x] Z1190 390 宽下回答操作栏挤成两排，「反对」被压成竖排（P1，视觉细节；game-detail-bar「UI 不许溢出框架」）：实测 390×844 回答卡操作栏渲染为两排：`已赞同 12 / 反对 / 收起评论(1) / 收藏 / 分享 / 发布于 2…` 中「反对」二字竖排、发布时间被截。要求：① 操作栏改为 `display:flex; gap:8px; overflow-x:auto; white-space:nowrap`（或把「收藏/分享」收进「…」溢出菜单），任一条目 `width < 40px` 视为失败；② 时间戳改用相对时间（「2 小时前」）避免截断；③ 断言 `scripts/assert/answer-actionbar-390.mjs`：390 下操作栏 `getBoundingClientRect().height` ≤ 同行高度×1.2（不换行）、每个按钮 `scrollWidth<=clientWidth`、`document.body.scrollWidth===390`、`window.__errs` 为空。
   verify: node scripts/assert/answer-actionbar-390.mjs
   risk: low
+  ✅ (2026-11-18 第四十七轮 devin swe-2-medium：根因=`≤767px` 段只收了 gap/内边距并用 `text-overflow:ellipsis` 截时间戳，`.answer__actions` 仍是 `flex-wrap` 默认 `nowrap` 但子项 `flex-shrink:1` 无 `white-space:nowrap` → 「反对」被压窄后逐字折行、日期被省略号吃掉。`styles.css` 改为 `flex-wrap:nowrap; gap:8px; overflow-x:auto`（隐藏滚动条）+ 子项 `flex:0 0 auto; white-space:nowrap` + `.answer__vote/.answer__action{padding:4px 8px; min-width:40px}`；`overflow-x:auto` 会连带裁掉纵向，故 `:has(.answer__fav-menu)` 时改 `overflow-x:clip` 保住收藏弹层；`Question.tsx` 拆出 `.answer__date-prefix`（≤480px 隐藏，完整时间进 `title`），桌面文案不变。新增 `scripts/assert/answer-actionbar-390.mjs`（390/360 单行 + 每个可点条目 `min-width≥40` + 无内部裁切 + 日期无省略号 + 无横向溢出 + 1440 回归 + `__errs` 空；360 的 body 溢出按 Z1175 既有顶栏缺陷做归因断言）。线上 verify PASS 8.0s，ci-deploy e2e 20 pass / 0 gate-fail；公网 200)
+
 
 - [ ] Z1191 登录/注册页 `document.title` 串成来源问题标题（P2，元信息/分享卡片）：匿名点赞跳转 `/login?next=%2Fquestion%2F54` 后，`document.title` 仍是「独居四年，怎么对抗「下班回家后的虚无感」？ · 知乎（仿）」，注册页同样如此，分享/收藏链接时标题误导。要求：`/login` 与 `/register` 路由在 `useEffect` 里设置 `document.title='登录 · 知乎（仿）' / '注册 · 知乎（仿）'`，并在离开时还原。断言 `scripts/assert/login-meta-title.mjs`：① 访问 `/login?next=/question/54` 后 `document.title` 含「登录」且不含问题标题；② `/register` 同理；③ 登录成功回跳后 `document.title` 恢复为问题标题；④ `window.__errs` 为空。
   verify: node scripts/assert/login-meta-title.mjs
@@ -1016,4 +1018,8 @@
 
 - [ ] Z1196 验证脚本被环境里泄漏的 `E2E_API` 打偏，verify 假 FAIL（P2，测试基建）：本轮 `bash scripts/verify.sh Z1181` 连跑 3 次 FAIL（`locator(‘#answer-18 … textarea’) timeout`），同一脚本裸跑 PASS——原因是 shell 环境残留 `E2E_API=http://127.0.0.1:3030/zhihucopy/api`（指向线上 3030），页面在新实例 3169 而 API 调向生产，注册出的 token 在本地实例无效 → 评论表单不出现。`scripts/e2e/lib.mjs` 优先取 `E2E_API`，而 `verify.sh` 原样继承环境，任何「临时实例验证」都会被静默打偏。要求：① `scripts/verify.sh` 在 `bash -c` 前显式 `unset E2E_API E2E_BASE E2E_BASE_URL API_BASE DB_PATH`（或全部依据 `ZH_TARGET_BASE` 重新推导）；② `lib.mjs` 起跑打印最终 `BASE/API` 两行并在 `E2E_API` 与 `E2E_BASE` 不同源时打 warning；③ 新增断言 `scripts/assert/verify-env-isolation.mjs`：在 `E2E_API` 指向不可达端口的污染环境下跑一个最小 verify，必须 PASS（证明脚本不继承外部 API 地址）。
   verify: node scripts/assert/verify-env-isolation.mjs
+  risk: low
+
+- [ ] Z1197 390 下回答操作栏改为横向滚动后没有任何「还有内容」的可视提示（P2，可发现性，Z1190 附带）：Z1190 把 ≤767px 操作栏改成 `overflow-x:auto` 且隐藏滚动条（`scrollbar-width:none`），当内容宽度超过 390（`已赞同 N / 反对 / 收起评论(k) / 收藏 / 分享 / 时间`）时，最右侧条目被无声裁在视口外，用户看不到也无法感知可滑动；同时「收藏」弹层打开时 `.answer__actions:has(.answer__fav-menu)` 改 `overflow-x:clip`，此时最右条目直接被裁掉不会滚动。要求：① 给滚动容器加右缘渐隐遮罩（`mask-image: linear-gradient(90deg,#000 calc(100% - 16px),transparent)`，滚到末位时移除）或把「收藏/分享」收进「…」菜单，二者选一并说明理由；② 保证 `收藏/分享` 在任何状态下都能被点到（不被 `clip` 裁掉），`aria` 上不隐藏；③ 断言 `scripts/assert/answer-actionbar-affordance.mjs`：390 下若容器 `scrollWidth>clientWidth` 则必须存在可滚动提示（遮罩类名或「…」按钮）且 `scrollLeft` 可增大；点击「收藏」后弹层完整可见且触发按钮 `right <= 视口宽`；任一操作按钮点击可达（`elementFromPoint` 命中自身）；`window.__errs` 为空。
+  verify: node scripts/assert/answer-actionbar-affordance.mjs
   risk: low
