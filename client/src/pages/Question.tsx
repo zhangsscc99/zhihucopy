@@ -1410,6 +1410,13 @@ export function Question() {
               const mergedCount = Array.isArray(cs)
                 ? mergedDeletedCount(cs, user?.id ?? null)
                 : 0;
+              // 「N 条评论已删除」合并行仅对回答作者本人且 N<=3 时展示：
+              // 匿名/普通访客及大额 N 都会暴露批量清理痕迹，一律不渲染。
+              const showMerged =
+                mergedCount > 0 &&
+                mergedCount <= 3 &&
+                Boolean(user) &&
+                a.author.id === user?.id;
               return (
                 <li
                   key={a.id}
@@ -1822,7 +1829,7 @@ export function Question() {
                                   </li>
                                   );
                                 })}
-                              {mergedCount > 0 && (
+                              {showMerged && (
                                 <li
                                   className="answer__comment-merged"
                                   aria-label={`${mergedCount} 条评论已删除`}
