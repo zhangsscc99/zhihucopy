@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { TopNav } from "./TopNav";
 import { useAuth } from "../auth";
@@ -57,16 +57,43 @@ function TabIcon({ kind }: { kind: "home" | "explore" | "post" | "bell" | "me" }
 export function Layout({ children, rail }: { children: ReactNode; rail?: ReactNode }) {
   const { user } = useAuth();
   const { unread } = useNotifications();
+  // 视口 ≤767px 时整页单栏；命中 noRailMobile 路由时 aside 直接不渲染（不只是
+  // display:none），保证页面 DOM 里不残留热榜的 /question/* 链接。
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia("(max-width: 767px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   // Z1166 — 登录/注册页打 auth 标记：移动端用 .shell--auth 隐藏右栏并让表单垂直居中，
   // 桌面端 rail 保持不变；不影响首页/问题页/搜索页的 .rail。
   const { pathname } = useLocation();
   const isAuth = pathname === "/login" || pathname === "/register";
+  // Z1211 — 通知/搜索/个人主页：≤767px 下右栏「热榜」不应混进页面流，
+  // 打 .shell--norailm 标记由 CSS display:none；桌面 ≥1024 右栏不受影响。
+  const noRailMobile =
+    pathname === "/notifications" ||
+    pathname === "/search" ||
+    pathname === "/me" ||
+    pathname.startsWith("/u/");
+  const shellCls = [
+    "shell",
+    isAuth ? "shell--auth" : "",
+    noRailMobile ? "shell--norailm" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div className={isAuth ? "shell shell--auth" : "shell"}>
+    <div className={shellCls}>
       <TopNav />
       <div className="container">
         <main className="main-col">{children}</main>
-        {rail && <aside className="rail">{rail}</aside>}
+        {rail && !(noRailMobile && isMobile) && (
+          <aside className="rail">{rail}</aside>
+        )}
       </div>
       <nav className="bottomnav" aria-label="底部导航">
         <NavLink to="/" end>
