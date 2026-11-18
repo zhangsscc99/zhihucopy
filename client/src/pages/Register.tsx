@@ -4,8 +4,10 @@ import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
 import { authHref, safeNext } from "../lib/nextParam";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function Register() {
+  usePageTitle("注册");
   const { user, loading, register } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();

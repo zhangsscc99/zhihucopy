@@ -10,8 +10,10 @@ import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
 import { authHref, safeNext } from "../lib/nextParam";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function Login() {
+  usePageTitle("登录");
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
