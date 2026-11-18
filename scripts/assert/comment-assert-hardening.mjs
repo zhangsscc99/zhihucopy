@@ -35,7 +35,7 @@ check(
   "comment-count.mjs 未见锚定计数断言（^N 条评论$ / trimmed 全等）"
 );
 check(
-  countSrc.includes('=== "2 条评论"'),
+  /===\s*"\d+ 条评论"/.test(countSrc),
   "comment-count.mjs 缺 trimmed 全等断言（防「12 条评论」误配）"
 );
 

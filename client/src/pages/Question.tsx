@@ -125,19 +125,13 @@ const mergedDeletedCount = (
     return n + hidden + mergedDeletedCount(c.children ?? [], selfId);
   }, 0);
 
-// 评论计数口径 = 可见且未删除/未折叠的评论数（与服务端 comment_count 一致）：
-// 「该评论已删除」占位行与合并行仍渲染但不计入；收起/展开两态共用同一数值。
-const visibleCommentCount = (list: CommentNode[]): number =>
-  list.reduce(
-    (n, c) => n + (isGoneComment(c) ? 0 : 1) + visibleCommentCount(c.children ?? []),
-    0
-  );
-
-// 已加载时按评论树统计非删除节点；未加载时回落服务端冗余列。
+// 评论计数口径 = 服务端 GET /comments 的 total（公共可见过滤 + is_deleted=0、
+// 含各级回复行；Z1227 与接口同源，不再按已加载评论树本地重算）。未取到列表
+// 时回落 answers.comment_count 冗余列；两态共用同一数值。
 const displayCommentCount = (
   a: Answer,
-  cs: CommentNode[] | "loading" | undefined
-) => (Array.isArray(cs) ? visibleCommentCount(cs) : a.comment_count);
+  totals: Record<number, number>
+) => (typeof totals[a.id] === "number" ? totals[a.id] : a.comment_count);
 
 export function Question() {
   const { id } = useParams<{ id: string }>();
@@ -202,6 +196,7 @@ export function Question() {
   const [votePending, setVotePending] = useState<Record<number, boolean>>({});
   const [openComments, setOpenComments] = useState<Record<number, boolean>>({});
   const [comments, setComments] = useState<Record<number, CommentNode[] | "loading">>({});
+  const [commentTotals, setCommentTotals] = useState<Record<number, number>>({});
   const [commentsError, setCommentsError] = useState<Record<number, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [commentSending, setCommentSending] = useState<Record<number, boolean>>({});
@@ -926,10 +921,13 @@ export function Question() {
       return next;
     });
     try {
-      const d = await get<{ items: CommentNode[] }>(
+      const d = await get<{ items: CommentNode[]; total: number }>(
         `/comments?target_type=answer&target_id=${answerId}`
       );
       setComments((cs) => ({ ...cs, [answerId]: d.items }));
+      if (typeof d.total === "number") {
+        setCommentTotals((t) => ({ ...t, [answerId]: d.total }));
+      }
     } catch (e) {
       setComments((cs) => {
         const next = { ...cs };
@@ -1061,6 +1059,12 @@ export function Question() {
       );
     setAnswers(bump);
     setMyAnswers(bump);
+    // 已取到列表的 total 同步增减，与服务端重算口径一致（乐观回写）。
+    setCommentTotals((t) =>
+      typeof t[answerId] === "number"
+        ? { ...t, [answerId]: Math.max(0, t[answerId] + delta) }
+        : t
+    );
   };
 
   const startEdit = (a: Answer) => {
@@ -1559,8 +1563,8 @@ export function Question() {
                       onClick={() => toggleComments(a.id)}
                     >
                       {openComments[a.id]
-                        ? `收起评论（${displayCommentCount(a, cs)}）`
-                        : `${displayCommentCount(a, cs)} 条评论`}
+                        ? `收起评论（${displayCommentCount(a, commentTotals)}）`
+                        : `${displayCommentCount(a, commentTotals)} 条评论`}
                     </button>
                     <div className="answer__fav">
                       <button

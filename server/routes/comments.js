@@ -90,9 +90,29 @@ function parseTarget(query) {
 }
 
 // GET /comments?target_type=question|answer&target_id=N — 两级评论树。
+// limit（1–100，作用于顶层条数，children 一并带出）/ offset 分页；total 恒为
+// 全量可见行数（is_deleted=0，含各级回复），与 limit 无关。
 router.get("/", (req, res) => {
   const target = parseTarget(req.query);
   if (target.error) return badRequest(res, target.error);
+
+  let limit = null;
+  let offset = 0;
+  if (req.query.limit !== undefined) {
+    if (typeof req.query.limit !== "string" || !/^\d+$/.test(req.query.limit)) {
+      return badRequest(res, "limit 必须是 1–100 的正整数");
+    }
+    limit = Number(req.query.limit);
+    if (limit < 1 || limit > 100) {
+      return badRequest(res, "limit 必须是 1–100 的正整数");
+    }
+  }
+  if (req.query.offset !== undefined) {
+    if (typeof req.query.offset !== "string" || !/^\d+$/.test(req.query.offset)) {
+      return badRequest(res, "offset 必须是非负整数");
+    }
+    offset = Number(req.query.offset);
+  }
 
   const db = getDb();
   if (!targetExists(db, target.targetType, target.targetId)) {
@@ -141,11 +161,18 @@ router.get("/", (req, res) => {
   }
   for (const top of tops) top.reply_count = top.children.length;
 
+  // total = 用户真正能看到的评论条数：通过可见过滤且 is_deleted=0 的全部行
+  // （含各级回复），不含「该评论已删除」占位行；与分页无关。
+  const total = rows.reduce((n, r) => n + (r.is_deleted ? 0 : 1), 0);
+  const items = limit === null ? tops.slice(offset) : tops.slice(offset, offset + limit);
   res.json({
     target_type: target.targetType,
     target_id: target.targetId,
-    total: rows.length,
-    items: tops,
+    total,
+    page: limit === null ? 1 : Math.floor(offset / limit) + 1,
+    page_size: limit === null ? items.length : limit,
+    has_more: limit === null ? false : offset + items.length < tops.length,
+    items,
   });
 });
 
