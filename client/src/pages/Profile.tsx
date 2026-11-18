@@ -150,7 +150,7 @@ function EmptyAnswers({ isMe, userId }: { isMe: boolean; userId: number }) {
       hint="可以邀请 TA 来回答你感兴趣的问题。"
       action={
         <div className="empty__actions">
-          <Link to={`/ask?invite=${userId}`} className="btn btn--primary">
+          <Link to={`/ask?invite=${userId}`} className="btn btn--outline">
             邀请 TA 回答
           </Link>
           <Link to="?tab=questions" className="btn btn--outline">

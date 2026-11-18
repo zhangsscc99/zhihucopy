@@ -2660,8 +2660,9 @@ a.ntf__title:hover {
   color: var(--ink-3);
 }
 .profile__stats {
-  display: flex;
-  gap: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin: 20px 0 0;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -3188,6 +3189,8 @@ a.ntf__title:hover {
   font-size: 12px;
   color: var(--ink-3);
 }
+/* Z1194 — 胶囊横向换行展示，不做任何裁剪：容器在移动端随 .profile__info
+   撑满卡片整行，4 枚胶囊自然排进两行内。 */
 .profile__badges .medals {
   margin-top: 0;
 }
@@ -3197,6 +3200,24 @@ a.ntf__title:hover {
   height: 24px;
   box-sizing: border-box;
   color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Z1194 — 移动端资料卡头部换行：头像 + 关注按钮留第一行，
+   昵称/简介/成就区（.profile__info）独占第二行占满卡片内容宽度，
+   成就胶囊得以横向两行排下而非 150px 宽容器里竖排 4 行。 */
+@media (max-width: 767px) {
+  .profile__head {
+    flex-wrap: wrap;
+  }
+  .profile__info {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: 1; /* DOM 里在关注按钮之后，排到第二行；头像+按钮留第一行 */
+  }
+  .profile__head .profile__follow {
+    margin-left: auto; /* 头像与按钮分居第一行两端 */
+  }
 }
 
 /* ---------- 收藏页 ---------- */
