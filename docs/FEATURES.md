@@ -1167,3 +1167,12 @@
 - [ ] Z1234 两处标题/说明**孤字成行**：桌面首页首帖标题「…能举个真会出 bug 的例子吗？」的「吗？」独占一行；通知空态「会出现在这里」的「里」独占一行（P2，视觉/排版；game-detail-bar「UI 不许溢出/断裂」）｜verify: node scripts/assert/text-wrap-orphan.mjs｜risk: low｜2026-11-18 23:27 视觉复核 `docs/runs/walk-2309-d1.png`（vision 3/5）与 `walk-2309-m9.png`（vision 3/5）：「首帖标题末尾『吗？』孤字成行」「『里』被单独折行悬挂」。要求：① 信息流标题与空态说明统一加 `text-wrap: pretty`（不支持时 `balance`），标题 `line-clamp` 不为 1；② 空态说明短文缩短或在 `max-width` 内换行，禁止末行 <2 字；③ 不靠写死 `<br>` 规避。断言 `scripts/assert/text-wrap-orphan.mjs`：对首页前 10 个标题与 `/notifications` 说明文字，用 `Range` 逐字测量 `getClientRects()`，末行字符数 ≥2（否则 FAIL）；两视口 `document.body.scrollWidth === innerWidth`；`window.__errs` 空。
   verify: node scripts/assert/text-wrap-orphan.mjs
   risk: low
+
+
+- [ ] Z1235 `ci-deploy.sh` 单次耗时 >7 分钟（内嵌全量 e2e），前台调用（调度器 420s 上限）会被打断，部署脚本的后半段（public 复核/历史记录）可能没跑完就断线（P2，工程隐患；本轮实测：build 23:14 + restart + health 200 均成功，但脚本未自然退出）｜verify: bash -c 'grep -q "SKIP_E2E\\|E2E_IN_DEPLOY=0" scripts/ci-deploy.sh'｜risk: low｜要求：把全量 e2e 从 ci-deploy 里剥离（改为可选阶段，环境变量 `E2E_IN_DEPLOY=0` 默认跳过，由独立 full-e2e 任务负责），并在每个阶段开头 `log "stage=..."` 便于中断后定位。
+  verify: bash -c 'grep -q "E2E_IN_DEPLOY" scripts/ci-deploy.sh'
+  risk: low
+
+- [ ] Z1236 评论计数仍有第二个数据源：页面已统一取接口 `total`，但 `answers.comment_count` 冗余列与 `total` 是否逐条一致没有断言（本轮 answer#18 total=23，列表页/回答卡的「N 条评论」仍可能读冗余列）（P2，可信度）｜verify: node scripts/assert/comment-count-column-sync.mjs｜risk: low｜要求：① 新增断言脚本比对 20 个随回答的 `comment_count` 列与对应 `GET /comments` 的 `total`，允许 ±0 差异（不一致即 FAIL 并打印 target_id）；② 不一致时以 `total` 为准重算列（复用 `syncCommentCount()`）。
+  verify: node scripts/assert/comment-count-column-sync.mjs
+  risk: low
