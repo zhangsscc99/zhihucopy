@@ -29,6 +29,7 @@ function selfUser(u) {
   return {
     ...publicUser(u),
     email: u.email,
+    is_test: u.is_test,
     salt_value: u.salt_value,
     level: u.level,
     is_admin: u.is_admin,

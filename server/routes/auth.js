@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const { getDb } = require("../db");
 const { signToken, selfUser, badRequest } = require("../util");
 const { requireAuth } = require("../auth");
-const { isTestEmail } = require("../content-filter");
+const { isTestEmail, isWalkAccount } = require("../content-filter");
 const { listFor } = require("../badges");
 
 const router = express.Router();
@@ -27,11 +27,14 @@ router.post("/register", (req, res) => {
     return res.status(409).json({ error: "该邮箱已注册" });
   }
   const hash = bcrypt.hashSync(password, 10);
+  const nick = nickname.trim();
   // 测试邮箱域注册的账号落机器标记（Z983），其产物由清理脚本按标记识别。
-  const isTest = isTestEmail(normalized) ? 1 : 0;
+  // Z1178：走查流水号昵称（沈舟拾NNNN/走查NN/巡检NN 等，isWalkAccount）同样落
+  // is_test=1 —— 外部走查任务依赖注册成功，不能 403，只能从可见性侧隐藏。
+  const isTest = isTestEmail(normalized) || isWalkAccount({ nickname: nick }) ? 1 : 0;
   const info = db
     .prepare("INSERT INTO users (email, password_hash, nickname, is_test) VALUES (?, ?, ?, ?)")
-    .run(normalized, hash, nickname.trim(), isTest);
+    .run(normalized, hash, nick, isTest);
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json({ token: signToken(user), user: selfUser(user) });
 });
