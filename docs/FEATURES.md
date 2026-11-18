@@ -215,7 +215,7 @@
 - [ ] Z965 评论可达性：自己的评论无删除入口（后端 DELETE /comments/:id 已可用）；e2e vote-comment 契约要求评论输入框在回答卡内可直接定位（当前需先点「评论」展开）
   verify: node scripts/assert/comment-owner.mjs
   risk: med
-- [ ] Z967 移动端与细节：390px 顶部搜索框 width:0 无替代入口；底部导航「首页/热榜」同时 aria-current（`to="/?tab=hot"` 缺 `end`）；404 页把「不存在」当网络故障且无返回入口
+- [x] Z967 移动端与细节：390px 顶部搜索框无替代入口（Z1005 已补全屏搜索层）；底部导航 aria-current 唯一（Z979）；404 页归因与出口（Z974）；本轮补齐 **390px 热榜页横向溢出**（scrollWidth 421→390） ✅ (2026-11-18 devin)
   verify: node scripts/assert/mobile-nav.mjs
   risk: low
 - [x] Z961 详情页回答分页：`answer_count>5` 时回答只渲染 5 条且无入口，用户新发布的回答刷新即消失（P0） ✅ (2026-11-15 devin)
@@ -1072,4 +1072,7 @@
   risk: low
 
 - [ ] Z1212 移动端顶栏 53px 内塞 4 组元素，提问按钮与头像间距 <8px（P3，视觉层级；game-detail-bar「每个元素要有呼吸」）｜verify: node scripts/assert/topnav-mobile-density.mjs｜risk: low｜2026-11-18 18:32 视觉复核（`docs/runs/walk-1834-m1-home.png`，vision 两次独立判「顶部导航布局失衡、按钮贴边、视觉重心裂开」）：390 下顶栏同时放 `知乎（仿）` 大字标、居中搜索图标、「通知(3)」「提问」「头像」，`提问` 按钮为直角纯色块且与头像几乎相贴。要求：① 移动端品牌字标缩到 ≤16px 或改为图标；② 头像与「提问」之间 ≥8px 间距，「提问」按钮圆角与站内其它主按钮一致；③ 通知徽标不与「提问」重叠；④ 不改桌面 ≥1024 观感。断言 `scripts/assert/topnav-mobile-density.mjs`（390×844）：`.topnav` 高度 ≤ 56px 且子元素无横向重叠（两两 rect 不交叠）；「提问」按钮右边到头像左边 ≥ 8px；品牌字标 `font-size` ≤ 16px；`document.body.scrollWidth===390`；`window.__errs` 为空；连跑 2 次一致。
+  risk: low
+
+- [ ] Z1213 窄屏元信息换行时行尾留悬挂分隔点（P3，视觉细节；Z967 收尾遗留）｜verify: node scripts/assert/feed-meta-separator.mjs｜risk: low｜2026-11-18 19:20 实测：390 下热榜第 1 张卡元信息两行，第一行结尾为「18 关注 ·」，第二行「1 万 浏览」行首干净（无孤立点、无横向溢出 scrollWidth=390）。要求：换行处不出现行尾/行首孤立「·」——窄屏改为按项分包（每项 `display:inline-flex` 且分隔点用 `column-gap` + 项间 `::before` 附着项内）或窄屏直接去掉分隔点改 gap 间距，二者择一，桌面 ≥768px 不变。断言 `scripts/assert/feed-meta-separator.mjs`（390×844）：对热榜前 5 张卡逐行检查 `.feed__meta` 的每行文本，行首首字符与行尾末字符均不为「·」；`document.body.scrollWidth===390`；连跑 2 次一致。
   risk: low
