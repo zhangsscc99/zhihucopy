@@ -208,3 +208,41 @@ test("POST /comments is_test=1 + 普通 e2e 昵称（u2965）+ 正常正文 -> 2
   assert.ok(r.json.comment && r.json.comment.id);
   assert.equal(commentCount(), before + 1);
 });
+
+// Z1226 读侧本人豁免：is_test=1 账号的评论对自己可见（viewer === author），
+// 匿名与他人视角仍按公共口径过滤（total/items 都不含）。
+test("GET /comments 测试账号评论本人可见、他人与匿名不可见", async () => {
+  const posted = await api(
+    "POST",
+    "/comments",
+    { target_type: "answer", target_id: answerId, body: "走查号的自然评论，本人应可见" },
+    walkToken
+  );
+  assert.equal(posted.status, 201);
+  const cid = posted.json.comment.id;
+
+  const self = await api("GET", `/comments?target_type=answer&target_id=${answerId}`, null, walkToken);
+  assert.equal(self.status, 200);
+  assert.ok(
+    self.json.items.some((c) => c.id === cid),
+    "本人视角应能看到自己的评论"
+  );
+
+  const anon = await api("GET", `/comments?target_type=answer&target_id=${answerId}`);
+  assert.equal(anon.status, 200);
+  assert.ok(
+    !anon.json.items.some((c) => c.id === cid),
+    "匿名视角不应看到测试账号评论"
+  );
+  assert.ok(
+    anon.json.total < self.json.total,
+    `匿名 total ${anon.json.total} 应小于本人 total ${self.json.total}`
+  );
+
+  const other = await api("GET", `/comments?target_type=answer&target_id=${answerId}`, null, token);
+  assert.equal(other.status, 200);
+  assert.ok(
+    !other.json.items.some((c) => c.id === cid),
+    "他人登录视角不应看到测试账号评论"
+  );
+});

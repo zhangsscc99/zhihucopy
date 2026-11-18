@@ -11,9 +11,9 @@
 //   a. 昵称 走查<6位数字> + @example.com 邮箱注册（is_test=1，复现走查号形态），
 //      对 answer#18 连发 3 句自然中文评论 → 全部 201；临时库 comments 表 +3 行，
 //      ≥2 条正文可回读。
-//      注意：该作者是测试账号，公共 GET /comments 按 userMatchSql 口径过滤，
-//      「已入库但公共列表不可见」是 Z1045 以来的既定读侧口径 —— 本条验收的是
-//      写侧守卫不再按身份拒写，入库事实以临时库行数为准，公共 GET 只断言 200。
+//      Z1226 读侧本人豁免：带该账号 token 的 GET /comments total 比发前 +3、
+//      items 正文找回 ≥2 条；匿名（不带 token）同一请求 total 与发前相同 ——
+//      豁免只对本人生效，公共口径（Z1045 userMatchSql 过滤）不变。
 //   b. 正文含「走查：测试」→ 403，error 带命中规则名、rule 字段非空；
 //      空正文 → 4xx（长度下限）。
 //   c. 正文含 3 个 http:// 链接 → 4xx 且 error 提到「链接」。
@@ -139,6 +139,11 @@ run("comment-publish-ok", async ({ browser }) => {
   expect(reg.status === 201, `register ${nick} -> ${reg.status} ${JSON.stringify(reg.data).slice(0, 200)}`);
   const token = reg.data.token;
 
+  // 发前基线：匿名 total（本人豁免验收的对照组）。
+  const baseList = await api("GET", "/comments?target_type=answer&target_id=18");
+  expect(baseList.status === 200, `发前 GET /comments -> ${baseList.status}`);
+  const baseTotal = baseList.data.total;
+
   const posted = [];
   for (const text of SENTENCES) {
     const r = await api("POST", "/comments", {
@@ -166,12 +171,20 @@ run("comment-publish-ok", async ({ browser }) => {
   const hitBodies = SENTENCES.filter((s) => rows.some((r) => r.content === s));
   expect(hitBodies.length >= 2, `临时库可回读正文 ${hitBodies.length} 条，期望 ≥2`);
 
-  // 公共 GET 口径检查：接口可用；测试作者被读侧过滤是既定口径（Z1045），
-  // 不要求 total +3。
-  const list = await api("GET", "/comments?target_type=answer&target_id=18");
-  expect(list.status === 200 && typeof list.data.total === "number",
-    `GET /comments -> ${list.status}`);
-  console.log(`  a) ${nick} 发 3 条自然评论全部 201 入库（临时库行数=3，GET total=${list.data.total}）`);
+  // 本人豁免（Z1226）：带 token 的 GET total = 发前 +3，items 里找回 ≥2 条正文；
+  // 匿名 total 与发前相同（豁免只对本人，公共口径不变）。
+  const selfList = await api("GET", "/comments?target_type=answer&target_id=18", { token });
+  expect(selfList.status === 200 && selfList.data.total === baseTotal + 3,
+    `本人 GET total=${selfList.data.total}，期望 ${baseTotal + 3}（发前 ${baseTotal} +3）`);
+  const flat = [];
+  const walk = (ns) => ns.forEach((n) => { flat.push(n); walk(n.children || []); });
+  walk(selfList.data.items || []);
+  const seen = SENTENCES.filter((s) => flat.some((n) => n.content === s));
+  expect(seen.length >= 2, `本人 items 找回正文 ${seen.length} 条，期望 ≥2`);
+  const anonList = await api("GET", "/comments?target_type=answer&target_id=18");
+  expect(anonList.status === 200 && anonList.data.total === baseTotal,
+    `匿名 GET total=${anonList.data.total}，期望仍为 ${baseTotal}（公共口径不变）`);
+  console.log(`  a) ${nick} 发 3 条自然评论全部 201 入库（本人 GET total=${selfList.data.total} +3、正文找回 ${seen.length}；匿名仍为 ${anonList.data.total}）`);
 
   // ---- b. 正文模板规则：命中即 403 + 回传规则名；空正文 4xx ----
   const probe = await api("POST", "/comments", {

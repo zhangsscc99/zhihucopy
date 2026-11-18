@@ -101,13 +101,24 @@ router.get("/", (req, res) => {
 
   // 公共列表与计数同一份过滤片段：正文命中产物标记、或作者是测试账号的
   // 评论不返回（Z1045 —— 「评论回写验证 rv6-*」等残留对公开访客不可见）。
+  // Z1226 本人豁免：带登录态时 viewer === author 的评论放行（同 Z1085
+  // 「看自己的主页能看到自己写的内容」），否则走查/巡检号发的评论对自己
+  // 也不可见 —— 发布 201 但列表/计数不变，线上走查误判「评论发布无效」。
+  // 匿名与他人视角口径不变。
+  const filter = testCommentSql("c", "u");
+  const params = [target.targetType, target.targetId];
+  let cond = `c.target_type = ? AND c.target_id = ? AND ${filter}`;
+  if (req.user) {
+    cond = `c.target_type = ? AND c.target_id = ? AND (${filter} OR c.author_id = ?)`;
+    params.push(req.user.id);
+  }
   const rows = db
     .prepare(
       `${COMMENT_SELECT}
-       WHERE c.target_type = ? AND c.target_id = ? AND ${testCommentSql("c", "u")}
+       WHERE ${cond}
        ORDER BY c.created_at ASC, c.id ASC`
     )
-    .all(target.targetType, target.targetId);
+    .all(...params);
 
   const byId = new Map();
   const tops = [];
