@@ -10,6 +10,7 @@
   - 附带产品侧 DOM 卫生：`.answerlist` 被问题页回答列表与右栏「等你来答」卡（`answerlist__item`）复用，实测 `.answerlist > li` 命中 10 个 = 5 回答 + 5 侧栏项，`.first()` 语义依赖渲染顺序；建议侧栏改用独立类名、探针收窄到 `.answers > .answerlist`
   - 附带：12 次 `POST /api/test-support/cleanup` 401（uid:null），探针自清理失效、测试账号有残留
   - 报告：`docs/runs/e2e-20261118T1003Z.md`
+  - **2026-11-18T12:58Z 全量复发（commit `91eab3a`）**：19 pass / 1 gate-fail / 0 pending，485s，`probe-round15` 9.1s FAIL，EXIT=1；本轮非截断（20 个脚本全部执行完、summary 正常打印）。独立复跑 `node scripts/e2e/probe-round15.mjs` PASS 18 步 → 顺序/共享状态相关的非确定性，仍按回归处理、阻塞不撤；失败点未定案：`run-all.mjs:70` 用输出末行当摘要，被 `[api] 合计删除 u=2 q=0 a=0 c=0 col=0` 覆盖（写入量≈0 说明在早期步骤即中断）。报告 `docs/runs/e2e-20261118T1258Z.md`
 
 - [ ] ZE2E-20261118b 回归失败：首页信息流空帧闪烁致 probe-round15「首页卡片过少」（`.feed__item` 两次求值间从 20→<10，单独连跑 4 次 2 pass / 2 fail，非确定性）｜verify: `cd /www/zhihucopy && env -u NODE_CHANNEL_FD -u NODE_CHANNEL_SERIALIZATION_MODE -u E2E_BASE -u E2E_BASE_URL -u E2E_API node scripts/e2e/probe-round15.mjs`｜risk: high
   - 现场：`scripts/e2e/probe-round15.mjs:87` 断言 `count() >= 10`；消息先取到 20，断言内再取时 <10 → 列表被某 effect 整批重置（`client/src/pages/Home.tsx:425` 同模式 `setItems([])`）后重拉。截图 `/root/logs/e2e-probe15-01-fail.png`，报告 `docs/runs/e2e-20261118T0838Z.md`
