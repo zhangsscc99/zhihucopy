@@ -870,10 +870,22 @@ mark.hl {
   font-size: 13px;
   color: var(--ink-3);
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
 }
 .question__meta a {
   color: var(--ink-3);
+}
+.question__meta-author {
+  display: inline-block;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.question__meta-item {
+  white-space: nowrap;
 }
 .question__actions {
   display: flex;

@@ -1324,14 +1324,22 @@ export function Question() {
         <Markdown source={question.detail_md} className="question__detail prose" />
       )}
       <div className="question__meta">
-        <Link to={`/u/${question.author.id}`}>{question.author.nickname}</Link>
-        <span>提问于 {formatTime(question.created_at)}</span>
-        <span aria-hidden="true">·</span>
-        <span>{question.follower_count} 人关注</span>
-        <span aria-hidden="true">·</span>
-        <span>{question.answer_count} 个回答</span>
-        <span aria-hidden="true">·</span>
-        <span>{question.view_count} 次浏览</span>
+        <Link className="question__meta-author" to={`/u/${question.author.id}`}>
+          {question.author.nickname}
+        </Link>
+        <span className="question__meta-item">
+          提问于 {formatTime(question.created_at)}
+          <span aria-hidden="true"> ·</span>
+        </span>
+        <span className="question__meta-item">
+          {question.follower_count} 人关注
+          <span aria-hidden="true"> ·</span>
+        </span>
+        <span className="question__meta-item">
+          {question.answer_count} 个回答
+          <span aria-hidden="true"> ·</span>
+        </span>
+        <span className="question__meta-item">{question.view_count} 次浏览</span>
       </div>
       <div className="question__actions">
         <Button
