@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
+import { authHref, safeNext } from "../lib/nextParam";
 
 export function Login() {
   const { user, loading, login } = useAuth();
@@ -17,7 +18,7 @@ export function Login() {
   const toast = useToast();
   const [params] = useSearchParams();
   const next = params.get("next");
-  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const dest = safeNext(next) ?? "/";
   // 复用 dest 的站内校验：next 经校验原样保留（=== dest）且非 /login 自指时，
   // 说明用户是被守卫动作送过来的，表单上方给一行解释；外站/无 next 不显示。
   const showNextHint = next === dest && next !== "/login";
@@ -86,7 +87,7 @@ export function Login() {
         </form>
         <p className="authcard__alt">
           还没有账号？
-          <Link to={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}>
+          <Link to={authHref("/register", next)}>
             注册一个
           </Link>
         </p>

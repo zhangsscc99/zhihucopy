@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
 import { Button, Card, Input } from "../components/ui";
+import { authHref, safeNext } from "../lib/nextParam";
 
 export function Register() {
   const { user, loading, register } = useAuth();
@@ -10,7 +11,7 @@ export function Register() {
   const toast = useToast();
   const [params] = useSearchParams();
   const next = params.get("next");
-  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const dest = safeNext(next) ?? "/";
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,7 +79,7 @@ export function Register() {
         </form>
         <p className="authcard__alt">
           已有账号？
-          <Link to={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}>
+          <Link to={authHref("/login", next)}>
             直接登录
           </Link>
         </p>

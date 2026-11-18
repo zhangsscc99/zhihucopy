@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { useNotifications } from "../notifications";
 import { loadRecentSearches, saveRecentSearch } from "../lib/searchHistory";
 import { searchHref } from "../lib/searchHref";
+import { authHref } from "../lib/nextParam";
 import type { Page, Question, Topic } from "../types";
 import { Button } from "./ui";
 
@@ -211,6 +212,7 @@ export function TopNav() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [params] = useSearchParams();
   const qParam = params.get("q") || "";
+  const nextParam = params.get("next");
   const focusParam = params.get("focus");
   const [query, setQuery] = useState(qParam);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -402,10 +404,10 @@ export function TopNav() {
             </div>
           ) : loading ? null : (
             <>
-              <Link to="/login" className="btn btn--ghost">
+              <Link to={authHref("/login", nextParam)} className="btn btn--ghost">
                 登录
               </Link>
-              <Link to="/register" className="btn btn--outline">
+              <Link to={authHref("/register", nextParam)} className="btn btn--outline">
                 注册
               </Link>
             </>
