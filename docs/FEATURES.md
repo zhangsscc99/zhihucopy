@@ -901,7 +901,7 @@
 
 ## 第十八轮待办（2026-11-18 04:55，第四十三轮验收）
 
-- [ ] Z1175 走查探针仍在持续注册「沈舟拾NNNN」空号（P1，数据卫生）：第四十三轮清理后 `GET /api/users?q=沈舟拾` 仍有 4 条（如 id 2953 的 `沈舟拾3372`、id 2959 的 `沈舟拾9999`，均 `is_test=0`、零发帖），说明还有别的定时任务在按模板批量注册走查账号。要求：① 定位并改造注册方（`scripts/e2e/*` / 走查脚本），禁止「固定前缀 + 4 位流水号」昵称，改成不会沉淀在用户列表里的形态；② 服务端在 `POST /auth/register` 对 `^沈舟拾\d{4}$` 形态昵称直接 403（或强制 `is_test=1`），从根上断掉这类号进入公开用户列表；③ 清理现存 4 个空号（软隐藏，不物理删）。断言 `scripts/assert/no-walk-accounts.mjs`：`GET /api/users?q=沈舟拾` 返回 0；用该形态昵称注册必须 403 或返回用户 `is_test=1`；`--self-test` 在副本库植入 2 个该形态号必须被检出。
+- [ ] Z1178 走查探针仍在持续注册「沈舟拾NNNN」空号（P1，数据卫生）：第四十三轮清理后 `GET /api/users?q=沈舟拾` 仍有 4 条（如 id 2953 的 `沈舟拾3372`、id 2959 的 `沈舟拾9999`，均 `is_test=0`、零发帖），说明还有别的定时任务在按模板批量注册走查账号。要求：① 定位并改造注册方（`scripts/e2e/*` / 走查脚本），禁止「固定前缀 + 4 位流水号」昵称，改成不会沉淀在用户列表里的形态；② 服务端在 `POST /auth/register` 对 `^沈舟拾\d{4}$` 形态昵称直接 403（或强制 `is_test=1`），从根上断掉这类号进入公开用户列表；③ 清理现存 4 个空号（软隐藏，不物理删）。断言 `scripts/assert/no-walk-accounts.mjs`：`GET /api/users?q=沈舟拾` 返回 0；用该形态昵称注册必须 403 或返回用户 `is_test=1`；`--self-test` 在副本库植入 2 个该形态号必须被检出。
   verify: node scripts/assert/no-walk-accounts.mjs
   risk: low
 
@@ -916,10 +916,14 @@
   verify: node scripts/assert/comment-post.mjs
   risk: high
 
-- [ ] Z1175 手机端问题页元信息逐字断行，被拆成「望山的/人」「1/天前」「19 人关/注」（P1，视觉硬伤，本轮最严重排版问题）：390×844 下 `/question/6` 刷新后截图显示作者行「望山的人 提问于 1 天前 · 19 人关注 · 11 个回答 · 7154 次浏览」被拆成两行碎片，昵称在「的/人」处断开、数字与单位断开（「19 人关 / 注」「11 个回 / 答」「7154 次 / 浏览」），vision 判为「像乱码，2.5/5」。证据 `docs/runs/walk-0510-m11-persist.png`。要求：① 元信息容器 `display:flex; flex-wrap:wrap; gap:4px 8px`，每个片段包一层 `white-space:nowrap`（或整行 `white-space:nowrap` + `overflow:hidden;text-overflow:ellipsis`），保证「数字+单位」「昵称」不被拆开；② 昵称超长时只在昵称内部截断（`max-width:8em` + ellipsis），不带垮后面的数值；③ 不改文案与顺序、不改桌面端（1440 原本正常）。断言 `scripts/assert/question-meta-mobile.mjs`：390/360 下 `?/question/6` 的作者行每个 `span`（昵称/时间/关注/回答/浏览）`getClientRects().length===1`（不换行成两行）；`document.body.scrollWidth===clientWidth`；该行总高 ≤ 2 行（`getBoundingClientRect().height < 2.2 倍行高`）；1440 下该行仍是单行。
+- [x] Z1175 手机端问题页元信息逐字断行，被拆成「望山的/人」「1/天前」「19 人关/注」（P1，视觉硬伤，本轮最严重排版问题）：390×844 下 `/question/6` 刷新后截图显示作者行「望山的人 提问于 1 天前 · 19 人关注 · 11 个回答 · 7154 次浏览」被拆成两行碎片，昵称在「的/人」处断开、数字与单位断开（「19 人关 / 注」「11 个回 / 答」「7154 次 / 浏览」），vision 判为「像乱码，2.5/5」。证据 `docs/runs/walk-0510-m11-persist.png`。要求：① 元信息容器 `display:flex; flex-wrap:wrap; gap:4px 8px`，每个片段包一层 `white-space:nowrap`（或整行 `white-space:nowrap` + `overflow:hidden;text-overflow:ellipsis`），保证「数字+单位」「昵称」不被拆开；② 昵称超长时只在昵称内部截断（`max-width:8em` + ellipsis），不带垮后面的数值；③ 不改文案与顺序、不改桌面端（1440 原本正常）。断言 `scripts/assert/question-meta-mobile.mjs`：390/360 下 `?/question/6` 的作者行每个 `span`（昵称/时间/关注/回答/浏览）`getClientRects().length===1`（不换行成两行）；`document.body.scrollWidth===clientWidth`；该行总高 ≤ 2 行（`getBoundingClientRect().height < 2.2 倍行高`）；1440 下该行仍是单行。 ✅ (2026-11-18 第四十四轮 devin swe-2-medium：根因=`.question__meta` 为 `display:flex; flex-wrap:nowrap`，子 span 默认 `flex-shrink:1` 且无 `white-space:nowrap`，一行放不下时每个片段被压窄后在内部逐字折行（实测 390 下 `19 人关注` 宽 45.9px / 高 44.2px = 两行）。改为 `flex-wrap:wrap; align-items:center; gap:4px 8px` + 每个片段 `.question__meta-item{white-space:nowrap}`，昵称单独 `.question__meta-author{max-width:8em; ellipsis}`；分隔符「·」改为跟随前一片段尾部（换行时行首永远实词）。新增 `assert/question-meta-mobile.mjs`（390/360 片段不内部折行 + 行首非「·」 + 容器自身不溢出 + 文案齐全 + 1440 单行 + 360「注册」仍在 + `__errs` 空）；反向自检线上 3030 FAIL「片段「望山的人」内部折行 44.2px」，修后 PASS 连跑 2/2；home / ask-answer 冒烟 PASS、style-tokens ok。附带发现（未修，已另立待办）：360px 下顶栏右侧按钮组 right=380 溢出 20px，属既有独立缺陷)
   verify: node scripts/assert/question-meta-mobile.mjs
   risk: low
 
 - [ ] Z1176 手机回答操作栏「反对」被压成竖排两字、评论框带 PC resize 角标、错误 toast 压住底栏（P2，视觉/手感）：390×844 下 `/question/1647` 评论区展开后，「已赞同 1 / 反对 / 1 条评论 / 收藏 / 分享」一行里「反对」两个字被挤成上下两行（vision 判「视觉观感极差」）；`textarea` 右下角出现浏览器原生拖拽缩放角标（PC 端控件混入移动端）；失败 toast 直接叠在固定底栏之上，遮住「通知/我」。证据 `docs/runs/walk-0510-m5-comment.png`。要求：① 操作栏在 ≤767px 下改为可换行网格或收进「…」更多菜单，保证任一按钮内文字 `getClientRects().length===1`；② 移动端 `textarea { resize: none }`（或 CSS `resize:vertical` 且隐藏角标）；③ toast 定位抬到底栏之上（`bottom: calc(var(--tabbar-h) + 12px)`）或有底栏时改为顶部下滑条，不遮挡任何可点元素。断言 `scripts/assert/answer-actions-mobile.mjs`：390/360 下每个操作按钮 `innerText.trim().length>1` 时 `getClientRects().length===1`；`getComputedStyle(textarea).resize === "none"`；toast 可见时其 `getBoundingClientRect().bottom <= 底栏 top` 或 `top >= 0`（不重叠）；无横向溢出、`window.__errs` 为空。
   verify: node scripts/assert/answer-actions-mobile.mjs
+  risk: low
+
+- [ ] Z1179 360px 顶栏右侧按钮组溢出视口（P2，视觉/移动端，Z1175 附带发现）：`/question/6` 在 360×844 下 `.topnav__actions` 宽 256px、`right=380`（视口 360），`document.body` 横向溢出 20px；390 下正常。既有缺陷，与 Z1175 元信息无关（Z1175 断言已改用元信息容器口径，不再被此拖挂）。要求：≤480px 收紧顶栏间距/尺寸或把「注册」收进「登录」页（产品决策，需保留可发现入口），断言 `scripts/assert/topnav-360-overflow.mjs`：360/390/414 下 `document.body.scrollWidth === clientWidth`，顶栏每个可点元素 `right <= viewport 宽`，1440 布局不变。
+  verify: node scripts/assert/topnav-360-overflow.mjs
   risk: low
