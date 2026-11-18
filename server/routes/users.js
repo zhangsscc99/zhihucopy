@@ -59,13 +59,19 @@ router.get("/", (req, res) => {
   const db = getDb();
   const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+  // Z1169：?q=<昵称片段> 供断言/巡检按昵称检索（与 /search type=user 同过滤口径）。
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const qCond = q ? " AND u.nickname LIKE ? ESCAPE '\\'" : "";
+  const params = q
+    ? [`%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`, limit, offset]
+    : [limit, offset];
   const items = db
     .prepare(
       `SELECT u.id, u.nickname, u.avatar_url, u.bio, u.created_at
-       FROM users u WHERE ${testUserSql("u")}
+       FROM users u WHERE ${testUserSql("u")}${qCond}
        ORDER BY u.id LIMIT ? OFFSET ?`
     )
-    .all(limit, offset);
+    .all(...params);
   res.json({ items });
 });
 

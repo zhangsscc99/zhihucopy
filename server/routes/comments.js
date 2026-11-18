@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { requireAuth } = require("../auth");
 const { badRequest } = require("../util");
-const { testCommentSql } = require("../content-filter");
+const { testCommentSql, isWalkProbeContent } = require("../content-filter");
 
 const router = express.Router();
 
@@ -177,6 +177,12 @@ router.post("/", requireAuth, (req, res) => {
       return badRequest(res, "父评论不存在或不属于该目标");
     }
     if (parentRow.parent_id != null) return badRequest(res, "只支持两级评论，不能回复二级回复");
+  }
+
+  // Z1169 写入守卫：走查/e2e 探针模板正文、或 is_test 作者，一律拒写 ——
+  // 不入库、不重算 comment_count、不发通知（不依赖前端/脚本自觉）。
+  if (req.user.is_test || isWalkProbeContent(content)) {
+    return res.status(403).json({ error: "该内容不符合社区规范，请修改后再发布" });
   }
 
   const id = db.transaction(() => {
