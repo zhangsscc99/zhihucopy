@@ -109,7 +109,7 @@ function commentCount() {
     .get(answerId).c;
 }
 
-test("POST /comments 模板正文 -> 403 且不入库", async () => {
+test("POST /comments 模板正文 -> 403 且不入库、回传命中规则名", async () => {
   const before = commentCount();
   const r = await api(
     "POST",
@@ -119,6 +119,11 @@ test("POST /comments 模板正文 -> 403 且不入库", async () => {
   );
   assert.equal(r.status, 403);
   assert.equal(commentCount(), before);
+  assert.ok(r.json.rule, `403 缺 rule 字段：${JSON.stringify(r.json)}`);
+  assert.ok(
+    String(r.json.error).includes(r.json.rule),
+    `error 未带规则名：${JSON.stringify(r.json)}`
+  );
 });
 
 test("POST /comments 正常正文 -> 201 入库", async () => {
@@ -134,7 +139,9 @@ test("POST /comments 正常正文 -> 201 入库", async () => {
   assert.equal(commentCount(), before + 1);
 });
 
-test("POST /comments is_test=1 + 走查流水号昵称（沈舟拾1234）+ 正常正文 -> 403", async () => {
+// Z1226：写侧守卫不再按账号昵称拒写 —— 走查流水号发自然语言评论正常入库
+// （走查号 ≠ 违规内容）；该账号发模板正文仍被拦。
+test("POST /comments is_test=1 + 走查流水号昵称（沈舟拾1234）+ 正常正文 -> 201", async () => {
   const before = commentCount();
   const r = await api(
     "POST",
@@ -142,8 +149,51 @@ test("POST /comments is_test=1 + 走查流水号昵称（沈舟拾1234）+ 正�
     { target_type: "answer", target_id: answerId, body: "这条回答讲得挺清楚，收藏了" },
     walkToken
   );
+  assert.equal(r.status, 201);
+  assert.ok(r.json.comment && r.json.comment.id);
+  assert.equal(commentCount(), before + 1);
+});
+
+test("POST /comments 走查流水号昵称 + 模板正文 -> 仍 403", async () => {
+  const before = commentCount();
+  const r = await api(
+    "POST",
+    "/comments",
+    { target_type: "answer", target_id: answerId, body: "走查：测试提交路径" },
+    walkToken
+  );
   assert.equal(r.status, 403);
+  assert.ok(r.json.rule);
   assert.equal(commentCount(), before);
+});
+
+test("POST /comments 正文链接 ≥3 -> 400 too_many_links；=2 放行", async () => {
+  const before = commentCount();
+  const r3 = await api(
+    "POST",
+    "/comments",
+    {
+      target_type: "answer",
+      target_id: answerId,
+      body: "看 http://a.example/1 与 http://b.example/2 加 http://c.example/3",
+    },
+    token
+  );
+  assert.equal(r3.status, 400);
+  assert.equal(r3.json.rule, "too_many_links");
+  assert.ok(String(r3.json.error).includes("链接"));
+  const r2 = await api(
+    "POST",
+    "/comments",
+    {
+      target_type: "answer",
+      target_id: answerId,
+      body: "两个链接可以 http://a.example/1 http://b.example/2",
+    },
+    token
+  );
+  assert.equal(r2.status, 201);
+  assert.equal(commentCount(), before + 1);
 });
 
 test("POST /comments is_test=1 + 普通 e2e 昵称（u2965）+ 正常正文 -> 201", async () => {
@@ -157,4 +207,42 @@ test("POST /comments is_test=1 + 普通 e2e 昵称（u2965）+ 正常正文 -> 2
   assert.equal(r.status, 201);
   assert.ok(r.json.comment && r.json.comment.id);
   assert.equal(commentCount(), before + 1);
+});
+
+// Z1226 读侧本人豁免：is_test=1 账号的评论对自己可见（viewer === author），
+// 匿名与他人视角仍按公共口径过滤（total/items 都不含）。
+test("GET /comments 测试账号评论本人可见、他人与匿名不可见", async () => {
+  const posted = await api(
+    "POST",
+    "/comments",
+    { target_type: "answer", target_id: answerId, body: "走查号的自然评论，本人应可见" },
+    walkToken
+  );
+  assert.equal(posted.status, 201);
+  const cid = posted.json.comment.id;
+
+  const self = await api("GET", `/comments?target_type=answer&target_id=${answerId}`, null, walkToken);
+  assert.equal(self.status, 200);
+  assert.ok(
+    self.json.items.some((c) => c.id === cid),
+    "本人视角应能看到自己的评论"
+  );
+
+  const anon = await api("GET", `/comments?target_type=answer&target_id=${answerId}`);
+  assert.equal(anon.status, 200);
+  assert.ok(
+    !anon.json.items.some((c) => c.id === cid),
+    "匿名视角不应看到测试账号评论"
+  );
+  assert.ok(
+    anon.json.total < self.json.total,
+    `匿名 total ${anon.json.total} 应小于本人 total ${self.json.total}`
+  );
+
+  const other = await api("GET", `/comments?target_type=answer&target_id=${answerId}`, null, token);
+  assert.equal(other.status, 200);
+  assert.ok(
+    !other.json.items.some((c) => c.id === cid),
+    "他人登录视角不应看到测试账号评论"
+  );
 });
