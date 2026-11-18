@@ -927,3 +927,30 @@
 - [ ] Z1179 360px 顶栏右侧按钮组溢出视口（P2，视觉/移动端，Z1175 附带发现）：`/question/6` 在 360×844 下 `.topnav__actions` 宽 256px、`right=380`（视口 360），`document.body` 横向溢出 20px；390 下正常。既有缺陷，与 Z1175 元信息无关（Z1175 断言已改用元信息容器口径，不再被此拖挂）。要求：≤480px 收紧顶栏间距/尺寸或把「注册」收进「登录」页（产品决策，需保留可发现入口），断言 `scripts/assert/topnav-360-overflow.mjs`：360/390/414 下 `document.body.scrollWidth === clientWidth`，顶栏每个可点元素 `right <= viewport 宽`，1440 布局不变。
   verify: node scripts/assert/topnav-360-overflow.mjs
   risk: low
+
+
+## 第十九轮待办（2026-11-18 06:29，第四十五轮走查）
+
+- [ ] Z1180 走查/巡检脚本仍在往生产库写，且走查自身也成了污染源（P0，可信度，最高优先，Z1173 的收尾）：2026-11-18 06:39 实测，推荐流第 1 条 `q1647`「走查问题220834？」（作者「真人nmwll1ltv060r」）仍在本轮走查期间可读，其正文是占位串「回答正文 220834」，第 2 条回答「巡检回答 r-mwlplhwn-17ji：先说结论，再给依据。」**发布于 06:0x（本轮走查开始前 39 分钟内）**，即上一轮走查 05:26 结束后仍在写入；同一屏第 3、4 条为「关注流新回答场景的提问 mwli8tyu」「走查问题654709？」。本轮走查自己也留下 1 个账号（`橘子汽水少冰` id 3388）+ 1 条评论（id 1754，answer 18），说明「走查只读」没有技术保障。证据 `docs/runs/walk-0629-m1-home.png`、`walk-0629-m2-q-fix.png`、`walk-0629-d1-home.png`。要求：① 落地 `scripts/prod-write-gate.js` 为所有写库脚本（`scripts/assert/*`、`scripts/e2e/*`、`scripts/seed*`、`scripts/fix-*`、`scripts/clean*`）的强制入口：非生产库才放行，生产库必须 `ZH_ALLOW_PROD_WRITE=1`，否则打印目标库并 exit 1；② 夹具统一 `is_fixture=1`，读路径（`/feed/recommended`、`/feed/hot`、`/search`、问题详情、用户页）默认过滤；③ 走查/巡检改为预置演示账号（`is_fixture=1`）或沙箱库，生产库只读；④ 新增 `scripts/assert/no-live-fixture.mjs`（间隔 5 分钟调用两次）：`GET /feed/recommended?page_size=20` 前 20 条中标题匹配 `/[a-z]{4,}\d[a-z0-9]{2,}|走查|巡检/` 或作者匹配 `/^(真人|巡检|走查)[a-z]?\d/` 的条数 = 0，且两次之间 `created_at` 落在窗口内并命中上述模式的新问题数 = 0；⑤ 清理脚本覆盖 `q1647`、`q1493`、`q1514`、账号 `真人nmwll1ltv060r`/`巡检用户`（软删 + `is_test=1`），保留「独居四年…」「写了三年 React…」等真人内容。
+  verify: node scripts/assert/no-live-fixture.mjs
+  risk: high
+
+- [ ] Z1181 评论发布成功的 toast 弹两次，用户会怀疑自己发重了（P1，手感/反馈）：2026-11-18 06:47 实测，390×844 下在 `/question/6` 首条回答发布「「把 useEffect 当成租赁而不是执行」这个说法一下就通了，谢谢。」，网络 200、评论数 19→20、`/api/comments?target_id=18` 共 49 条且我的内容仅 1 条（id 1754），**但页面同时出现两个「评论已发布」toast**（`document.querySelectorAll('[class*=toast]')` 返回 2 个同文案节点，一上一下叠在底栏上方）。数据层只写一次，纯前端重复提示，但会让用户以为发重。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① toast 去重：相同 `code+message` 在 1.5s 内只渲染一个（按 key 覆盖而非追加）；② 评论成功后只由一个层（页面或全局 provider）调用 `toast.success`，移除重复调用点；③ 断言 `scripts/assert/toast-dedupe.mjs`：连发 2 条评论，每次成功后 `[class*=toast]` 可见节点数 = 1，且 2.5s 后自动关闭；`window.__errs` 为空。
+  verify: node scripts/assert/toast-dedupe.mjs
+  risk: low
+
+- [ ] Z1182 空评论框的「发布评论」为蓝色实心可点，点击只冒一句提示，无 disabled 态（P2，控件状态）：2026-11-18 06:45 实测，390 下展开评论区后 `textarea` 为空，按钮仍为 `btn btn--primary` 实心蓝、可点，点后提示「请输入内容」。同屏 `textarea` 右下角仍有浏览器原生 resize 斜线角标（PC 控件混入移动端，Z1176 ② 未修）。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① 内容为空（trim 后长度 0）时按钮 `disabled` 且降为次要态（灰底/低对比），有内容立即恢复；② `@media (max-width:767px) textarea { resize: none }`；③ 断言 `scripts/assert/comment-button-state.mjs`：390/1440 下空输入时按钮 `disabled===true` 且 `getComputedStyle(button).cursor!=='pointer'`，输入 1 字后恢复可点；`getComputedStyle(textarea).resize==='none'`（≤767px）；无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/comment-button-state.mjs
+  risk: low
+
+- [ ] Z1183 个人主页「回答 0」tab 选中后直接列出「TA 最近关注的问题」，无空态无分区标题（P1，结构错位，Z1085 的延续）：2026-11-18 06:52 实测 `/u/214`（望山的人，`回答 0` / `提问 1` / 获赞 0 / 关注 2 / 粉丝 4）：tab 区「回答 0」带蓝色下划线（选中），紧接着出现的却是「TA 最近关注的问题」列表与「TA 最近赞同的回答」，既没有「TA 还没有写过回答」空态，也没有把后两块标成独立分区，vision 判「像 tab 渲错了内容」。同一屏「关注 2」与右上「关注」按钮同词不同义，也让人瞬间歧义。证据 `docs/runs/walk-0629-m10-profile.png`。要求：① `回答` tab 在 count=0 时渲染空态「TA 还没有写过回答」+ 一个「邀请 TA 回答」次要入口；② 「TA 最近关注的问题 / TA 最近赞同的回答」移出 tab 面板，加明确的二级标题（`h2`）与分隔，tab 未选中时不渲染；③ 数据条里的「关注 2」改为「关注者 2」，与按钮「关注」区分；④ 断言 `scripts/assert/profile-tabs.mjs`：`回答 0` 用户的回答面板含空态文本且不含「TA 最近关注的问题」；点击「提问」tab 后面板只含提问；两块推荐区的标题为 `h2` 且不在 tabpanel 内；390/1440 无横向溢出、`window.__errs` 为空。
+  verify: node scripts/assert/profile-tabs.mjs
+  risk: low
+
+- [ ] Z1184 问题页评论区顶部「35 条评论已删除」暴露大规模清理痕迹（P2，可信度）：2026-11-18 06:46 实测 `/question/6` 首条回答展开评论后，列表顶端出现「35 条评论已删除」一行；对照 `GET /api/comments?target_type=answer&target_id=18` 返回 49 条（总数 20 可见 + 大量软删），说明历史夹具清理只做了软删、前端仍把删除数量展示给普通用户。证据 `docs/runs/walk-0629-m6-comment.png`。要求：① 前端「N 条评论已删除」仅在 `N<=3` 且当前用户是内容作者/管理员时展示，普通访客与 N 很大时隐藏（或折叠进「查看全部」）；② 清理脚本对夹具评论改为物理删除或 `is_fixture=1` + 读路径过滤（与 Z1180 ②口径一致），不靠前端隐藏兜底；③ 断言 `scripts/assert/deleted-comments-badge.mjs`：匿名访问 `/question/6` 首答展开评论后，页面不含 `/\d+ 条评论已删除/`；管理员视角若展示，数字与 DB 软删数一致。
+  verify: node scripts/assert/deleted-comments-badge.mjs
+  risk: low
+
+- [ ] Z1185 桌面首页右栏「热榜」10 条全部单行省略截断，卡片高矮不齐（P2，视觉/信息密度）：2026-11-18 06:55 实测 1440×900 首页，右栏热榜每条标题被 `text-overflow: ellipsis` 截成单行（如「JavaScript 的 event loop 到底该怎么理解？Promise 和 set…」），#3/#4/#5 中长标题信息直接丢失；左栏同时出现「有摘要卡片（3 行高）」与「无摘要卡片（1 行高）」交替，节奏不齐。vision 判「层级 3/5、质感 2/5，右栏热榜过密且截断多」。证据 `docs/runs/walk-0629-d1-home.png`。要求：① 热榜条目允许最多 2 行（`-webkit-line-clamp:2`）并保留序号列对齐；② 左栏卡片统一最小高度，无摘要时用单行 `摘要缺失` 兜底不渲染空白，或统一改为「标题 + 元信息」两段式；③ 断言 `scripts/assert/home-desktop-rhythm.mjs`：1440 下右栏前 10 条中 `scrollHeight>clientHeight`（被截断）的条数 ≤2；左栏前 8 张卡片高度标准差 < 12px；`document.body.scrollWidth===clientWidth`；`window.__errs` 为空。
+  verify: node scripts/assert/home-desktop-rhythm.mjs
+  risk: low
