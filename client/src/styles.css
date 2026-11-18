@@ -831,20 +831,19 @@ mark.hl {
     display: inline;
   }
   /* 窄屏元信息可换行（热榜卡 作者·热度·N答·N关注·N浏览 会超过 390px）。
-     分隔点附着在前一项结尾（::after），换行到行首的项前面没有任何东西，
-     因此不需要 overflow:hidden 裁切——.feed__meta 保持 overflow:visible，
-     键盘聚焦 .feed__author 链接时焦点环完整可见。 */
+     Z1213：换行时行尾会悬挂一个无后续内容的「·」，改为项间 column-gap
+     不再画分隔点；.feed__meta 保持 overflow:visible，键盘聚焦
+     .feed__author 链接时焦点环完整可见。桌面 ≥768px 仍用 ::before 分隔点。 */
   .feed__meta {
     flex-wrap: wrap;
+    column-gap: 10px;
     row-gap: 2px;
   }
   .feed__meta > * + *::before {
     content: none;
   }
   .feed__meta > *:not(:last-child)::after {
-    content: "·";
-    margin: 0 6px;
-    color: var(--ink-3);
+    content: none;
   }
   /* 窄屏长昵称保护：只约束信息流卡片内的作者位（Profile/Unanswered 上复用
      .feed__author 的纯文本节点不在 .feed__item 里，不受影响）。24px 头像 +
