@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { del, get, post } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -42,6 +42,10 @@ export function Topic() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const loginNext = `/login?next=${encodeURIComponent(
+    location.pathname + location.search
+  )}`;
 
   const [topic, setTopic] = useState<TopicType | null>(null);
   const [items, setItems] = useState<TopicQuestion[]>([]);
@@ -142,7 +146,13 @@ export function Topic() {
   const toggleFollow = async () => {
     if (!topic) return;
     if (!user) {
-      toast("请先登录", "error");
+      toast(
+        "请先登录",
+        "info",
+        <>
+          <Link to={loginNext}>登录</Link>后即可继续刚才的操作
+        </>
+      );
       navigate("/login");
       return;
     }

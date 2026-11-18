@@ -773,7 +773,13 @@ export function Question() {
   }, [user, answerIdsKey]);
 
   const needLogin = () => {
-    toast("请先登录", "error");
+    toast(
+      "请先登录",
+      "info",
+      <>
+        <Link to={loginNext}>登录</Link>后即可继续刚才的操作
+      </>
+    );
     navigate(loginNext, { state: loginState });
   };
 

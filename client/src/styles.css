@@ -2026,6 +2026,7 @@ mark.hl {
 }
 .authcard {
   width: 380px;
+  max-width: 100%;
 }
 .authform {
   display: flex;
@@ -2047,6 +2048,10 @@ mark.hl {
   min-width: 0;
 }
 @media (min-width: 768px) {
+  /* Z1166 — auth 页右栏栏宽收到 320px（规范区间 300–400），仅作用于 /login、/register。 */
+  .shell--auth .container {
+    grid-template-columns: minmax(0, 694px) 320px;
+  }
   /* Z1136 — 右栏吸顶：顶栏 52px + 16px 间距；栏内可滚，细滚动条 */
   .rail {
     align-self: flex-start;
@@ -2763,6 +2768,17 @@ a.ntf__title:hover {
 .toast--error {
   background: var(--seal);
 }
+/* Z1166 — 「请先登录」等守卫提示的副行：继承中性底色，仅字级变小。 */
+.toast__sub {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+}
+.toast__sub a {
+  color: #fff;
+  text-decoration: underline;
+}
 /* #answer-N 深链目标补页后仍不存在：底部一行提示 + 回到顶部（toast 同款位）。 */
 .anchor-miss {
   position: fixed;
@@ -2804,6 +2820,20 @@ a.ntf__title:hover {
   }
   .rail-block--unanswered {
     display: none;
+  }
+  /* Z1166 — 登录/注册页（.shell--auth）：右栏直接隐藏，表单在顶栏之下垂直居中。
+     顶栏 52px + .container 上下 padding(10+90)，min-height 取剩余空间使整页不超一屏。 */
+  .shell--auth .rail {
+    display: none;
+  }
+  /* 顶栏「提问」是第二个实心主按钮且把顶栏挤出横向溢出，auth 页隐藏。 */
+  .shell--auth .topnav__ask {
+    display: none;
+  }
+  .shell--auth .authpage {
+    min-height: calc(100vh - 52px - 100px);
+    align-items: center;
+    padding-top: 0;
   }
   .topnav__search,
   .topnav__links {
