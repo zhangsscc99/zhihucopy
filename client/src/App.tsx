@@ -17,6 +17,7 @@ import { Collections, CollectionDetail } from "./pages/Collections";
 import { Admin } from "./pages/Admin";
 import { NotFound } from "./pages/NotFound";
 import { usePageTitle } from "./lib/usePageTitle";
+import { useScrollReset } from "./lib/useScrollReset";
 
 function Me() {
   const { user, loading } = useAuth();
@@ -48,6 +49,7 @@ function Rail() {
 }
 
 export function App() {
+  useScrollReset();
   return (
     <Layout rail={<Rail />}>
       <Routes>
