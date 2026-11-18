@@ -1,0 +1,207 @@
+{
+ "base": "http://127.0.0.1:3030/zhihucopy",
+ "ts": "2015",
+ "started": "2026-11-18T20:15:23.555Z",
+ "viewports": {
+  "mobile": {
+   "viewport": "390x844",
+   "home": {
+    "ms_to_networkidle": 2924,
+    "cards": 20,
+    "first_title": "走查问题220834？",
+    "first_meta": "真 真人nmwll1ltv060r 4 答 0 关注 614 浏览",
+    "scrollWidth": 390,
+    "hasAskCta": 1,
+    "title_fs": "18px",
+    "body_fs": "15px"
+   },
+   "home_shot": "/www/zhihucopy/docs/runs/walk-2015-m1-home.png",
+   "question": {
+    "url": "/question/1647",
+    "ms": 788,
+    "qtitle": "走查问题220834？",
+    "answers": 9,
+    "first_answer_len": 11,
+    "first_answer_head": "回答正文 220834",
+    "author": "真人nmwll1ltv060r"
+   },
+   "read": {
+    "scrollY": 700
+   },
+   "read_shot": "/www/zhihucopy/docs/runs/walk-2015-m2-read.png",
+   "vote_anon": {
+    "url": "/question/1647",
+    "toast": null,
+    "btn_now": "收起评论（2）"
+   },
+   "login": {
+    "ok": true,
+    "url_after": "",
+    "user": null
+   },
+   "vote": {
+    "before": "2 条评论",
+    "after": "收起评论（2）",
+    "changed": true,
+    "active": 0,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m3-voted.png"
+   },
+   "comment": {
+    "ok": false,
+    "cnt_before": 0,
+    "cnt_after": 0,
+    "visible": 1,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m4-commented.png"
+   },
+   "back": {
+    "url": "",
+    "ms": 709,
+    "cards": 20
+   },
+   "search": {
+    "after_enter": {
+     "url": "/search?q=GIL",
+     "results": 0
+    },
+    "final": {
+     "url": "/search?q=GIL",
+     "heading": "“GIL” 的相关结果 · 8 条",
+     "results": 2,
+     "empty": "搜索 “GIL” 的相关结果 · 8 条 取消搜索 问题 2 回答 6 用户 0 结果较少，试试更宽的关键词 Python 的 GIL 到底限制了什么？多线程、多进程、异步 IO 分别适合什么场景？ 我用 Python 写爬虫和数据处理，最近想给程序提速，查资料全都绕到 GIL 上，但说法互相矛盾：有的说多线程在 Python 里没用，有的说 IO 密集场景照样有效，还有的说 … 不熬夜的阿五 3 答 18 关注 3233 浏览 Python 为什么 Python 的 GIL 这么有名？它真的那么影响性能吗？ 每次技术讨论一提到 Python 性能，就有人甩出\"GIL\"三个字，好像它是 Python 的原罪。我用 Python 五年，写脚本、写数据处理、写后端 API，说实话从来没觉得 … 温故笔记 3 答 16 关注 718 浏览 Python 已经到底了"
+    },
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m5-search.png"
+   },
+   "notify": {
+    "items": 0,
+    "rail": 1,
+    "railVisible": true,
+    "questionLinks": 21,
+    "scrollWidth": 390,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m6-notify.png"
+   },
+   "follow": {
+    "before": "关注问题",
+    "after": "+ 关注",
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m7-followed.png"
+   },
+   "profile": {
+    "url": "/u/2926",
+    "ms": 559,
+    "name": "真人nmwll1ltv060r",
+    "stats": "真 真人nmwll1ltv060r 这个人还没有写简介。 16 小时前 加入 成就 首个回答 首个提问 关注 获赞 0 关注者 0 粉丝 0 回答 1 提问 1 走查问题220834？ 回答正文 220834 0 赞同 3 条评论 16 小时前 已经到底了",
+    "scrollWidth": 390,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m8-profile.png"
+   },
+   "reload": {
+    "url": "/u/2926",
+    "still_logged": 0,
+    "vote_persist": 0,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-m9-reloaded.png"
+   },
+   "undo": {
+    "vote_active_left": 0
+   }
+  },
+  "desktop": {
+   "viewport": "1440x900",
+   "home": {
+    "ms_to_networkidle": 1611,
+    "cards": 20,
+    "first_title": "走查问题220834？",
+    "first_meta": "真 真人nmwll1ltv060r 4 个回答 1 人关注 617 次浏览",
+    "scrollWidth": 1440,
+    "hasAskCta": 1,
+    "title_fs": "18px",
+    "body_fs": "15px"
+   },
+   "home_shot": "/www/zhihucopy/docs/runs/walk-2015-d1-home.png",
+   "question": {
+    "url": "/question/1647",
+    "ms": 644,
+    "qtitle": "走查问题220834？",
+    "answers": 9,
+    "first_answer_len": 11,
+    "first_answer_head": "回答正文 220834",
+    "author": "真人nmwll1ltv060r"
+   },
+   "read": {
+    "scrollY": 249
+   },
+   "read_shot": "/www/zhihucopy/docs/runs/walk-2015-d2-read.png",
+   "vote_anon": {
+    "url": "/question/1647",
+    "toast": null,
+    "btn_now": "收起评论（3）"
+   },
+   "login": {
+    "ok": true,
+    "url_after": "",
+    "user": null
+   },
+   "vote": {
+    "before": "3 条评论",
+    "after": "收起评论（3）",
+    "changed": true,
+    "active": 0,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d3-voted.png"
+   },
+   "comment": {
+    "ok": false,
+    "cnt_before": 0,
+    "cnt_after": 0,
+    "visible": 2,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d4-commented.png"
+   },
+   "back": {
+    "url": "",
+    "ms": 701,
+    "cards": 20
+   },
+   "search": {
+    "after_enter": {
+     "url": "/search?q=GIL",
+     "results": 0
+    },
+    "final": {
+     "url": "/search?q=GIL",
+     "heading": "“GIL” 的相关结果 · 8 条",
+     "results": 2,
+     "empty": "搜索 “GIL” 的相关结果 · 8 条 取消搜索 问题 2 回答 6 用户 0 结果较少，试试更宽的关键词 Python 的 GIL 到底限制了什么？多线程、多进程、异步 IO 分别适合什么场景？ 我用 Python 写爬虫和数据处理，最近想给程序提速，查资料全都绕到 GIL 上，但说法互相矛盾：有的说多线程在 Python 里没用，有的说 IO 密集场景照样有效，还有的说 … 不熬夜的阿五 3 个回答 18 人关注 3233 次浏览 Python 为什么 Python 的 GIL 这么有名？它真的那么影响性能吗？ 每次技术讨论一提到 Python 性能，就有人甩出\"GIL\"三个字，好像它是 Python 的原罪。我用 Python 五年，写脚本、写数据处理、写后端 API，说实话从来没觉得 … 温故笔记 3 个回答 16 人关注 718 次浏览 Python 已经到底了"
+    },
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d5-search.png"
+   },
+   "notify": {
+    "items": 0,
+    "rail": 1,
+    "railVisible": true,
+    "questionLinks": 21,
+    "scrollWidth": 1440,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d6-notify.png"
+   },
+   "follow": {
+    "before": "已关注",
+    "after": "+ 关注",
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d7-followed.png"
+   },
+   "profile": {
+    "url": "/u/2926",
+    "ms": 490,
+    "name": "真人nmwll1ltv060r",
+    "stats": "真 真人nmwll1ltv060r 这个人还没有写简介。 16 小时前 加入 成就 首个回答 首个提问 关注 获赞 0 关注者 0 粉丝 0 回答 1 提问 1 走查问题220834？ 回答正文 220834 0 赞同 4 条评论 16 小时前 已经到底了",
+    "scrollWidth": 1440,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d8-profile.png"
+   },
+   "reload": {
+    "url": "/u/2926",
+    "still_logged": 0,
+    "vote_persist": 0,
+    "shot": "/www/zhihucopy/docs/runs/walk-2015-d9-reloaded.png"
+   },
+   "undo": {
+    "vote_active_left": 0
+   }
+  }
+ },
+ "errors": [],
+ "http": []
+}
