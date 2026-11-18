@@ -128,9 +128,9 @@ function Highlight({ text, kw }: { text: string; kw: string }) {
   return <>{parts}</>;
 }
 
-function viewsShort(n: number) {
-  if (n >= 10000) return `${Math.round(n / 1000) / 10} 万浏览`;
-  return `${n} 浏览`;
+function viewsNum(n: number) {
+  if (n >= 10000) return `${Math.round(n / 1000) / 10} 万`;
+  return n;
 }
 
 function FeedCard({ q, kw }: { q: Question; kw: string }) {
@@ -152,16 +152,16 @@ function FeedCard({ q, kw }: { q: Question; kw: string }) {
       ) : null}
       <div className="feed__meta">
         <FeedAuthor author={q.author} />
-        <span className="feed__answers">{q.answer_count} 个回答</span>
-        <span className="feed__answers-short">{q.answer_count} 答</span>
+        <span className="feed__answers"><b className="meta__num">{q.answer_count}</b> 个回答</span>
+        <span className="feed__answers-short"><b className="meta__num">{q.answer_count}</b> 答</span>
         {typeof q.follower_count === "number" ? (
           <>
-            <span className="feed__follows">{q.follower_count} 人关注</span>
-            <span className="feed__follows-short">{q.follower_count} 关注</span>
+            <span className="feed__follows"><b className="meta__num">{q.follower_count}</b> 人关注</span>
+            <span className="feed__follows-short"><b className="meta__num">{q.follower_count}</b> 关注</span>
           </>
         ) : null}
-        <span className="feed__views">{q.view_count} 次浏览</span>
-        <span className="feed__views-short">{viewsShort(q.view_count)}</span>
+        <span className="feed__views"><b className="meta__num">{q.view_count}</b> 次浏览</span>
+        <span className="feed__views-short"><b className="meta__num">{viewsNum(q.view_count)}</b> 浏览</span>
       </div>
       {/* 话题胶囊跟在元信息之后；仅话题命中（matched==="topic"）时在话题名上高亮，不冒充标题命中 */}
       {q.topics?.length ? (
@@ -294,16 +294,16 @@ function HotFeedCard({ q, rank }: { q: Question; rank: number }) {
                 )}
               </span>
             )}
-            <span className="feed__answers">{q.answer_count} 个回答</span>
-            <span className="feed__answers-short">{q.answer_count} 答</span>
+            <span className="feed__answers"><b className="meta__num">{q.answer_count}</b> 个回答</span>
+            <span className="feed__answers-short"><b className="meta__num">{q.answer_count}</b> 答</span>
             {typeof q.follower_count === "number" ? (
               <>
-                <span className="feed__follows">{q.follower_count} 人关注</span>
-                <span className="feed__follows-short">{q.follower_count} 关注</span>
+                <span className="feed__follows"><b className="meta__num">{q.follower_count}</b> 人关注</span>
+                <span className="feed__follows-short"><b className="meta__num">{q.follower_count}</b> 关注</span>
               </>
             ) : null}
-            <span className="feed__views">{q.view_count} 次浏览</span>
-            <span className="feed__views-short">{viewsShort(q.view_count)}</span>
+            <span className="feed__views"><b className="meta__num">{q.view_count}</b> 次浏览</span>
+            <span className="feed__views-short"><b className="meta__num">{viewsNum(q.view_count)}</b> 浏览</span>
           </div>
           {q.topics?.length ? (
             <div className="feed__topics">

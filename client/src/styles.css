@@ -485,6 +485,12 @@ textarea:focus-visible {
 .feed__meta > span {
   flex: none;
 }
+/* Z1198 — 元信息数值层级：数字提到 --ink-2 + 600，与 --ink-3 的作者名/单位
+   拉开一级；#444 对白卡约 9.7:1，过 4.5:1。 */
+.meta__num {
+  color: var(--ink-2);
+  font-weight: 600;
+}
 .feed__answers-short,
 .feed__views-short,
 .feed__follows-short {
@@ -2831,9 +2837,16 @@ a.ntf__title:hover {
   display: none;
 }
 @media (max-width: 767px) {
+  :root {
+    /* Z1198 — 底部固定 Tab 栏高度（不含 1px 上边框），供底栏/留白/toast 共用 */
+    --tabbar-h: 56px;
+  }
   .container {
     grid-template-columns: 1fr;
-    padding-bottom: 90px;
+    /* Z1198 — 底部安全区：tabbar 高 + 刘海安全区 + 12px 余量。
+       实测基线 90px 已能避免末卡被压（.rail order:2 在信息流之后、文档
+       底部还有 feed-foot），此处改为变量驱动的统一公式，语义对齐底栏高度。 */
+    padding-bottom: calc(var(--tabbar-h, 56px) + env(safe-area-inset-bottom, 0px) + 12px);
   }
   .rail {
     order: 2;
