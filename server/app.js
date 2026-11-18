@@ -27,7 +27,7 @@ const SPA_SINGLE_PAGES = new Set([
 function spaContentExists(head, param) {
   const db = getDb();
   if (head === "question") {
-    return !!db.prepare("SELECT 1 AS x FROM questions WHERE id = ?").get(param);
+    return !!db.prepare("SELECT 1 AS x FROM questions WHERE id = ? AND is_fixture = 0").get(param);
   }
   if (head === "u") {
     return !!db.prepare("SELECT 1 AS x FROM users WHERE id = ?").get(param);
