@@ -3723,21 +3723,48 @@ a.ntf__title:hover {
   margin-right: 0;
 }
 
-/* ---------- Z1150 赞同态文案「已赞同」窄屏保护 ---------- */
-/* 已赞同态按钮文案多一个「已」字，390px 下单行放不下时先收 gap/内边距，
-   再让末尾「发布于 …」日期截断省略，保证 .answer__actions 单行不横向溢出。 */
+/* ---------- Z1150 / Z1190 窄屏操作栏单行保护 ---------- */
+/* ≤767px 操作栏强制单行：不再换行也不再省略号截断时间戳，
+   放不下时整行横向滚动（隐藏滚动条）；每个条目禁止收缩与折行。 */
 @media (max-width: 767px) {
   .answer__actions {
-    gap: 10px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .answer__actions::-webkit-scrollbar {
+    display: none;
+  }
+  /* 收藏弹层开在操作栏上方，overflow-x:auto 会连带裁掉纵向。
+     弹层存在时改用 overflow-x:clip：纵向保持可见（clip 不强制另一轴
+     变 auto），横向仍裁切且不产生滚动，避免顶出 body 横向溢出。 */
+  .answer__actions:has(.answer__fav-menu) {
+    overflow-x: clip;
+  }
+  .answer__actions > * {
+    flex: 0 0 auto;
+  }
+  .answer__vote,
+  .answer__action,
+  .answer__date {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .answer__vote {
-    padding: 4px 10px;
+    padding: 4px 8px;
+    min-width: 40px;
   }
-  .answer__date {
-    min-width: 0;
-    flex-shrink: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .answer__action {
+    padding: 4px 8px;
+    min-width: 40px;
+  }
+}
+
+/* ≤480px 时间戳去掉「发布于 」前缀（完整时间见 title 属性）。 */
+@media (max-width: 480px) {
+  .answer__date-prefix {
+    display: none;
   }
 }
