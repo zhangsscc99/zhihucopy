@@ -1010,7 +1010,7 @@
   verify: node scripts/assert/search-users-facet.mjs
   risk: med
 
-- [ ] Z1194 主页资料卡成就胶囊竖排、数据条未均分（P2，视觉层级）：实测 390 下 `/u/223` 资料卡里「首个粉丝 / 首个提问」竖排堆叠把卡片撑高，下方「获赞 0 / 关注者 2 / 粉丝 8」三项未均分（右侧留白大），同屏还并列 3 个蓝色主按钮（提问 / 关注 / 邀请 TA 回答）抢主视觉。要求：① 成就改为横向 `flex-wrap` 小胶囊，最多 2 行；② 数据条 `display:grid; grid-template-columns:repeat(3,1fr)` 居中；③ 页面主按钮只保留 1 个实心（关注），「邀请 TA 回答」降为描边。断言 `scripts/assert/profile-card-layout.mjs`：390 下成就容器高度 ≤ 两行胶囊高、数据三项 `offsetWidth` 极差 <8px、实心主按钮数 =1、`document.body.scrollWidth===390`、`window.__errs` 为空。
+- [x] Z1194 主页资料卡成就胶囊竖排、数据条未均分（P2，视觉层级）：实测 390 下 `/u/223` 资料卡里「首个粉丝 / 首个提问」竖排堆叠把卡片撑高，下方「获赞 0 / 关注者 2 / 粉丝 8」三项未均分（右侧留白大），同屏还并列 3 个蓝色主按钮（提问 / 关注 / 邀请 TA 回答）抢主视觉。要求：① 成就改为横向 `flex-wrap` 小胶囊，最多 2 行；② 数据条 `display:grid; grid-template-columns:repeat(3,1fr)` 居中；③ 页面主按钮只保留 1 个实心（关注），「邀请 TA 回答」降为描边。断言 `scripts/assert/profile-card-layout.mjs`：390 下成就容器高度 ≤ 两行胶囊高、数据三项 `offsetWidth` 极差 <8px、实心主按钮数 =1、`document.body.scrollWidth===390`、`window.__errs` 为空。 ✅ (2026-11-18 第五十二轮 devin swe-2-medium，3 轮迭代：第一轮只加 `max-height:54px; overflow:hidden`，实测把 4 枚胶囊裁成 2 枚（根因是 390 下 `.profile__info` 被头像+关注按钮挤到 150px，胶囊一列一行），验收打回；第二轮改为 `.profile__head{flex-wrap:wrap}` + `.profile__info{flex:1 1 100%;order:1}` 让信息区独占第二行撑满内容宽（medals 150→316px），去掉裁剪，4 枚胶囊 3+1 排两行；第三轮补 `.profile__follow{margin-left:auto}` 恢复关注按钮右对齐。`.profile__stats` 改 `repeat(3,1fr)`（三项 offsetWidth 100/100/100），他人主页空态「邀请 TA 回答」降为 `btn--outline`（main 内实心主按钮 1 个）。断言脚本从「高度上限」改为硬约束：medals 宽 ≥ 卡片内容区−4px、每枚胶囊 `bottom ≤ medals.bottom`、胶囊数 = 接口徽章数、distinct top ≤ 2、follow 右对齐 ≤2px、1440 下 info 与头像同行。线上 390 实测 medalsW=316/cardW=356、rows=2、allVisible=true、stats 三等分、followDRight=0；`verify Z1194` PASS、断言 3/3 连跑 PASS、冒烟 home/ask-answer PASS、ci-deploy e2e 20/20 PASS)
   verify: node scripts/assert/profile-card-layout.mjs
   risk: low
 
@@ -1059,3 +1059,5 @@
 - [ ] Z1204 FEATURES 存量断言腐化：report.sh 本轮逐条跑 267 个 verify，Z1035（`MODULE_NOT_FOUND`，引用的脚本已删）、Z1037（`profile-empty-cta` 找 `main .empty a:has-text("去逛逛推荐")` 15s 超时，空态 CTA 文案已变）等一批 Z10xx 条目 FAIL，属过期断言而非线上回归，却与真回归混在同一份报告里稀释信号。要求：① `scripts/verify-stale-items.mjs`（已有）扩成「断言引用文件不存在 / 脚本内 locator 文案在 client/src 里找不到」两类静态检查，输出可批量下线的 fid 清单；② 对确认废弃的条目在 FEATURES 里标 `- [-]` 或改写为现状断言，report.sh 跳过 `[-]`；③ 报告里 verify 结果分区「本轮新增/改动条目」与「存量断言」，存量 FAIL 单列不计入退出码（但真回归区仍为硬门禁）。
   verify: node scripts/assert/verify-stale-items.mjs
   risk: low
+
+- [ ] Z1208 资料卡成就区 3+1 换行与卡片底部留白（P3，视觉微调；Z1194 落地后复核发现）｜verify: node scripts/assert/profile-card-balance.mjs｜risk: low｜390 实测 `/u/1`：4 枚成就胶囊排成「3 + 1」，第二行只有 1 枚、右侧明显空白；资料卡统计栏到卡片底边留白偏大，整卡纵向节奏偏松。要求：① 成就胶囊改用 `grid-template-columns: repeat(2, minmax(0,1fr))`（或按胶囊数自动均分）使 4 枚稳排 2×2、不出现孤行；② 统计栏下边距收紧到与卡片上/左内边距同一量级（±2px），不改桌面 ≥1024 观感；③ 不改接口、不隐藏任何勋章。断言 `scripts/assert/profile-card-balance.mjs`（390×844）：胶囊按行分组后每行枚数相同（4 枚时 2+2）、两行胶囊 `left` 起点一致、统计栏底边到卡片内容底边间距 ≤ 卡片水平内边距 + 2、`document.body.scrollWidth===390`、`window.__errs` 为空、连跑 3 次一致。
