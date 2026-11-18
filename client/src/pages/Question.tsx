@@ -1638,7 +1638,10 @@ export function Question() {
                     <button type="button" className="answer__action" onClick={() => share(a)}>
                       分享
                     </button>
-                    <span className="answer__date">发布于 {formatTime(a.created_at)}</span>
+                    <span className="answer__date" title={`发布于 ${formatTime(a.created_at)}`}>
+                      <span className="answer__date-prefix">发布于 </span>
+                      {formatTime(a.created_at)}
+                    </span>
                   </div>
                   {cardConfirmDelId === a.id && (
                     <div className="answer__del-confirm" role="alert">
