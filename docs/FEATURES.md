@@ -1101,3 +1101,29 @@
   verify: node scripts/assert/question-fixture-detail.mjs
   risk: low
 
+
+## 第五十二轮待办（2026-11-18 21:45，走查；HEAD 99d8852）
+
+- [ ] Z1220 登录用户发布评论被内容规则**误杀**：任意正常文本都返回 403「该内容不符合社区规范，请修改后再发布」，全站无法评论（P0，功能阻断/文本质量；双端 + 3 句不同文本复现）｜verify: node scripts/assert/comment-publish-ok.mjs｜risk: med｜2026-11-18 21:37 实测（干净 context，注册 `walk5213700@example.com` 后）：`POST /api/comments {target_type:"answer", target_id:18, body:"把 useEffect 理解成租约这个说法很形象，想请教一下取消订阅和清理定时器的先后顺序有讲究吗？"}` → **403** `{"error":"该内容不符合社区规范，请修改后再发布"}`；再试「这个心智模型帮我理清了依赖数组的作用，之前一直是靠试错在写清理函数。」（34 字）同样 403；手机与桌面两遍都在 `#answer .answer__comment-form` 输入「走查52：…」后被拒，评论数 0→0，`console` 仅一条 403。截图 `docs/runs/walk-2145-m6c-comment-natural.png`（vision：红条浮在底栏上方压住回答正文）。要求：① 规则改成"明确命中违规词才 403 并回传命中的词"，其余落库并进审核态（`is_pending`）；② 403 时前端把提示渲染在评论输入框下方（`aria-live`），不要全局底栏 toast；③ 不要放宽到"任何内容都过"——保留长度下限与链接数上限的显式校验。断言 `scripts/assert/comment-publish-ok.mjs`（API + 390×844 各一次，用临时账号）：上述 3 句自然文本 `POST /api/comments` 全部 200/201 且 `GET /api/comments?target_id=<answer>` 的 `total` +3、`items` 含其中 2 条；含 `http://` 链接 ×3 的文本返回 4xx 且 `error` 文案含命中原因；`window.__errs` 为空；连跑 2 次一致。
+  verify: node scripts/assert/comment-publish-ok.mjs
+  risk: med
+
+- [ ] Z1221 评论计数三套口径互斥：同一屏出现「收起评论（20）」「0 条评论」「该评论已删除」，而 `GET /api/comments?target_id=18` 返回 `total: 66`（P1，文本质量/可信度；数据自相矛盾）｜verify: node scripts/assert/comment-count-consistency.mjs｜risk: low｜2026-11-18 21:38 实测 `/question/6`：展开首答评论后标题写「收起评论（20）」，API `total:66`（`items` 首条 id=111）；页面正文里同时存在「0 条评论」（相邻回答）与「该评论已删除」。截图 `walk-2145-m6-comment.png`。要求：① 评论数一律取 `GET /api/comments` 的 `total`，不要再从 answers 列表派生；② `is_deleted` 的评论不渲染占位行「该评论已删除」，除非它是当前用户的刚删项；③ 展开按钮文案与面板内总数同源。断言 `scripts/assert/comment-count-consistency.mjs`（390×844）：打开首屏前 3 个问题（各取第 1 条回答），`收起评论（N）` 中的 N 等于同 target 的 API `total`；页面文本不出现「该评论已删除」；同一回答的评论数在展开前后一致；连跑 2 次一致。
+  verify: node scripts/assert/comment-count-consistency.mjs
+  risk: low
+
+- [ ] Z1222 手机端搜索入口点开后是死路：`.topnav__search-btn` 可见（w=40），点击后 `.topnav__search` 表单仍 `width=0 / visibility:hidden`，输入框不可交互，`fill` 10s 超时；桌面端点搜索图标后 `click` 同样 10s 超时（P1，可负担性/回归；上轮 Z1210 曾判通过）｜verify: node scripts/assert/search-open.mjs｜risk: low｜2026-11-18 21:36–21:37 实测（`walk-2145-m8-search.png` / `d8-search.png`）：`document.querySelectorAll('input,[class*=search]')` 结果为 `FORM.topnav__search w0 visfalse`、`INPUT.field--search w0 visfalse`、`BUTTON.topnav__search-btn w40 vistrue`——按钮可见但目标表单始终零宽。要求：① 点击后 150ms 内表单 `width>0`、input `offsetWidth>0` 且 `document.activeElement` 为搜索框；② 关闭态按钮要带 `aria-expanded="false"`，展开后为 `true`；③ 回车提交到 `/search?q=` 的既有链路不变。断言 `scripts/assert/search-open.mjs`（390×844 + 1440×900）：点击 `.topnav__search-btn` 后 300ms 内 `INPUT.field--search` 的 `offsetWidth>100`、`toBeFocused`；填入「useEffect」回车后 `location.pathname === '/search'` 且结果数 >0；`window.__errs` 为空；连跑 2 次一致。
+  verify: node scripts/assert/search-open.mjs
+  risk: low
+
+- [ ] Z1223 失败提示以全局红色浮层盖在正文上，且文案不指向"改哪里"（P2，视觉/细节；game-detail-bar「反馈要贴在动作发生处」）｜verify: node scripts/assert/inline-error-hint.mjs｜risk: low｜2026-11-18 21:38 视觉复核 `docs/runs/walk-2145-m6c-comment-natural.png`：vision 判「红色浮层浮在底栏上方、压住「白小露」的回答正文；提示不在评论输入框旁、文案笼统，用户不知道该改什么」。要求：① 评论发布失败改为输入框下方内联错误（`role="alert"`，红色 13px），并保留已输入文本；② 文案带可操作信息（「含链接过多」/「命中敏感词 X」）；③ 全局 toast 只用于与具体控件无关的系统消息。断言 `scripts/assert/inline-error-hint.mjs`：注入一次 403 响应（`page.route` 拦截 `/api/comments` 返回 403）后，`.answer__comment-form [role=alert]` 存在且位于 textarea 下方 24px 内；`document.activeElement` 仍是 textarea；textarea 的值未被清空；无全屏浮层覆盖正文（失败提示元素 `position !== 'fixed'`）；`window.__errs` 为空。
+  verify: node scripts/assert/inline-error-hint.mjs
+  risk: low
+
+- [ ] Z1224 通知空态两个同样式按钮同权 + 顶栏「走」按钮语义不明（P2，视觉/可负担性；intuitive-game-design「affordance：不读教程能懂」）｜verify: node scripts/assert/empty-state-cta.mjs｜risk: low｜2026-11-18 21:38 视觉复核 `docs/runs/walk-2145-m9-notify.png`：vision 判「两个按钮权重相同，主行动不唯一；顶栏「走」按钮突兀、含义不明；说明文字出现孤字换行」。要求：① 空态只保留一个主按钮（实心蓝「去首页看看热门讨论」），第二个降为文字链接；② 顶栏「走」按钮改为图标+可访问名（如 `aria-label="发布"`）或直接移除（底栏已有「发布」）；③ 说明文字加 `text-wrap: pretty` 或缩短，避免孤字换行。断言 `scripts/assert/empty-state-cta.mjs`（390×844）：`/notifications` 空态容器内 `.btn--primary` 计数为 1；每个按钮 `offsetWidth` 与其 `btn--primary/btn--ghost` 类一致（宽度差 <4px 视为不一致则 FAIL）；顶部头像区任何按钮都有非空 `aria-label` 或 2 字以上可读文本；`document.body.scrollWidth === 390`；`window.__errs` 为空。
+  verify: node scripts/assert/empty-state-cta.mjs
+  risk: low
+
+- [ ] Z1225 回答页同时出现「关注问题」与多个「+ 关注」同名按钮，无对象上下文（P2，认知负荷；balance/intuitive「按钮必须说明作用对象」）｜verify: node scripts/assert/follow-button-label.mjs｜risk: low｜2026-11-18 21:39 实测 `/question/6`：`document.querySelectorAll('button')` 的可关注项文本为 `["关注问题","已关注","+ 关注","+ 关注"]`——4 个"关注"，用户无法判断哪个关注问题、哪个关注答主；点完后 `+ 关注`→`已关注` 的反馈也只有一个字面变化。要求：① 答主按钮文案带对象（「关注 阿罗」或按钮内加作者名 tooltip `aria-label="关注阿罗"`）；② 问题级按钮固定在问题头卡且文案为「关注问题」；③ 已关注态与关注态用同一按钮不同 `aria-pressed`，不要出现两个不同文案的同类按钮并存。断言 `scripts/assert/follow-button-label.mjs`（390×844）：`/question/:id` 页内所有关注类按钮的 `aria-label` 或文本均含明确对象（作者名或「问题」），不存在文本完全相同的两个关注按钮；点击后 `aria-pressed` 为 `true` 且按钮仍在原位（`getBoundingClientRect` 位移 <2px）；`window.__errs` 为空。
+  verify: node scripts/assert/follow-button-label.mjs
+  risk: low
