@@ -830,6 +830,22 @@ mark.hl {
   .feed__meta .feed__views-short {
     display: inline;
   }
+  /* 窄屏元信息可换行（热榜卡 作者·热度·N答·N关注·N浏览 会超过 390px）。
+     分隔点附着在前一项结尾（::after），换行到行首的项前面没有任何东西，
+     因此不需要 overflow:hidden 裁切——.feed__meta 保持 overflow:visible，
+     键盘聚焦 .feed__author 链接时焦点环完整可见。 */
+  .feed__meta {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .feed__meta > * + *::before {
+    content: none;
+  }
+  .feed__meta > *:not(:last-child)::after {
+    content: "·";
+    margin: 0 6px;
+    color: var(--ink-3);
+  }
   /* 窄屏长昵称保护：只约束信息流卡片内的作者位（Profile/Unanswered 上复用
      .feed__author 的纯文本节点不在 .feed__item 里，不受影响）。24px 头像 +
      6px gap 在 40% 内，省略发生在 .feed__author-name 文本节点上。 */
@@ -839,6 +855,14 @@ mark.hl {
   }
   .search-head {
     padding: 12px 14px;
+  }
+}
+
+/* 极窄屏（≤360px）：换两行仍可能超宽，隐藏优先级最低的「关注」数；
+   浏览量是热榜核心信息，保持可见。 */
+@media (max-width: 360px) {
+  .feed__meta .feed__follows-short {
+    display: none;
   }
 }
 
