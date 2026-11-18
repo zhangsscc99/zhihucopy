@@ -205,6 +205,7 @@ export function Question() {
   const [commentsError, setCommentsError] = useState<Record<number, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [commentSending, setCommentSending] = useState<Record<number, boolean>>({});
+  const [commentErrors, setCommentErrors] = useState<Record<number, string>>({});
   // 刚发布成功的评论 id：滚入视口 + 1.2s 浅蓝淡出高亮（Z1159）。
   const [flashCommentId, setFlashCommentId] = useState<number | null>(null);
   const flashCommentTimerRef = useRef(0);
@@ -950,6 +951,7 @@ export function Question() {
     const body = (commentDrafts[a.id] ?? "").trim();
     if (!body || commentSending[a.id]) return;
     setCommentSending((s) => ({ ...s, [a.id]: true }));
+    setCommentErrors((m) => ({ ...m, [a.id]: "" }));
     try {
       const { comment } = await post<{ comment: CommentNode }>("/comments", {
         target_type: "answer",
@@ -966,11 +968,13 @@ export function Question() {
       toast("评论已发布");
     } catch (e) {
       // 非 2xx：透出服务端 error 文案（如社区规范拦截），无 error 字段给
-      // 兜底文案；输入框内容保留，发送按钮由 finally 复位可点。
-      toast(
-        e instanceof ApiError && e.serverError ? e.serverError : "评论发布失败，请稍后再试",
-        "error"
-      );
+      // 兜底文案。错误内联在该输入框下方（role=alert），不走全局 toast；
+      // 输入框内容保留、焦点不回丢，发送按钮由 finally 复位可点。
+      setCommentErrors((m) => ({
+        ...m,
+        [a.id]:
+          e instanceof ApiError && e.serverError ? e.serverError : "评论发布失败，请稍后再试",
+      }));
     } finally {
       setCommentSending((s) => ({ ...s, [a.id]: false }));
     }
@@ -1860,6 +1864,11 @@ export function Question() {
                                   }
                                 }}
                               />
+                              {commentErrors[a.id] ? (
+                                <p className="answer__comment-error" role="alert">
+                                  {commentErrors[a.id]}
+                                </p>
+                              ) : null}
                               <div className="answer__comment-actions">
                                 <Button
                                   onClick={() => submitComment(a)}

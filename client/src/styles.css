@@ -1661,6 +1661,11 @@ mark.hl {
   color: var(--seal);
   font-size: 12px;
 }
+.answer__comment-error {
+  margin: 6px 0 0;
+  color: var(--seal);
+  font-size: 13px;
+}
 .answer__reply-actions {
   margin-top: 8px;
   display: flex;

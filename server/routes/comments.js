@@ -2,7 +2,7 @@ const express = require("express");
 const { getDb } = require("../db");
 const { requireAuth } = require("../auth");
 const { badRequest } = require("../util");
-const { testCommentSql, isWalkProbeContent, isWalkAccount } = require("../content-filter");
+const { testCommentSql, walkProbeRules } = require("../content-filter");
 
 const router = express.Router();
 
@@ -180,13 +180,25 @@ router.post("/", requireAuth, (req, res) => {
   }
 
   // Z1169 写入守卫：走查/e2e 探针模板正文一律拒写 —— 不入库、不重算
-  // comment_count、不发通知（不依赖前端/脚本自觉）。
-  // Z1173 收窄：is_test 不能一刀切 —— e2e/assert 探针账号全部是 is_test=1
-  // （@test.dev 注册域），一刀切会把整条 e2e 评论链路打死。只对「走查
-  // 流水号」形态的测试昵称（isWalkAccount：沈舟拾NNNN/走查NN/巡检NN 等）
-  // 拒写；正文模板规则（isWalkProbeContent）对任何账号都生效，仍是主防线。
-  if (isWalkProbeContent(content) || (req.user.is_test && isWalkAccount(req.user))) {
-    return res.status(403).json({ error: "该内容不符合社区规范，请修改后再发布" });
+  // comment_count、不发通知（不依赖前端/脚本自觉）。命中即回传规则名，
+  // 前端把错误内联到输入框，便于走查定位是哪条规则拦的。
+  // Z1226 删掉「按账号昵称一刀切」分支（req.user.is_test && isWalkAccount）：
+  // 走查号 ≠ 违规内容，写侧守卫不能按身份拒写 —— 走查/巡检脚本注册的
+  // 账号（走查NNNNNN 等，is_test=1）发自然语言评论应当正常入库，否则每轮
+  // 线上走查都误判「评论功能全站不可用」。isWalkAccount 导出保留（
+  // auth.js 注册打标 / 清理脚本仍在用），本路由不再用它拒写。
+  const hits = walkProbeRules(content);
+  if (hits.length) {
+    return res
+      .status(403)
+      .json({ error: `评论未通过内容校验：命中规则 ${hits[0]}`, rule: hits[0] });
+  }
+  // 链接数上限：正文里 http(s):// 出现 ≥3 次一律拒写（与正文规则同层，
+  // 任何账号生效；不依赖前端自觉）。
+  if ((content.match(/https?:\/\//g) || []).length >= 3) {
+    return res
+      .status(400)
+      .json({ error: "评论中链接过多（最多 2 个）", rule: "too_many_links" });
   }
 
   const id = db.transaction(() => {
