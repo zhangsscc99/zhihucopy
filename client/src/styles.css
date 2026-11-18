@@ -2883,6 +2883,11 @@ a.ntf__title:hover {
   .shell--auth .rail {
     display: none;
   }
+  /* Z1211 — 通知/搜索/个人主页（.shell--norailm）：移动端同样不渲染右栏，
+     通知列表结束后直接到底，不再把「热榜」灌进页面流。 */
+  .shell--norailm .rail {
+    display: none;
+  }
   /* 顶栏「提问」是第二个实心主按钮且把顶栏挤出横向溢出，auth 页隐藏。 */
   .shell--auth .topnav__ask {
     display: none;

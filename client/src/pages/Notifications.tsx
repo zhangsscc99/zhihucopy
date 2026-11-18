@@ -167,7 +167,10 @@ function NotificationRow({
   const kind = n.event || "other";
 
   return (
-    <li className={`ntf__item${n.is_read ? "" : " ntf__item--unread"}`}>
+    <li
+      className={`ntf__item${n.is_read ? "" : " ntf__item--unread"}`}
+      data-notify-item
+    >
       <span className="ntf__icon" aria-hidden="true">
         <TypeIcon kind={kind} />
       </span>
