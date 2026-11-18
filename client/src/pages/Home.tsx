@@ -496,6 +496,22 @@ function SearchResults({ q }: { q: string }) {
   const settled = !initialLoading && !error && itemsScope === scope;
   const lowHit = settled && total <= 3 && reason !== "too_short";
 
+  // Z1162 — headline 口径改为三类合计（counts 未回时退回本 scope total）；
+  // 本分类为空但其它分类有命中时，空态给跨分类引导而不是「没有找到」。
+  const countsTotal = counts
+    ? counts.question + counts.answer + counts.user
+    : total;
+  const scopeLabel = SEARCH_TABS.find((t) => t.key === scope)?.label || "问题";
+  const crossHit =
+    counts && (counts[scope] ?? 0) === 0
+      ? (() => {
+          const t = SEARCH_TABS.find(
+            (x) => x.key !== scope && (counts[x.key] ?? 0) > 0
+          );
+          return t ? { target: t.key, label: t.label, n: counts[t.key] } : null;
+        })()
+      : null;
+
   return (
     <>
       <form className="msearchbar" role="search" aria-label="在结果中搜索" onSubmit={submitInline}>
@@ -517,7 +533,7 @@ function SearchResults({ q }: { q: string }) {
           <span className="search-head__q">“{q}”</span>
           {" 的相关结果"}
           {!initialLoading && !error && (
-            <span className="search-head__total"> · {total} 条</span>
+            <span className="search-head__total"> · {countsTotal} 条</span>
           )}
         </h1>
         <button
@@ -561,6 +577,19 @@ function SearchResults({ q }: { q: string }) {
                 onClick={refocusInline}
               >
                 换个关键词
+              </button>
+            }
+          />
+        ) : crossHit ? (
+          <Empty
+            title={`${scopeLabel}里没有匹配，${crossHit.label}中有 ${crossHit.n} 条`}
+            action={
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setScope(crossHit.target)}
+              >
+                去看{crossHit.label}
               </button>
             }
           />
