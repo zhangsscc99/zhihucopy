@@ -11,6 +11,7 @@
   --accent: #0066ff;
   --accent-hover: #005ce6;
   --seal: #b03a2e; /* 兼容别名：仅错误态使用 */
+  --ok: #52c41a;
   --hot-1: #ff5a5f;
   --hot-23: #ff7a45;
 
@@ -1544,20 +1545,22 @@ mark.hl {
 .answer__comment--child {
   margin-left: 22px;
 }
-/* Z1159 — 刚发布的评论：浅蓝底淡出高亮（约 1.2s），配合滚入视口。 */
-.answer__comment--flash {
-  animation: comment-flash 1.2s ease-out;
+/* Z1159 — 刚发布的评论：浅蓝底淡出高亮（约 1.8s），配合滚入视口与 data-new。 */
+.answer__comment--flash,
+.answer__comment[data-new="1"] {
+  animation: comment-flash 1.8s ease-out;
 }
 @keyframes comment-flash {
   0% {
-    background: #eaf2ff;
+    background: #f0f7ff;
   }
   100% {
     background: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .answer__comment--flash {
+  .answer__comment--flash,
+  .answer__comment[data-new="1"] {
     animation: none;
   }
 }
@@ -1665,6 +1668,22 @@ mark.hl {
   margin: 6px 0 0;
   color: var(--seal);
   font-size: 13px;
+}
+/* Z1232 — 评论发布成功的内联状态条：输入框下方、绿色、2s 淡出（不固定定位）。 */
+.answer__comment-status {
+  margin: 6px 0 0;
+  color: var(--ok);
+  font-size: 13px;
+  animation: comment-status-fade 2s ease-out forwards;
+}
+@keyframes comment-status-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 .answer__reply-actions {
   margin-top: 8px;
