@@ -1,0 +1,165 @@
+{
+  "base": "http://127.0.0.1:3030/zhihucopy",
+  "results": [
+    {
+      "script": "a11y.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "4.1",
+      "shot": "",
+      "tail": "[E2E] a11y PASS (3.3s)"
+    },
+    {
+      "script": "admin.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "5.1",
+      "shot": "",
+      "tail": "[api] 合计删除 u=0 q=0 a=0 c=0 col=0；跳过 1（u:1）"
+    },
+    {
+      "script": "answer-editor.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "5.0",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=0 a=0 c=0 col=0"
+    },
+    {
+      "script": "ask-answer.mjs",
+      "required": true,
+      "pass": true,
+      "secs": "3.5",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=1 a=1 c=0 col=0"
+    },
+    {
+      "script": "ask-editor.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "3.5",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=0 a=0 c=0 col=0"
+    },
+    {
+      "script": "auth.mjs",
+      "required": true,
+      "pass": true,
+      "secs": "2.6",
+      "shot": "",
+      "tail": "[E2E] auth PASS (2.0s)"
+    },
+    {
+      "script": "home.mjs",
+      "required": true,
+      "pass": true,
+      "secs": "3.2",
+      "shot": "",
+      "tail": "[E2E] home PASS (2.6s)"
+    },
+    {
+      "script": "notifications.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "3.5",
+      "shot": "",
+      "tail": "[api] 合计删除 u=2 q=1 a=1 c=0 col=0"
+    },
+    {
+      "script": "probe-auth.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "13.9",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=0 a=0 c=0 col=0"
+    },
+    {
+      "script": "probe-extra.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "56.4",
+      "shot": "",
+      "tail": "}"
+    },
+    {
+      "script": "probe-r36-live.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "16.4",
+      "shot": "",
+      "tail": "[api] 合计删除 u=0 q=0 a=0 c=0 col=0；跳过 1（u:2）"
+    },
+    {
+      "script": "probe-r36.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "52.0",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=0 a=0 c=0 col=0"
+    },
+    {
+      "script": "probe-r36b.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "53.4",
+      "shot": "",
+      "tail": "[E2E] probe-r36b PASS (51.9s)"
+    },
+    {
+      "script": "probe-r36c.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "46.9",
+      "shot": "",
+      "tail": "[api] 合计删除 u=0 q=0 a=0 c=0 col=0；跳过 1（u:2）"
+    },
+    {
+      "script": "probe-round15.mjs",
+      "required": true,
+      "pass": true,
+      "secs": "59.8",
+      "shot": "",
+      "tail": "[api] 合计删除 u=2 q=1 a=1 c=2 col=1"
+    },
+    {
+      "script": "profile.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "7.7",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=1 a=1 c=0 col=0"
+    },
+    {
+      "script": "review-journey.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "95.3",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=1 a=1 c=1 col=0"
+    },
+    {
+      "script": "search.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "12.7",
+      "shot": "",
+      "tail": "[E2E] search PASS (11.2s)"
+    },
+    {
+      "script": "topic.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "7.3",
+      "shot": "",
+      "tail": "[E2E] topic PASS (5.1s)"
+    },
+    {
+      "script": "vote-comment.mjs",
+      "required": false,
+      "pass": true,
+      "secs": "9.2",
+      "shot": "",
+      "tail": "[api] 合计删除 u=1 q=0 a=0 c=0 col=0"
+    }
+  ]
+}

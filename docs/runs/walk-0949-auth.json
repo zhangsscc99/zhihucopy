@@ -1,0 +1,274 @@
+{
+  "users": [
+    {
+      "email": "walk59m376787@example.com",
+      "nickname": "走查59m81",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjY3MTcsImlhdCI6MTc5NTA4MjM3NywiZXhwIjoxNzk1Njg3MTc3fQ.ZLOhX76QmZOlRk7G1vYqv-T79QpaYm9HEOPdGyoDc6I",
+      "id": 6717
+    },
+    {
+      "email": "walk59d429927@example.com",
+      "nickname": "走查59d43",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjY3MTgsImlhdCI6MTc5NTA4MjQzMCwiZXhwIjoxNzk1Njg3MjMwfQ.Rp71UyPAt1kuYzXHytfS0cpLmr2kGZ-nj1fyS5MKuUw",
+      "id": 6718
+    }
+  ],
+  "mobile": {
+    "loggedIn": {
+      "header": "知乎（仿） | 提问 | 走 | JavaScript | 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？ |  | React 的 useEffect",
+      "avatar": {
+        "w": 28,
+        "h": 28,
+        "t": "走"
+      },
+      "name": {
+        "w": 0,
+        "h": 0,
+        "t": "走查59m81"
+      },
+      "sw": 390
+    },
+    "voteStart": "赞同 194",
+    "voteSeq": [
+      "已赞同 195/true",
+      "赞同 194/false",
+      "已赞同 195/true",
+      "赞同 194/false"
+    ],
+    "chipBefore": [
+      "29 条评论",
+      "0 条评论"
+    ],
+    "panel": [
+      "收起评论（23）",
+      "0 条评论",
+      "0 条评论",
+      "0 条评论",
+      "0 条评论"
+    ],
+    "listCount": 24,
+    "hasTA": 1,
+    "taStyle": {
+      "font": "13px",
+      "radius": "3px",
+      "border": "rgb(235, 235, 235) 1px",
+      "w": 276,
+      "h": 60
+    },
+    "submitBtn": {
+      "text": "发布评论",
+      "w": 90,
+      "h": 38
+    },
+    "afterSubmit": {
+      "red": [
+        "补一个心智模型，比记规则牢：把 useEffect 理解成「租赁」而不是「执行」。",
+        "评论未通过内容校验：命中规则 R2b:走查+数字"
+      ],
+      "counts": [
+        "收起评论（23）",
+        "0 条评论",
+        "0 条评论",
+        "0 条评论",
+        "0 条评论"
+      ],
+      "taValue": "走查59：这条回答让我重新想了想自己项目里的竞态问题，确实该把顺序理清楚。",
+      "toast": []
+    },
+    "chipAfter": [
+      "",
+      "0 条评论"
+    ],
+    "answerDomId": "answer-18",
+    "searchInputs": [
+      {
+        "w": 0,
+        "h": 0,
+        "hidden": null,
+        "tab": 0
+      }
+    ],
+    "searchBtns": [
+      {
+        "aria": "全站搜索",
+        "cls": "topnav__search",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "aria": "提交搜索",
+        "cls": "topnav__search-submit",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "aria": "搜索",
+        "cls": "field field--search",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "aria": "打开搜索",
+        "cls": "topnav__search-btn",
+        "w": 40,
+        "h": 40
+      }
+    ],
+    "searchClick": {
+      "url": "/zhihucopy/",
+      "focused": "INPUT",
+      "ph": "搜索问题、回答、用户",
+      "ms": 845,
+      "after": {
+        "url": "/zhihucopy/search?q=%E7%AB%9E%E6%80%81",
+        "items": 1,
+        "empty": false
+      }
+    },
+    "followSeq": [
+      "已关注",
+      "+ 关注",
+      "已关注"
+    ],
+    "profile": {
+      "url": "/zhihucopy/question/6",
+      "text": "知乎（仿） | 提问 | 走 | JavaScript | 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？ | React 的 useEffect 我大概知道用法：依赖数组控制时机，return 的函数做清理。但「清理」到底清什么、什么时候会真的出问题，我一直是模糊的。 | 看过的例子都是「清除定时器」这种不痛不痒的，不清好像也没事。直到上周我们线上出了个 bug："
+    },
+    "reload": {
+      "url": "/zhihucopy/question/6",
+      "pressed": [
+        "默认",
+        "已关注",
+        "编辑"
+      ],
+      "loggedIn": true
+    }
+  },
+  "desktop": {
+    "loggedIn": {
+      "header": "知乎（仿） | 首页 | 发现 | 等你来答 | 提问 | 走 | 走查59d43 | JavaScript | 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？",
+      "avatar": {
+        "w": 28,
+        "h": 28,
+        "t": "走"
+      },
+      "name": {
+        "w": 67,
+        "h": 24,
+        "t": "走查59d43"
+      },
+      "sw": 1440
+    },
+    "voteStart": "赞同 194",
+    "voteSeq": [
+      "已赞同 195/true",
+      "赞同 194/false",
+      "已赞同 195/true",
+      "赞同 194/false"
+    ],
+    "chipBefore": [
+      "29 条评论",
+      "0 条评论"
+    ],
+    "panel": [
+      "收起评论（23）",
+      "0 条评论",
+      "0 条评论",
+      "0 条评论",
+      "0 条评论"
+    ],
+    "listCount": 24,
+    "hasTA": 1,
+    "taStyle": {
+      "font": "13px",
+      "radius": "3px",
+      "border": "rgb(235, 235, 235) 1px",
+      "w": 600,
+      "h": 60
+    },
+    "submitBtn": {
+      "text": "发布评论",
+      "w": 90,
+      "h": 38
+    },
+    "afterSubmit": {
+      "red": [
+        "补一个心智模型，比记规则牢：把 useEffect 理解成「租赁」而不是「执行」。",
+        "评论未通过内容校验：命中规则 R2b:走查+数字"
+      ],
+      "counts": [
+        "收起评论（23）",
+        "0 条评论",
+        "0 条评论",
+        "0 条评论",
+        "0 条评论"
+      ],
+      "taValue": "走查59：这条回答让我重新想了想自己项目里的竞态问题，确实该把顺序理清楚。",
+      "toast": []
+    },
+    "chipAfter": [
+      "",
+      "0 条评论"
+    ],
+    "answerDomId": "answer-18",
+    "searchInputs": [
+      {
+        "w": 449,
+        "h": 34,
+        "hidden": null,
+        "tab": 0
+      }
+    ],
+    "searchBtns": [
+      {
+        "aria": "全站搜索",
+        "cls": "topnav__search",
+        "w": 449,
+        "h": 34
+      },
+      {
+        "aria": "提交搜索",
+        "cls": "topnav__search-submit",
+        "w": 34,
+        "h": 34
+      },
+      {
+        "aria": "搜索",
+        "cls": "field field--search",
+        "w": 449,
+        "h": 34
+      },
+      {
+        "aria": "打开搜索",
+        "cls": "topnav__search-btn",
+        "w": 0,
+        "h": 0
+      }
+    ],
+    "searchClick": {
+      "err": "TimeoutError: locator.click: Timeout 4000ms exceeded.\nCall log:\n  \u001b[2m- waiting for locator('[aria-label*=\"打开搜索\"], button[class*=\"search-btn\"]').first()\u001b[22m\n\u001b["
+    },
+    "followSeq": [
+      "已关注",
+      "+ 关注",
+      "已关注"
+    ],
+    "profile": {
+      "url": "/zhihucopy/question/6",
+      "text": "知乎（仿） | 首页 | 发现 | 等你来答 | 提问 | 走 | 走查59d43 | JavaScript | 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？ | React 的 useEffect 我大概知道用法：依赖数组控制时机，return 的函数做清理。但「清理」到底清什么、什么时候会真的出问题，我一直是模糊的。 | 看过的例子都是「清除定时器」这种不痛不痒的，不清好像也"
+    },
+    "reload": {
+      "url": "/zhihucopy/question/6",
+      "pressed": [
+        "默认",
+        "已关注",
+        "编辑"
+      ],
+      "loggedIn": true
+    }
+  },
+  "errors": [
+    "[m] Failed to load resource: the server responded with a status of 403 ()",
+    "[d] Failed to load resource: the server responded with a status of 403 ()"
+  ]
+}

@@ -1,0 +1,231 @@
+{
+ "log": [
+  {
+   "step": "1-home",
+   "ms": 3017,
+   "cards": 35,
+   "scrollWidth": 390,
+   "nav": [
+    "知乎（仿）",
+    "首页",
+    "发现",
+    "等你来答",
+    "首页",
+    "发现",
+    "发布",
+    "通知",
+    "我"
+   ]
+  },
+  {
+   "step": "2-question",
+   "ms": 579,
+   "url": "/zhihucopy/question/6",
+   "h1": "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？",
+   "scrollWidth": 390,
+   "btns": [
+    "提问",
+    "走",
+    "关注问题",
+    "写回答",
+    "邀请回答",
+    "默认",
+    "最新",
+    "+ 关注",
+    "赞同 190",
+    "反对",
+    "26 条评论",
+    "收藏",
+    "分享",
+    "+ 关注",
+    "赞同 60",
+    "反对",
+    "0 条评论",
+    "收藏",
+    "分享",
+    "+ 关注",
+    "赞同 60",
+    "反对",
+    "0 条评论",
+    "收藏"
+   ]
+  },
+  {
+   "step": "3-read",
+   "ms": 504,
+   "ok": true,
+   "text": "13 个回答\n默认\n最新\n阿罗\n\n运维，负责不被叫醒。\n\n+ 关注\n\n补一个心智模型，比记规则牢：把 useEffect 理解成「租赁」而不是「执行」。\n\n每次 effect 跑，等于你向外部世界租了一样东西：一个定时器、一个监听、一个订阅。租金是你的依赖数组付的——依赖一变，旧租约到期，React"
+  },
+  {
+   "step": "5-vote",
+   "ms": 1848,
+   "before": "赞同 190",
+   "after": "已赞同 191",
+   "aria": "true"
+  },
+  {
+   "step": "5b-vote-twice",
+   "afterSecond": "赞同 190"
+  },
+  {
+   "step": "6-comment",
+   "ms": 3034,
+   "toggle": "26 条评论",
+   "hasTa": true,
+   "panelLabels": [
+    "0 条评论"
+   ],
+   "postStatus": 201,
+   "after": {
+    "labels": [
+     "0 条评论"
+    ],
+    "mine": true,
+    "taVal": ""
+   }
+  },
+  {
+   "step": "6b-api",
+   "status": 200
+  },
+  {
+   "step": "7-back",
+   "ms": 610,
+   "url": "https://openfolio.uk/zhihucopy/"
+  },
+  {
+   "step": "1-home",
+   "ms": 2992,
+   "cards": 35,
+   "scrollWidth": 1440,
+   "nav": [
+    "知乎（仿）",
+    "首页",
+    "发现",
+    "等你来答",
+    "首页",
+    "发现",
+    "发布",
+    "通知",
+    "我"
+   ]
+  },
+  {
+   "step": "2-question",
+   "ms": 636,
+   "url": "/zhihucopy/question/6",
+   "h1": "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？",
+   "scrollWidth": 1440,
+   "btns": [
+    "提问",
+    "走\n走查55Bd",
+    "关注问题",
+    "写回答",
+    "邀请回答",
+    "默认",
+    "最新",
+    "+ 关注",
+    "赞同 190",
+    "反对",
+    "27 条评论",
+    "收藏",
+    "分享",
+    "+ 关注",
+    "赞同 60",
+    "反对",
+    "0 条评论",
+    "收藏",
+    "分享",
+    "+ 关注",
+    "赞同 60",
+    "反对",
+    "0 条评论",
+    "收藏"
+   ]
+  },
+  {
+   "step": "3-read",
+   "ms": 598,
+   "ok": true,
+   "text": "13 个回答\n默认\n最新\n阿罗\n\n运维，负责不被叫醒。\n\n+ 关注\n\n补一个心智模型，比记规则牢：把 useEffect 理解成「租赁」而不是「执行」。\n\n每次 effect 跑，等于你向外部世界租了一样东西：一个定时器、一个监听、一个订阅。租金是你的依赖数组付的——依赖一变，旧租约到期，React"
+  },
+  {
+   "step": "5-vote",
+   "ms": 1918,
+   "before": "赞同 190",
+   "after": "已赞同 191",
+   "aria": "true"
+  },
+  {
+   "step": "5b-vote-twice",
+   "afterSecond": "赞同 190"
+  },
+  {
+   "step": "6-comment",
+   "ms": 3414,
+   "toggle": "27 条评论",
+   "hasTa": true,
+   "panelLabels": [
+    "0 条评论"
+   ],
+   "postStatus": 201,
+   "after": {
+    "labels": [
+     "0 条评论"
+    ],
+    "mine": true,
+    "taVal": ""
+   }
+  },
+  {
+   "step": "6b-api",
+   "status": 200
+  },
+  {
+   "step": "7-back",
+   "ms": 745,
+   "url": "https://openfolio.uk/zhihucopy/"
+  },
+  {
+   "step": "8-search",
+   "ms": 1816,
+   "clicked": false,
+   "url": "https://openfolio.uk/zhihucopy/search?q=React",
+   "results": {
+    "cards": 26,
+    "head": "知乎（仿）\n首页\n发现\n等你来答\n×\n提问\n走\n走查55Bd\n搜索\n“React” 的相关结果 · 28 条\n取消搜索\n问题 11\n回答 11\n用户 6\n写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？\n\nReact 的 useEffect 我大概知"
+   }
+  },
+  {
+   "step": "9-notifications",
+   "ms": 1739,
+   "txt": "通知\n全部\n评论\n赞同\n关注\n\n暂时没有新消息\n\n有人赞同或评论你的回答、关注你时，会出现在这里\n\n去首页看看热门讨论\n去发现值得关注的话题\n\n关注作者后，他们的新回答会出现在关注流",
+   "sw": 1440
+  },
+  {
+   "step": "10-follow",
+   "ms": 4573,
+   "found": true,
+   "before": "+ 关注",
+   "aria0": "false",
+   "after": "已关注",
+   "aria1": "true",
+   "profile": {
+    "url": "/zhihucopy/zhihucopy/u/214",
+    "txt": "404\n\n你访问的内容不存在或已被删除\n\n链接可能有误，或者内容已被作者删除。\n\n回到首页\n去搜索",
+    "sw": 1440
+   }
+  },
+  {
+   "step": "11-reload",
+   "ms": 1853,
+   "loggedIn": true,
+   "sw": 1440,
+   "iw": 1440,
+   "head": "404\n\n你访问的内容不存在或已被删除\n\n链接可能有误，或者内容已被作者删除。\n\n回到首页\n去搜索"
+  }
+ ],
+ "errors": [
+  "mobile:fatal:locator.fill: Timeout 30000ms exceeded."
+ ]
+}
