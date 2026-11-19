@@ -1193,3 +1193,23 @@
 - [ ] Z1240 搜索结果页「N 条」与实际渲染数量不一致：页头「“React” 的相关结果 · 28 条」、分栏「问题 11 / 回答 11 / 用户 6」（合计恰 28），DOM 实际只有 26 个结果卡（P2，可信度；game-balance-analyst「声明值必须与实测一致」）｜verify: node scripts/assert/search-count-parity.mjs｜risk: low｜2026-11-19 00:46 实测 1440×900：`/search?q=React` 页头 `28 条`，`document.querySelectorAll("a[href*='/question/'],.result,.search__item").length === 26`。要求：① 页头数字取接口 `total`，各分栏计数相加必须等于 `total`；② 渲染条数与 `total` 不符时改为「已显示 26 / 共 28」而非静默少 2 条；③ 确认是否存在未渲染的「用户/话题」分组卡导致差 2，若无则修分页/截断逻辑。断言：对 `React`、`useEffect`、`团队` 三个 query，`页面声明的 N === DOM 结果卡数 === API total`；分栏计数之和 === N；两视口各跑一次、连跑 2 次一致；`window.__errs` 空。
   verify: node scripts/assert/search-count-parity.mjs
   risk: low
+
+- [ ] Z1241 手机端搜索入口是**无标签图标按钮**：390×844 首屏两个含「搜索」语义的 `<button>` 的 `innerText` 与 `aria-label` 均为空，全站唯一搜索输入框 `input[placeholder="搜索问题、回答、用户"]` 在 390 宽度下 `rect.width=0`（不可见）；用户只能靠猜图标，自动化也无法按名称定位（P1，选择感/可发现性；intuitive-game-design「affordance 必须可被识别，图标须有可访问名称」）｜verify: node scripts/assert/mobile-search-entry.mjs｜risk: low｜2026-11-19 02:43 实测（干净 context，390×844）：`document.querySelectorAll('input')` 仅 1 个搜索框且 `offsetWidth===0`；`a,button` 中 `innerText||aria-label` 含「搜索」的元素 2 个，文本与 aria 全空；直达 `/zhihucopy/search?q=React` 页面可用（有可见「在结果中搜索」框）。要求：① 手机顶栏搜索按钮补 `aria-label="搜索"` 且在 390 宽度保留可见搜索框或明确图标+可点区域 ≥44×44；② 点击后进入 `/search` 并把焦点落到输入框；③ 不要在 `display:none` 状态下保留可聚焦节点。断言（两视口）：存在 `[aria-label="搜索"]` 或可见 `input[placeholder*="搜索"]`；对可访问名称「搜索」执行 click 后 URL 含 `/search`，焦点元素为搜索输入框；`document.activeElement` 非 body；连跑 2 次一致。
+  verify: node scripts/assert/mobile-search-entry.mjs
+  risk: low
+
+- [ ] Z1242 游客点赞触发**整页硬跳转**且原按钮零反馈：`/question/54` JS 直点首个 `button.answer__vote--up` 后 1500ms 内 URL 变为 `/login?next=%2Fquestion%2F54`、按钮 `innerText`/`className`/`aria-pressed` 全部不变、无就地弹层；Playwright 常规 click 因元素 stable 等待 **31244ms 超时**（P1，成长可见性；game-detail-bar「每个动作都要有反馈，反馈不能只靠换页」）｜verify: node scripts/assert/vote-guest-feedback.mjs｜risk: med｜2026-11-19 02:37 实测（390×844 与 1440×900 各一次，同一现象）：step4 耗时 31244ms，`voteResult={after:"",hasAuth:false,dialog:""}`；JS 直点后 `toast="请先登录\n登录后即可继续刚才的操作"`，按钮文本仍为「赞同 15」。要求：① 游客点赞改为**就地登录浮层**（`role=dialog`，含「去登录 / 取消」），不换页；② 取消后焦点回到原按钮，滚动位置不变；③ 若保留跳转，`next` 回跳后自动完成该次点赞并给出 toast；④ 顺带查清 click 30s 超时的根因（元素被 sticky 元素遮挡或持续 reflow），修复后单次点击 <300ms 可见响应。断言：游客点赞同后 `location.pathname` 仍为 `/question/54`，出现 `[role=dialog]` 且含「登录」；点「取消」后 `document.activeElement` 为原 vote 按钮、`window.scrollY` 与点击前差值 ≤2px；登录态点赞后按钮文本数字 +1 且 `aria-pressed=true`；两视口各跑、连跑 2 次一致；`window.__errs` 空。
+  verify: node scripts/assert/vote-guest-feedback.mjs
+  risk: med
+
+- [ ] Z1243 游客在问题页**看不到任何评论入口**：`/question/54` 全页 `textarea` 0 个、`[contenteditable=true]` 0 个、含「评论」文本的 `button/a` 0 个，而同页却有「登录后即可回答 · 去登录」——两套引导不一致，且 Z1239 提到的评论内容问题在游客态根本无从复现（P2，选择感；core-loop-designer「Decision 点缺失：玩家只能读，不能回应」）｜verify: node scripts/assert/comment-entry-guest.mjs｜risk: low｜2026-11-19 02:43 实测（390×844）：`{commentBtns:[],textareas:0,editable:0}`；`/question/54` 首答展开后仍无「评论 N」按钮。要求：① 每个回答底部渲染「评论 N」入口，游客点击弹就地登录浮层（同 Z1242 的组件），不换页；② 或无评论时给出「暂无评论，登录后可发表」的显式文案；③ 登录态点开后展开列表与输入框，提交后条数即时 +1。断言：游客态 `document.querySelectorAll('button,.link').some(e=>/评论/.test(e.innerText))` 为 true；点击后出现 `[role=dialog]` 且 URL 不变；登录态提交后「评论 N」中的 N 递增且新评论出现在列表中；两视口各跑一次、连跑 2 次一致。
+  verify: node scripts/assert/comment-entry-guest.mjs
+  risk: low
+
+- [ ] Z1244 登录页**没有返程路径**：从 `/question/54` 点赞被带到 `/login?next=%2Fquestion%2F54` 后，页面无返回箭头、无关闭按钮，只有底部五项导航与浏览器后退可用；同时「登录后即可继续刚才的操作」在卡副标题与底部 toast 重复出现两处（P2，视觉/信任；game-detail-bar「离开路径必须显式」）｜verify: node scripts/assert/login-back-affordance.mjs｜risk: low｜2026-11-19 02:43 vision 复核 `walk-0243-m4b-vote-js.png`：「页面上没有明显的返回按钮或关闭按钮，如果用户不想登录了只能靠底部 Tab 或系统后退」；`walk-0237-m10-profile.png` 同现象，且顶部到卡片留白过大、控件触控高度偏小。要求：① 当 `next` 参数存在时，登录卡片左上角渲染「← 返回」按钮，点击回到 `next` 指向页并恢复滚动位置；② 去掉重复的说明文案（保留卡片内一处即可）；③ 未输入时「登录」按钮置 disabled 灰态，输入后恢复；补 focus 态描边。断言：带 `next` 进入登录页后存在可访问名称含「返回」的元素；点击后 `location.pathname === new URL(next).pathname` 且 `scrollY>0`；空表单时登录按钮 `disabled===true`；两视口各一次、连跑 2 次一致。
+  verify: node scripts/assert/login-back-affordance.mjs
+  risk: low
+
+- [ ] Z1245 搜索页声明条数与实际渲染**仍不一致**（Z1240 复现，未修复），且两视口差得不一样：桌面 `/search?q=React` 页头「28 条」、分栏 11+11+6、DOM 结果卡 26；手机同一 URL DOM 结果卡 **11**（P2，可信度；game-balance-analyst「声明值必须与实测一致」）｜verify: node scripts/assert/search-count-parity.mjs｜risk: low｜2026-11-19 02:37/02:43 实测：桌面 `{declared:"28 条", cards:26}`；手机 `{declared:"28 条", cards:11}`；`hscroll=false` 两视口均无横向溢出。要求：① 页头数字取接口 `total`，分栏计数之和必须等于 `total`；② 渲染条数不足时改为「已显示 N / 共 M」并提供「加载更多」；③ 查清手机端为何只渲染 11 条（分页 size 按视口变化还是列表虚拟化截断），两视口对同一 query 的结果集合必须一致（顺序可不同）。断言：`React`、`useEffect`、`团队` 三 query 下 `声明 N === DOM 卡数 === API total`，分栏和 === N；390 与 1440 两视口渲染集合相等；连跑 2 次一致。
+  verify: node scripts/assert/search-count-parity.mjs
+  risk: low
