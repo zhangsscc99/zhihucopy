@@ -1,0 +1,316 @@
+{
+ "uid": 6844,
+ "mobile": {
+  "s1_load": 2337,
+  "home": {
+   "url": "/zhihucopy",
+   "cards": [],
+   "btns": [
+    {
+     "t": "知乎（仿）",
+     "cls": "brand",
+     "w": 100
+    },
+    {
+     "t": "",
+     "cls": "topnav__search-btn",
+     "w": 40
+    },
+    {
+     "t": "",
+     "cls": "topnav__bell",
+     "w": 34
+    },
+    {
+     "t": "提问",
+     "cls": "btn btn--primary topnav__ask",
+     "w": 62
+    },
+    {
+     "t": "走",
+     "cls": "usermenu__trigger",
+     "w": 36
+    },
+    {
+     "t": "关注",
+     "cls": "tabs__tab ",
+     "w": 30
+    },
+    {
+     "t": "推荐",
+     "cls": "tabs__tab tabs__tab--active",
+     "w": 30
+    },
+    {
+     "t": "热榜",
+     "cls": "tabs__tab ",
+     "w": 30
+    },
+    {
+     "t": "写了三年 React，还",
+     "cls": "feed__title",
+     "w": 328
+    }
+   ],
+   "sw": 390,
+   "vw": 390,
+   "title": "知乎（仿） · 有问题，就会有答案"
+  },
+  "questionHref": "/zhihucopy/question/6",
+  "s2_load": 1169,
+  "question": {
+   "url": "/zhihucopy/question/6",
+   "title": "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？",
+   "voteTop": 1236,
+   "ansCount": 5,
+   "sw": 390,
+   "vh": 844
+  },
+  "vote": {
+   "before": "赞同 199",
+   "ariaBefore": "false",
+   "latency": 155,
+   "after": "已赞同 200",
+   "ariaAfter": "true",
+   "topBefore": 736,
+   "topAfter": 736
+  },
+  "comment": {
+   "latency": 219,
+   "state": {
+    "draft": 0,
+    "active": false,
+    "status": null
+   }
+  },
+  "back": "/zhihucopy",
+  "searchHttp": {
+   "status": 200,
+   "loc": null
+  },
+  "search": {
+   "path": "/zhihucopy",
+   "inputs": [
+    [
+     0,
+     0
+    ]
+   ],
+   "text": "知乎（仿） 提问 走 关注 推荐 热榜 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？ React 的 us"
+  },
+  "notif": {
+   "path": "/zhihucopy/notifications",
+   "text": "通知 全部 评论 赞同 关注 暂时没有新消息 有人赞同或评论你的回答、关注你时，会出现在这里 去首页看看热门讨论 去发现值得关注的话题 关注作者后，他们的新回答会出现在关注流"
+  },
+  "follow": {
+   "ariaBefore": null,
+   "before": "关注问题",
+   "r0": {
+    "t": "已关注",
+    "aria": null
+   },
+   "r1": {
+    "t": "关注问题",
+    "aria": null
+   },
+   "r2": {
+    "t": "已关注",
+    "aria": null
+   },
+   "api": {
+    "error": "API endpoint not found"
+   }
+  },
+  "profile": {
+   "path": "/zhihucopy/u/6844",
+   "stats": "走 走查655qo 这个人还没有写简介。 刚刚 加入 获赞 0 关注者 0 粉丝 0 回答 0 提问 0 收藏 0 还没有回答 挑一个你感兴趣的问题，写下第一条回答。 写回答 去提问 TA 最近关注的问题 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？ 14 个回答 JavaScript TA 最近赞同的回答 写了三年 React，还是没搞懂 u",
+   "nav": [
+    {
+     "t": "首页",
+     "cur": null
+    },
+    {
+     "t": "发现",
+     "cur": null
+    },
+    {
+     "t": "等你来答",
+     "cur": null
+    }
+   ],
+   "sw": 390
+  },
+  "overflowX": false
+ },
+ "desktop": {
+  "s1_load": 2842,
+  "home": {
+   "url": "/zhihucopy",
+   "cards": [],
+   "btns": [
+    {
+     "t": "知乎（仿）",
+     "cls": "brand",
+     "w": 100
+    },
+    {
+     "t": "首页",
+     "cls": "topnav__link active",
+     "w": 30
+    },
+    {
+     "t": "发现",
+     "cls": "topnav__link",
+     "w": 30
+    },
+    {
+     "t": "等你来答",
+     "cls": "topnav__link",
+     "w": 60
+    },
+    {
+     "t": "",
+     "cls": "topnav__search-submit",
+     "w": 34
+    },
+    {
+     "t": "",
+     "cls": "topnav__bell",
+     "w": 34
+    },
+    {
+     "t": "提问",
+     "cls": "btn btn--primary topnav__ask",
+     "w": 62
+    },
+    {
+     "t": "走\n走查655qo",
+     "cls": "usermenu__trigger",
+     "w": 111
+    },
+    {
+     "t": "关注",
+     "cls": "tabs__tab ",
+     "w": 30
+    },
+    {
+     "t": "推荐",
+     "cls": "tabs__tab tabs__tab--active",
+     "w": 30
+    },
+    {
+     "t": "热榜",
+     "cls": "tabs__tab ",
+     "w": 30
+    },
+    {
+     "t": "写了三年 React，还",
+     "cls": "feed__title",
+     "w": 644
+    },
+    {
+     "t": "从业务开发转做基础架构，",
+     "cls": "hotlist__link",
+     "w": 234
+    },
+    {
+     "t": "写了三年 React，还",
+     "cls": "hotlist__link",
+     "w": 234
+    }
+   ],
+   "sw": 1440,
+   "vw": 1440,
+   "title": "知乎（仿） · 有问题，就会有答案"
+  },
+  "questionHref": "/zhihucopy/question/6",
+  "s2_load": 1587,
+  "question": {
+   "url": "/zhihucopy/question/6",
+   "title": "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？",
+   "voteTop": 874,
+   "ansCount": 5,
+   "sw": 1440,
+   "vh": 900
+  },
+  "vote": {
+   "before": "已赞同 200",
+   "ariaBefore": "true",
+   "latency": 149,
+   "after": "赞同 199",
+   "ariaAfter": "false",
+   "topBefore": 374,
+   "topAfter": 374
+  },
+  "comment": {
+   "latency": 165,
+   "state": {
+    "draft": 0,
+    "active": false,
+    "status": null
+   }
+  },
+  "back": "/zhihucopy",
+  "searchHttp": {
+   "status": 200,
+   "loc": null
+  },
+  "search": {
+   "path": "/zhihucopy",
+   "inputs": [
+    [
+     449,
+     34
+    ]
+   ],
+   "text": "知乎（仿） 首页 发现 等你来答 提问 走 走查655qo 关注 推荐 热榜 写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 b"
+  },
+  "notif": {
+   "path": "/zhihucopy/notifications",
+   "text": "通知 全部 评论 赞同 关注 暂时没有新消息 有人赞同或评论你的回答、关注你时，会出现在这里 去首页看看热门讨论 去发现值得关注的话题 关注作者后，他们的新回答会出现在关注流"
+  },
+  "follow": {
+   "ariaBefore": null,
+   "before": "已关注",
+   "r0": {
+    "t": "关注问题",
+    "aria": null
+   },
+   "r1": {
+    "t": "已关注",
+    "aria": null
+   },
+   "r2": {
+    "t": "关注问题",
+    "aria": null
+   },
+   "api": {
+    "error": "API endpoint not found"
+   }
+  },
+  "profile": {
+   "path": "/zhihucopy/u/6844",
+   "stats": "走 走查655qo 这个人还没有写简介。 刚刚 加入 获赞 0 关注者 0 粉丝 0 回答 0 提问 0 收藏 0 还没有回答 挑一个你感兴趣的问题，写下第一条回答。 写回答 去提问",
+   "nav": [
+    {
+     "t": "首页",
+     "cur": null
+    },
+    {
+     "t": "发现",
+     "cur": null
+    },
+    {
+     "t": "等你来答",
+     "cur": null
+    }
+   ],
+   "sw": 1440
+  },
+  "overflowX": false
+ },
+ "consoleErrors": [
+  "mobile: Failed to load resource: the server responded with a status of 404 ()",
+  "desktop: Failed to load resource: the server responded with a status of 404 ()"
+ ]
+}
