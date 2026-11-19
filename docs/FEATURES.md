@@ -1213,3 +1213,19 @@
 - [ ] Z1245 搜索页声明条数与实际渲染**仍不一致**（Z1240 复现，未修复），且两视口差得不一样：桌面 `/search?q=React` 页头「28 条」、分栏 11+11+6、DOM 结果卡 26；手机同一 URL DOM 结果卡 **11**（P2，可信度；game-balance-analyst「声明值必须与实测一致」）｜verify: node scripts/assert/search-count-parity.mjs｜risk: low｜2026-11-19 02:37/02:43 实测：桌面 `{declared:"28 条", cards:26}`；手机 `{declared:"28 条", cards:11}`；`hscroll=false` 两视口均无横向溢出。要求：① 页头数字取接口 `total`，分栏计数之和必须等于 `total`；② 渲染条数不足时改为「已显示 N / 共 M」并提供「加载更多」；③ 查清手机端为何只渲染 11 条（分页 size 按视口变化还是列表虚拟化截断），两视口对同一 query 的结果集合必须一致（顺序可不同）。断言：`React`、`useEffect`、`团队` 三 query 下 `声明 N === DOM 卡数 === API total`，分栏和 === N；390 与 1440 两视口渲染集合相等；连跑 2 次一致。
   verify: node scripts/assert/search-count-parity.mjs
   risk: low
+
+- [ ] Z1246 桌面顶栏存在**点不动的第二个搜索入口**：`button.topnav__search-btn` 带 `aria-label="打开搜索"`，但 `getBoundingClientRect()` 为 0×0，Playwright 点击 10s/3s 均超时；同屏另有 470px 宽的可见搜索输入框（P2，选择感/可发现性；game-balance-analyst「Dead option：存在于 DOM 但永远无法被选择」）｜verify: node scripts/assert/search-entry-singleton.mjs｜risk: low｜2026-11-19 04:17 实测（1440×900，`/` 页面）：`{hasBtn:true,btnText:"",btnAria:"打开搜索",btnRect:{w:0,h:0},inputs:[{ph:"搜索问题、回答、用户",w:470,vis:true}]}`；点击 `locator('.topnav__search-btn').click()` → `Timeout 3000ms exceeded`。要求：① 两视口下「搜索」控件只能有一个可达实例；② 若按钮在宽屏仅作装饰，必须 `display:none` 或 `tabindex=-1` + `aria-hidden=true`，不得留在可聚焦树里；③ 点击任意搜索控件后进入 `/search` 且焦点落在输入框。断言：`document.querySelectorAll('[aria-label*="搜索"],input[placeholder*="搜索"]').filter(可见)` 数量 === 1；对可见搜索控件 click 后 `pathname==='/search'` 且 `document.activeElement` 是 `input`；两视口各一次、连跑 2 次一致；`window.__errs` 空。
+  verify: node scripts/assert/search-entry-singleton.mjs
+  risk: low
+
+- [ ] Z1247 评论条数**三处不一致**，同一屏三个数字：回答底栏折叠 chip「28 条评论」、展开后面板按钮「收起评论（23）」、发布一条后「收起评论（24）」（P2，成长可见性/可信度；game-balance-analyst「声明值必须与实测一致」）｜verify: node scripts/assert/comment-count-parity.mjs｜risk: low｜2026-11-19 04:18 实测（1440×900，`/question/6` 首答，登录态）：`hasEntry=["28 条评论",…]` → 点开后 `cBefore=["收起评论（23）",…]` → 自然句发布成功、正文上屏 → `cAfter=["收起评论（24）",…]`；另 `GET /api/comments` 返回的 total 与两者均需对齐。要求：① chip、面板标题、乐观更新三处读同一个 `comment_count`；② 文案句式统一（统一用「N 条评论」或统一用「收起评论（N）」）；③ 发布成功后用接口返回值覆盖本地计数，刷新后仍一致。断言：对 `/question/6`、`/question/54` 各取首答，`chip 数字 === 面板数字 === API total`；发布 1 条后三处同时 +1 且刷新后保持；两视口各一次、连跑 2 次一致。
+  verify: node scripts/assert/comment-count-parity.mjs
+  risk: low
+
+- [ ] Z1248 评论被内容校验拒绝时，**把内部规则号直接写给用户**：「评论未通过内容校验：命中规则 R2b:走查+数字」，且该规则按「任意位置出现 走查+数字」匹配，会误伤「我走查52个页面才发现这个坑」这类正常句（P2，文本质量/调试腔；game-detail-bar「用户可见文案不得暴露内部实现」「player-experience-modeler：拒绝要给可理解的下一步」）｜verify: node scripts/assert/comment-reject-copy.mjs｜risk: low｜2026-11-19 04:13 vision 复核 `docs/runs/walk-0415-m6-comment.png`：输入框下方红字「评论未通过内容校验：命中规则 R2b:走查+数字」；同轮 `POST /api/comments` 返回 403 `{rule:"..."}`，前端把 `error` 原样渲染。要求：① 用户文案改为「评论包含暂不支持的内容，请修改后再试」，不出现规则 id/正则片段；② 规则命中的 `rule/hits` 只进服务端日志与响应体字段，前端不展示；③ `走查+数字` 类模板规则收窄为整句模板（如以 `走查\d+[:：]` 开头或长度占比 >50%），正常叙述句放行。断言：构造「我走查52个页面才发现这个坑」→ 201 且评论可见；构造模板句 → 403 且页面可见文案不含 `R2b`/`rule`/`命中规则`；两种 case 两视口各跑一次、连跑 2 次一致。
+  verify: node scripts/assert/comment-reject-copy.mjs
+  risk: low
+
+- [ ] Z1249 评论输入区视觉不达标：手机上仍是**浏览器原生 textarea**（无圆角/描边/焦点态，字体与正文同色同重），红色报错居中悬浮与右侧「发布评论」按钮不对齐，评论区与下一条回答之间缺分隔留白（P2，视觉/手感 2.5/5；game-detail-bar「输入控件必须有焦点态与容器边界」）｜verify: node scripts/assert/comment-form-visual.mjs｜risk: low｜2026-11-19 04:13 vision 复核 `docs/runs/walk-0415-m6-comment.png`（390×844）：「输入框样式过于原生（类似默认的 HTML textarea），没有圆角、背景色和边距的精细打磨」「红色报错文字孤零零居中，与右侧对齐的发布评论按钮不太协调」「评论区与下方动态分割线不明显」。要求：① textarea 统一 8px 圆角、1px 描边、`:focus-visible` 2px 主色描边，字号 14/行高 1.6；② 报错文案左对齐到输入框左边缘、与按钮同基线，配 `role=alert`；③ 评论区容器加 `border-top` 或 12px 间距与下一条回答分隔；④ 触控高度 ≥44px。断言：computed style 满足圆角≥8px、有 border、focus 时 outline/box-shadow 变化；错误元素 `getBoundingClientRect().left` 与 textarea 差值 ≤2px；390 视口 `document.documentElement.scrollWidth===390`；两视口截图存档、连跑 2 次一致。
+  verify: node scripts/assert/comment-form-visual.mjs
+  risk: low
