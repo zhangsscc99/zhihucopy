@@ -18,7 +18,7 @@
 //      空正文 → 4xx（长度下限）。
 //   c. 正文含 3 个 http:// 链接 → 4xx 且 error 提到「链接」。
 //   d. 浏览器（登录态，390×844 与 1440×900）：/question/6 首条回答评论框发
-//      自然文本 → 成功 toast、form 内无 [role=alert]；page.route 拦截
+//      自然文本 → 输入框下方内联 [role=status] 成功条、form 内无 [role=alert]；page.route 拦截
 //      POST /api/comments 回 403 → .answer__comment-form [role=alert] 出现、
 //      与 textarea 垂直间距 <24px、position!==fixed、草稿未清空；
 //      window.__errs 为空。
@@ -255,11 +255,15 @@ run("comment-publish-ok", async ({ browser }) => {
     const input = form.locator("textarea");
     await input.waitFor();
 
-    // 成功路径：自然文本 → 成功 toast，form 内不出现 [role=alert]。
+    // 成功路径：自然文本 → 输入框下方内联 [role=status] 成功条（Z1232），form 内不出现 [role=alert]。
     const okText = `这个思路很清晰，受教了 ${Date.now()}`;
     await input.fill(okText);
     await form.getByRole("button", { name: "发布评论", exact: true }).click();
-    await page.locator(".toast", { hasText: "评论已发布" }).waitFor({ timeout: 5000 });
+    await form.locator('[role=status]', { hasText: "评论已发布" }).waitFor({ timeout: 5000 });
+    expect(
+      (await page.locator(".toast", { hasText: "评论已发布" }).count()) === 0,
+      `评论成功仍走了全局 toast（${vp.width}px）`
+    );
     expect(
       (await form.locator("[role=alert]").count()) === 0,
       `成功路径出现 role=alert（${vp.width}px）`
@@ -308,7 +312,7 @@ run("comment-publish-ok", async ({ browser }) => {
 
     const errs = await page.evaluate(() => window.__errs || []);
     expect(errs.length === 0, `页面错误(${vp.width}px)：${errs.join(" | ")}`);
-    console.log(`  d) ${vp.width}×${vp.height}: 成功 toast 无 alert；403 内联「${alertText}」间距 ${gap.toFixed(1)}px 草稿保留`);
+    console.log(`  d) ${vp.width}×${vp.height}: 内联 role=status 无 alert；403 内联「${alertText}」间距 ${gap.toFixed(1)}px 草稿保留`);
     await ctx.close();
   }
 });

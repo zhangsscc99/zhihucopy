@@ -204,6 +204,9 @@ export function Question() {
   // 刚发布成功的评论 id：滚入视口 + 1.2s 浅蓝淡出高亮（Z1159）。
   const [flashCommentId, setFlashCommentId] = useState<number | null>(null);
   const flashCommentTimerRef = useRef(0);
+  // 评论发布成功的内联状态条（textarea 下方，2s 淡出后移除），按 answerId 记账。
+  const [commentOk, setCommentOk] = useState<Record<number, boolean>>({});
+  const commentOkTimerRef = useRef<Record<number, number>>({});
   const [favFor, setFavFor] = useState<number | null>(null);
   const [collections, setCollections] = useState<CollectionItem[] | null>(null);
   const [favNewName, setFavNewName] = useState("");
@@ -685,7 +688,7 @@ export function Question() {
     window.clearTimeout(flashCommentTimerRef.current);
     flashCommentTimerRef.current = window.setTimeout(
       () => setFlashCommentId(null),
-      1400
+      2000
     );
   }, [flashCommentId]);
 
@@ -963,7 +966,13 @@ export function Question() {
       setCommentDrafts((d) => ({ ...d, [a.id]: "" }));
       bumpCommentCount(a.id, 1);
       setFlashCommentId(comment.id);
-      toast("评论已发布");
+      // 成功反馈内联在输入框下方（role=status 绿色状态条，2s 淡出），不走全局 toast。
+      setCommentOk((m) => ({ ...m, [a.id]: true }));
+      window.clearTimeout(commentOkTimerRef.current[a.id]);
+      commentOkTimerRef.current[a.id] = window.setTimeout(
+        () => setCommentOk((m) => ({ ...m, [a.id]: false })),
+        2000
+      );
     } catch (e) {
       // 非 2xx：透出服务端 error 文案（如社区规范拦截），无 error 字段给
       // 兜底文案。错误内联在该输入框下方（role=alert），不走全局 toast；
@@ -1719,6 +1728,7 @@ export function Question() {
                                     className={`answer__comment${
                                       c.parent_id ? " answer__comment--child" : ""
                                     }${c.id === flashCommentId ? " answer__comment--flash" : ""}`}
+                                    data-new={c.id === flashCommentId ? "1" : undefined}
                                   >
                                     <div className="answer__comment-head">
                                       <span className="answer__comment-name">
@@ -1871,6 +1881,10 @@ export function Question() {
                               {commentErrors[a.id] ? (
                                 <p className="answer__comment-error" role="alert">
                                   {commentErrors[a.id]}
+                                </p>
+                              ) : commentOk[a.id] ? (
+                                <p className="answer__comment-status" role="status">
+                                  评论已发布
                                 </p>
                               ) : null}
                               <div className="answer__comment-actions">
