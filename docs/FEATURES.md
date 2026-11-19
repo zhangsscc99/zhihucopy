@@ -1156,7 +1156,7 @@
   verify: node scripts/assert/comment-count-api.mjs
   risk: low
 
-- [ ] Z1232 评论成功提示是**底部悬浮 toast，遮住下方正文**，且「发布评论」按钮贴容器右缘 ~8px；新评论在列表中无任何高亮（P2，视觉；game-detail-bar「反馈贴在动作发生处」）｜verify: node scripts/assert/comment-success-inline.mjs｜risk: low｜2026-11-18 23:11 视觉复核 `docs/runs/walk-2309-m6.png`（vision 3/5）：「黑色『评论已发布』toast 位于底栏上方、压住作者正文；『发布评论』右侧与输入卡片右边缘齐平，内边距不足；新评论与普通评论混在一起，无背景/分割强调」。要求：① 成功反馈改为输入框下方内联状态条（`role="status"`，绿色 13px，2s 淡出），不得 `position: fixed`；② 「发布评论」与输入框右缘对齐，容器内边距 ≥12px；③ 刚发布的评论加 `data-new="1"` 并在 2s 内浅蓝底高亮；④ 同时让 Z1228 的失败态复用同一容器。断言 `scripts/assert/comment-success-inline.mjs`：提交一条自然评论后，`.answer__comment-form [role=status]` 存在、与 textarea 间距 <24px、`position !== 'fixed'`、与 `article` 的 rect 不相交；新评论节点 `data-new` 存在且 `getBoundingClientRect` 落在评论列表内；「发布评论」右缘与 textarea 右缘差值 <2px；`document.body.scrollWidth === 390`；`window.__errs` 空。
+- [x] Z1232 评论成功提示改为输入框下方内联 `role=status`（绿色 13px，2s 淡出，非 fixed）+「发布评论」右缘与 textarea 对齐（差 0.0px，容器内边距 16px）+ 新评论 `data-new="1"` 浅蓝高亮 1.8s（复用 Z1228 内联容器）✅ (2026-11-18 第六十七轮 devin swe-2-medium：`Question.tsx` 去掉成功 toast 改按 answerId 记账的 `commentOk` 状态条，flash 计时 1400→2000ms；`styles.css` 新增 `--ok`/`.answer__comment-status`/`comment-flash` 兼容 `[data-new="1"]` 且尊重 reduced-motion；新建 `scripts/assert/comment-success-inline.mjs`（临时库副本+临时实例：role=status 距 textarea 13.1px、pos=static、不压正文；data-new 在列表 rect 内；按钮/textarea 右缘差 0.0px；scrollWidth=390；__errs 空），连跑 3× PASS、verify 8.03s；回归 comment-publish-ok / comment-count-api / home / ask-answer 全 PASS，tsc + vite build + server 60/60。原始描述：评论成功提示是**底部悬浮 toast，遮住下方正文**，且「发布评论」按钮贴容器右缘 ~8px；新评论在列表中无任何高亮（P2，视觉；game-detail-bar「反馈贴在动作发生处」）｜verify: node scripts/assert/comment-success-inline.mjs｜risk: low｜2026-11-18 23:11 视觉复核 `docs/runs/walk-2309-m6.png`（vision 3/5）：「黑色『评论已发布』toast 位于底栏上方、压住作者正文；『发布评论』右侧与输入卡片右边缘齐平，内边距不足；新评论与普通评论混在一起，无背景/分割强调」。要求：① 成功反馈改为输入框下方内联状态条（`role="status"`，绿色 13px，2s 淡出），不得 `position: fixed`；② 「发布评论」与输入框右缘对齐，容器内边距 ≥12px；③ 刚发布的评论加 `data-new="1"` 并在 2s 内浅蓝底高亮；④ 同时让 Z1228 的失败态复用同一容器。断言 `scripts/assert/comment-success-inline.mjs`：提交一条自然评论后，`.answer__comment-form [role=status]` 存在、与 textarea 间距 <24px、`position !== 'fixed'`、与 `article` 的 rect 不相交；新评论节点 `data-new` 存在且 `getBoundingClientRect` 落在评论列表内；「发布评论」右缘与 textarea 右缘差值 <2px；`document.body.scrollWidth === 390`；`window.__errs` 空。
   verify: node scripts/assert/comment-success-inline.mjs
   risk: low
 
@@ -1175,4 +1175,8 @@
 
 - [ ] Z1236 评论计数仍有第二个数据源：页面已统一取接口 `total`，但 `answers.comment_count` 冗余列与 `total` 是否逐条一致没有断言（本轮 answer#18 total=23，列表页/回答卡的「N 条评论」仍可能读冗余列）（P2，可信度）｜verify: node scripts/assert/comment-count-column-sync.mjs｜risk: low｜要求：① 新增断言脚本比对 20 个随回答的 `comment_count` 列与对应 `GET /comments` 的 `total`，允许 ±0 差异（不一致即 FAIL 并打印 target_id）；② 不一致时以 `total` 为准重算列（复用 `syncCommentCount()`）。
   verify: node scripts/assert/comment-count-column-sync.mjs
+  risk: low
+
+- [ ] Z1237 `report.sh` 无快速档：单轮串跑清单里全部 267 条 verify，前台调用超过 300s 被 kill 后**不产出任何报告**（第六十七轮实测；上一轮同现象，已两次手写报告）（P2，工程效率）｜verify: bash -c 'grep -q -- "--only" scripts/report.sh'｜risk: low｜要求：① 增加 `--only <fid,fid>` 与 `--fast`（只跑本轮改动相关 + risk:high）参数；② `--fast` 单轮 ≤120s；③ kill/中断时也落盘部分结果（trap 写 `docs/runs/<ts>.md` 再退出）。
+  verify: bash -c 'grep -q -- "--only" scripts/report.sh'
   risk: low
