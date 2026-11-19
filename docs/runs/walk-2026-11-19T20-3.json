@@ -1,0 +1,1424 @@
+{
+  "ts": "2026-11-19T20-3",
+  "steps": [
+    {
+      "name": "m1-home",
+      "notes": {
+        "step": "首页信息流",
+        "loadMs": 3586
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m1-home.png",
+      "ms": 135,
+      "url": "https://openfolio.uk/zhihucopy/",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "关注",
+        "推荐",
+        "热榜",
+        "写了三年 React，还是没搞懂 use",
+        "望山的人",
+        "JavaScript",
+        "独居四年，怎么对抗「下班回家后的虚无感」",
+        "王吴周郑",
+        "生活",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "简宁不慌",
+        "前端开发",
+        "团队里有个能力很强但很难合作的人，作为普",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m2-more",
+      "notes": {
+        "step": "连点加载更多 x4",
+        "seq": "[{\"i\":0,\"n0\":0,\"n1\":0},{\"i\":1,\"n0\":0,\"n1\":0},{\"i\":2,\"n0\":0,\"n1\":0},{\"i\":3,\"n0\":0,\"n1\":0}]"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m2-more.png",
+      "ms": 121,
+      "url": "https://openfolio.uk/zhihucopy/",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "关注",
+        "推荐",
+        "热榜",
+        "写了三年 React，还是没搞懂 use",
+        "望山的人",
+        "JavaScript",
+        "独居四年，怎么对抗「下班回家后的虚无感」",
+        "王吴周郑",
+        "生活",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "简宁不慌",
+        "前端开发",
+        "团队里有个能力很强但很难合作的人，作为普",
+        "海边写字的",
+        "职场",
+        "怎么在不伤害关系的前提下，清楚地表达自己",
+        "温故录",
+        "人际关系",
+        "心理学",
+        "情绪管理",
+        "Python 的 GIL 到底限制了什么"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m3-question",
+      "notes": {
+        "step": "打开问题",
+        "qid": "6",
+        "ms": 1111
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m3-question.png",
+      "ms": 111,
+      "url": "https://openfolio.uk/zhihucopy/question/6",
+      "title": "写了三年 React，还是没搞懂 useEffect 的清理… · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "JavaScript",
+        "望山的人",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "默认",
+        "最新",
+        "阿罗",
+        "+ 关注",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": 1237,
+      "cmtTop": 1238,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m4-read",
+      "notes": {
+        "step": "读回答（滚动）"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m4-read.png",
+      "ms": 83,
+      "url": "https://openfolio.uk/zhihucopy/question/6",
+      "title": "写了三年 React，还是没搞懂 useEffect 的清理… · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "JavaScript",
+        "望山的人",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "默认",
+        "最新",
+        "阿罗",
+        "+ 关注",
+        "赞同 198",
+        "反对",
+        "39 条评论",
+        "收藏",
+        "分享",
+        "白小露",
+        "+ 关注",
+        "赞同 61",
+        "反对",
+        "0 条评论",
+        "收藏",
+        "分享"
+      ],
+      "voteTop": 137,
+      "cmtTop": 138,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m5-vote",
+      "notes": {
+        "step": "连点赞同 x6",
+        "seq": "[{\"i\":0,\"before\":\"赞同198\",\"after\":\"赞同61\"},{\"i\":1,\"before\":\"赞同61\",\"after\":\"赞同61\"},{\"i\":2,\"before\":\"赞同61\",\"after\":\"赞同57\"},{\"i\":3,\"before\":\"赞同57\",\"after\":\"赞同56\"},{\"i\":4,\"before\":\"赞同56\",\"after\":\"\"},{\"i\":5,\"before\":\"\",\"after\":\"\"}]"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m5-vote.png",
+      "ms": 96,
+      "url": "https://openfolio.uk/zhihucopy/question/6",
+      "title": "写了三年 React，还是没搞懂 useEffect 的清理… · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "JavaScript",
+        "望山的人",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "默认",
+        "最新",
+        "阿罗",
+        "+ 关注",
+        "已赞同 199",
+        "反对",
+        "39 条评论",
+        "收藏",
+        "分享",
+        "白小露",
+        "+ 关注",
+        "已赞同 62",
+        "反对",
+        "0 条评论",
+        "收藏",
+        "分享"
+      ],
+      "voteTop": -1798,
+      "cmtTop": -1797,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m6-comment",
+      "notes": {
+        "step": "评论 + 5s 内重复提交",
+        "active": false,
+        "border": "rgb(235, 235, 235)",
+        "disabled": true,
+        "txt": 0,
+        "status": [
+          "评论已发布"
+        ],
+        "dup": "{\"err\":null}"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m6-comment.png",
+      "ms": 214,
+      "url": "https://openfolio.uk/zhihucopy/question/6",
+      "title": "写了三年 React，还是没搞懂 useEffect 的清理… · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "JavaScript",
+        "望山的人",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "默认",
+        "最新",
+        "阿罗",
+        "+ 关注",
+        "已赞同 199",
+        "反对",
+        "收起评论（25）",
+        "收藏",
+        "分享",
+        "回复",
+        "回复",
+        "回复",
+        "回复",
+        "回复",
+        "回复",
+        "回复"
+      ],
+      "voteTop": -1834,
+      "cmtTop": 1171,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m7-back",
+      "notes": {
+        "step": "返回信息流",
+        "backUrl": "https://openfolio.uk/zhihucopy/"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m7-back.png",
+      "ms": 580,
+      "url": "https://openfolio.uk/zhihucopy/",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "关注",
+        "推荐",
+        "热榜",
+        "写了三年 React，还是没搞懂 use",
+        "望山的人",
+        "JavaScript",
+        "独居四年，怎么对抗「下班回家后的虚无感」",
+        "王吴周郑",
+        "生活",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "简宁不慌",
+        "前端开发",
+        "团队里有个能力很强但很难合作的人，作为普",
+        "海边写字的",
+        "职场",
+        "怎么在不伤害关系的前提下，清楚地表达自己",
+        "温故录",
+        "人际关系",
+        "心理学",
+        "情绪管理",
+        "Python 的 GIL 到底限制了什么"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m8-search",
+      "notes": {
+        "step": "搜索「程序员」",
+        "inp": "{\"found\":true,\"w\":0,\"h\":0,\"url\":\"https://openfolio.uk/zhihucopy\",\"inputs\":1}",
+        "res": "null"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m8-search.png",
+      "ms": 118,
+      "url": "https://openfolio.uk/zhihucopy",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "关注",
+        "推荐",
+        "热榜",
+        "写了三年 React，还是没搞懂 use",
+        "望山的人",
+        "JavaScript",
+        "独居四年，怎么对抗「下班回家后的虚无感」",
+        "王吴周郑",
+        "生活",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "简宁不慌",
+        "前端开发",
+        "团队里有个能力很强但很难合作的人，作为普",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m9-notify",
+      "notes": {
+        "step": "通知中心",
+        "items": 6
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m9-notify.png",
+      "ms": 88,
+      "url": "https://openfolio.uk/zhihucopy/notifications",
+      "title": "通知 · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "通知"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "全部",
+        "评论",
+        "赞同",
+        "关注",
+        "去首页看看热门讨论",
+        "去发现值得关注的话题",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": 133,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m10-follow",
+      "notes": {
+        "step": "连点关注 x5",
+        "seq": "[{\"i\":0,\"b\":\"+ 关注\",\"a\":\"+ 关注\",\"aria\":\"false\"},{\"i\":1,\"b\":\"+ 关注\",\"a\":\"+ 关注\",\"aria\":\"false\"},{\"i\":2,\"b\":\"+ 关注\",\"a\":\"+ 关注\",\"aria\":\"false\"},{\"i\":3,\"b\":\"+ 关注\",\"a\":\"+ 关注\",\"aria\":\"false\"},{\"i\":4,\"b\":\"+ 关注\",\"a\":\"\",\"aria\":null}]",
+        "geo": "{\"toast\":\"已关注\",\"toastRect\":[156,735,78,44],\"overlap\":false,\"center\":\"P\"}"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m10-follow.png",
+      "ms": 88,
+      "url": "https://openfolio.uk/zhihucopy/question/6",
+      "title": "写了三年 React，还是没搞懂 useEffect 的清理… · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "写了三年 React，还是没搞懂 useEffect 的清理函数，能举个真会出 bug 的例子吗？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "JavaScript",
+        "望山的人",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "默认",
+        "最新",
+        "阿罗",
+        "已关注",
+        "已赞同 199",
+        "反对",
+        "41 条评论",
+        "收藏",
+        "分享",
+        "白小露",
+        "已关注",
+        "已赞同 62",
+        "反对",
+        "0 条评论",
+        "收藏",
+        "分享"
+      ],
+      "voteTop": -1352,
+      "cmtTop": -1351,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m11-me",
+      "notes": {
+        "step": "我的主页",
+        "stats": "[\"获赞 0 关注者 5 粉丝 0\",\"获赞 0\",\"关注者 5\",\"粉丝 0\"]",
+        "covered": true
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m11-me.png",
+      "ms": 74,
+      "url": "https://openfolio.uk/zhihucopy/u/6824",
+      "title": "走查64m61 · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "走查64m61"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "回答 0",
+        "提问 0",
+        "收藏 0",
+        "写回答",
+        "去提问",
+        "写了三年 React，还是没搞懂 use",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "m12-reload",
+      "notes": {
+        "step": "刷新续档",
+        "loggedIn": true,
+        "me": "走查64m61"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-m12-reload.png",
+      "ms": 53,
+      "url": "https://openfolio.uk/zhihucopy/u/6824",
+      "title": "走查64m61 · 知乎（仿）",
+      "scrollW": 390,
+      "innerW": 390,
+      "hscroll": false,
+      "h1": [
+        "走查64m61"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "提问",
+        "走走查64m61",
+        "回答 0",
+        "提问 0",
+        "收藏 0",
+        "写回答",
+        "去提问",
+        "写了三年 React，还是没搞懂 use",
+        "首页",
+        "发现",
+        "发布",
+        "通知",
+        "我"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 844,
+      "errs": []
+    },
+    {
+      "name": "d1-home",
+      "notes": {
+        "step": "首页信息流",
+        "loadMs": 2927
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d1-home.png",
+      "ms": 255,
+      "url": "https://openfolio.uk/zhihucopy/",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "关注",
+        "推荐",
+        "热榜",
+        "写了三年 React，还是没搞懂 use",
+        "望山的人",
+        "JavaScript",
+        "独居四年，怎么对抗「下班回家后的虚无感」",
+        "王吴周郑",
+        "生活",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "简宁不慌",
+        "前端开发",
+        "团队里有个能力很强但很难合作的人，作为普",
+        "海边写字的",
+        "职场",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d2-more",
+      "notes": {
+        "step": "连点加载更多 x4",
+        "seq": "[{\"i\":0,\"n0\":0,\"n1\":0},{\"i\":1,\"n0\":0,\"n1\":0},{\"i\":2,\"n0\":0,\"n1\":0},{\"i\":3,\"n0\":0,\"n1\":0}]"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d2-more.png",
+      "ms": 217,
+      "url": "https://openfolio.uk/zhihucopy/unanswered",
+      "title": "知乎（仿） · 有问题，就会有答案",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "等你来答"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "Git 提交历史乱成一团，团队要不要强制",
+        "半山腰",
+        "写回答",
+        "数据库",
+        "缓存命中率一直在六成左右，问题一般出在缓",
+        "南栀",
+        "写回答",
+        "职场",
+        "领导让我带两个实习生，是重用还是给我加负",
+        "陆离",
+        "写回答",
+        "职场",
+        "面试",
+        "面试官说「我们这边节奏比较快」，这句话背",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d3-question",
+      "notes": {
+        "step": "打开问题",
+        "qid": "247",
+        "ms": 694
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d3-question.png",
+      "ms": 192,
+      "url": "https://openfolio.uk/zhihucopy/question/247",
+      "title": "Git 提交历史乱成一团，团队要不要强制要求 rebase？… · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "Git 提交历史乱成一团，团队要不要强制要求 rebase？各有什么代价？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "半山腰",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "编程",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "编程",
+        "Code Review 时同事的意见明显",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工",
+        "JavaScript 的 event l",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "为什么很多技术方案评审时看起来完美，落地",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "为什么大部分前端团队的性能优化最后都停在"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d4-read",
+      "notes": {
+        "step": "读回答（滚动）"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d4-read.png",
+      "ms": 283,
+      "url": "https://openfolio.uk/zhihucopy/question/247",
+      "title": "Git 提交历史乱成一团，团队要不要强制要求 rebase？… · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "Git 提交历史乱成一团，团队要不要强制要求 rebase？各有什么代价？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "半山腰",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "编程",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "编程",
+        "Code Review 时同事的意见明显",
+        "编程",
+        "接手一个没有任何文档的老项目，第一步应该",
+        "编程",
+        "后端转前端半年了，还是觉得前端的复杂度比",
+        "编程",
+        "pandas 处理千万行数据越来越卡，除",
+        "Python",
+        "编程"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d5-vote",
+      "notes": {
+        "step": "连点赞同 x6",
+        "seq": "[{\"i\":0,\"before\":\"\",\"after\":\"\"},{\"i\":1,\"before\":\"\",\"after\":\"\"},{\"i\":2,\"before\":\"\",\"after\":\"\"},{\"i\":3,\"before\":\"\",\"after\":\"\"},{\"i\":4,\"before\":\"\",\"after\":\"\"},{\"i\":5,\"before\":\"\",\"after\":\"\"}]"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d5-vote.png",
+      "ms": 309,
+      "url": "https://openfolio.uk/zhihucopy/question/247",
+      "title": "Git 提交历史乱成一团，团队要不要强制要求 rebase？… · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "Git 提交历史乱成一团，团队要不要强制要求 rebase？各有什么代价？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "半山腰",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "编程",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "编程",
+        "Code Review 时同事的意见明显",
+        "编程",
+        "接手一个没有任何文档的老项目，第一步应该",
+        "编程",
+        "后端转前端半年了，还是觉得前端的复杂度比",
+        "编程",
+        "pandas 处理千万行数据越来越卡，除",
+        "Python",
+        "编程"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d7-back",
+      "notes": {
+        "step": "返回信息流",
+        "backUrl": "https://openfolio.uk/zhihucopy/unanswered"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d7-back.png",
+      "ms": 369,
+      "url": "https://openfolio.uk/zhihucopy/unanswered",
+      "title": "Git 提交历史乱成一团，团队要不要强制要求 rebase？… · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "等你来答"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "Git 提交历史乱成一团，团队要不要强制",
+        "半山腰",
+        "写回答",
+        "数据库",
+        "缓存命中率一直在六成左右，问题一般出在缓",
+        "南栀",
+        "写回答",
+        "职场",
+        "领导让我带两个实习生，是重用还是给我加负",
+        "陆离",
+        "写回答",
+        "职场",
+        "面试",
+        "面试官说「我们这边节奏比较快」，这句话背",
+        "南山南",
+        "写回答",
+        "生活"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d8-search",
+      "notes": {
+        "step": "搜索「程序员」",
+        "inp": "{\"found\":true,\"w\":445,\"h\":34,\"url\":\"https://openfolio.uk/zhihucopy\",\"inputs\":1}",
+        "res": "{\"url\":\"https://openfolio.uk/zhihucopy/search?q=%E7%A8%8B%E5%BA%8F%E5%91%98\",\"n\":0}"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d8-search.png",
+      "ms": 420,
+      "url": "https://openfolio.uk/zhihucopy/search?q=%E7%A8%8B%E5%BA%8F%E5%91%98",
+      "title": "“程序员” 的相关结果 · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "“程序员” 的相关结果 · 15 条"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "×",
+        "提问",
+        "走走查64m61",
+        "搜索",
+        "取消搜索",
+        "问题 5",
+        "回答 10",
+        "用户 0",
+        "程序员接私活到底能不能赚到钱？有哪些坑？",
+        "何如",
+        "编程",
+        "为什么很多程序员讨厌写单元测试？是懒还是",
+        "木子李日记",
+        "编程",
+        "数据库",
+        "每天坐十个小时的程序员，有哪些必须做的身",
+        "温故笔记",
+        "健康",
+        "每天久坐十小时，身体已经发出了哪些信号？",
+        "从业务开发转做基础架构，最需要补的能力是"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d9-notify",
+      "notes": {
+        "step": "通知中心",
+        "items": 21
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d9-notify.png",
+      "ms": 406,
+      "url": "https://openfolio.uk/zhihucopy/notifications",
+      "title": "通知 · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "通知"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "全部",
+        "评论",
+        "赞同",
+        "关注",
+        "去首页看看热门讨论",
+        "去发现值得关注的话题",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工",
+        "JavaScript 的 event l",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "为什么很多技术方案评审时看起来完美，落地",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "为什么大部分前端团队的性能优化最后都停在",
+        "前端项目里什么时候该用 TypeScri",
+        "移动端 H5 在低端安卓机上的卡顿，有哪",
+        "查看全部热榜",
+        "更多"
+      ],
+      "voteTop": 133,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d10-follow",
+      "notes": {
+        "step": "连点关注 x5",
+        "seq": "[{\"i\":0,\"b\":\"\",\"a\":\"\",\"aria\":null},{\"i\":1,\"b\":\"\",\"a\":\"\",\"aria\":null},{\"i\":2,\"b\":\"\",\"a\":\"\",\"aria\":null},{\"i\":3,\"b\":\"\",\"a\":\"\",\"aria\":null},{\"i\":4,\"b\":\"\",\"a\":\"\",\"aria\":null}]",
+        "geo": "{\"toast\":null}"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d10-follow.png",
+      "ms": 217,
+      "url": "https://openfolio.uk/zhihucopy/question/247",
+      "title": "Git 提交历史乱成一团，团队要不要强制要求 rebase？… · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "Git 提交历史乱成一团，团队要不要强制要求 rebase？各有什么代价？"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "编程",
+        "半山腰",
+        "关注问题",
+        "写回答",
+        "邀请回答",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "编程",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "编程",
+        "Code Review 时同事的意见明显",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工",
+        "JavaScript 的 event l",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "为什么很多技术方案评审时看起来完美，落地",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "为什么大部分前端团队的性能优化最后都停在"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d11-me",
+      "notes": {
+        "step": "我的主页",
+        "stats": "[\"获赞 0 关注者 5 粉丝 0\",\"获赞 0\",\"关注者 5\",\"粉丝 0\"]",
+        "covered": true
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d11-me.png",
+      "ms": 192,
+      "url": "https://openfolio.uk/zhihucopy/u/6824",
+      "title": "走查64m61 · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "走查64m61"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "回答 0",
+        "提问 0",
+        "收藏 0",
+        "写回答",
+        "去提问",
+        "写了三年 React，还是没搞懂 use",
+        "写了三年 React，还是没搞懂 use",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工",
+        "JavaScript 的 event l",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "为什么很多技术方案评审时看起来完美，落地",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "为什么大部分前端团队的性能优化最后都停在",
+        "前端项目里什么时候该用 TypeScri",
+        "移动端 H5 在低端安卓机上的卡顿，有哪",
+        "查看全部热榜"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    },
+    {
+      "name": "d12-reload",
+      "notes": {
+        "step": "刷新续档",
+        "loggedIn": true,
+        "me": "走查64m61"
+      },
+      "file": "/www/zhihucopy/docs/runs/walk-2026-11-19T20-3-d12-reload.png",
+      "ms": 176,
+      "url": "https://openfolio.uk/zhihucopy/u/6824",
+      "title": "走查64m61 · 知乎（仿）",
+      "scrollW": 1440,
+      "innerW": 1440,
+      "hscroll": false,
+      "h1": [
+        "走查64m61"
+      ],
+      "buttons": [
+        "知乎（仿）",
+        "首页",
+        "发现",
+        "等你来答",
+        "提问",
+        "走走查64m61",
+        "回答 0",
+        "提问 0",
+        "收藏 0",
+        "写回答",
+        "去提问",
+        "写了三年 React，还是没搞懂 use",
+        "写了三年 React，还是没搞懂 use",
+        "从业务开发转做基础架构，最需要补的能力是",
+        "写了三年 React，还是没搞懂 use",
+        "Python 项目从脚本长成服务，哪些工",
+        "JavaScript 的 event l",
+        "写代码六年，我越来越觉得「能跑」和「好维",
+        "为什么很多技术方案评审时看起来完美，落地",
+        "设计稿还原度上不去，是前端能力问题还是协",
+        "为什么大部分前端团队的性能优化最后都停在",
+        "前端项目里什么时候该用 TypeScri",
+        "移动端 H5 在低端安卓机上的卡顿，有哪",
+        "查看全部热榜"
+      ],
+      "voteTop": null,
+      "cmtTop": null,
+      "vh": 900,
+      "errs": []
+    }
+  ],
+  "errors": [
+    "dcomment: TimeoutError: locator.click: Timeout 5000ms exceeded.\nCall log:\n  \u001b[2m- waiting for locator('button').filter({ hasText: /条评论/ }).first()\u001b[22m\n"
+  ],
+  "probes": {
+    "mhome": {
+      "cards": [],
+      "cta": [
+        {
+          "t": "提问",
+          "cls": "btn btn--primary topnav__ask"
+        }
+      ],
+      "smallTaps": [
+        {
+          "t": "知乎（仿）首页",
+          "w": 100,
+          "h": 34
+        },
+        {
+          "t": "打开搜索",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "t": "通知",
+          "w": 34,
+          "h": 34
+        },
+        {
+          "t": "提问",
+          "w": 62,
+          "h": 34
+        },
+        {
+          "t": "走查64m61",
+          "w": 36,
+          "h": 36
+        },
+        {
+          "t": "关注",
+          "w": 30,
+          "h": 46
+        }
+      ]
+    },
+    "mloadmore": [
+      {
+        "i": 0,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 1,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 2,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 3,
+        "n0": 0,
+        "n1": 0
+      }
+    ],
+    "mvote": [
+      {
+        "i": 0,
+        "before": "赞同198",
+        "after": "赞同61"
+      },
+      {
+        "i": 1,
+        "before": "赞同61",
+        "after": "赞同61"
+      },
+      {
+        "i": 2,
+        "before": "赞同61",
+        "after": "赞同57"
+      },
+      {
+        "i": 3,
+        "before": "赞同57",
+        "after": "赞同56"
+      },
+      {
+        "i": 4,
+        "before": "赞同56",
+        "after": ""
+      },
+      {
+        "i": 5,
+        "before": "",
+        "after": ""
+      }
+    ],
+    "mcomment": {
+      "s1": {
+        "active": false,
+        "border": "rgb(235, 235, 235)",
+        "disabled": true,
+        "txt": 0,
+        "status": [
+          "评论已发布"
+        ]
+      },
+      "s2": {
+        "err": null
+      },
+      "ms": 3742
+    },
+    "msearch": {
+      "inp": {
+        "found": true,
+        "w": 0,
+        "h": 0,
+        "url": "https://openfolio.uk/zhihucopy",
+        "inputs": 1
+      },
+      "search": null
+    },
+    "mnotify": {
+      "items": 6,
+      "text": "通知\n全部\n评论\n赞同\n关注\n\n暂时没有新消息\n\n有人赞同或评论你的回答、关注你时，会出现在这里\n\n去首页看看热门讨论\n去发现值得关注的话题\n\n关注作者后，他们的新回答会出现在关注流"
+    },
+    "mfollowGeo": {
+      "toast": "已关注",
+      "toastRect": [
+        156,
+        735,
+        78,
+        44
+      ],
+      "overlap": false,
+      "center": "P"
+    },
+    "mfollow": [
+      {
+        "i": 0,
+        "b": "+ 关注",
+        "a": "+ 关注",
+        "aria": "false"
+      },
+      {
+        "i": 1,
+        "b": "+ 关注",
+        "a": "+ 关注",
+        "aria": "false"
+      },
+      {
+        "i": 2,
+        "b": "+ 关注",
+        "a": "+ 关注",
+        "aria": "false"
+      },
+      {
+        "i": 3,
+        "b": "+ 关注",
+        "a": "+ 关注",
+        "aria": "false"
+      },
+      {
+        "i": 4,
+        "b": "+ 关注",
+        "a": "",
+        "aria": null
+      }
+    ],
+    "mprofile": {
+      "stats": [
+        "获赞 0 关注者 5 粉丝 0",
+        "获赞 0",
+        "关注者 5",
+        "粉丝 0"
+      ],
+      "navBottom": 0,
+      "navTop": 0,
+      "lastBottom": 1549,
+      "covered": true,
+      "ariaCurrent": [
+        null,
+        null,
+        null
+      ]
+    },
+    "mreload": {
+      "loggedIn": true,
+      "me": "走查64m61"
+    },
+    "dhome": {
+      "cards": [],
+      "cta": [
+        {
+          "t": "提问",
+          "cls": "btn btn--primary topnav__ask"
+        }
+      ],
+      "smallTaps": [
+        {
+          "t": "知乎（仿）首页",
+          "w": 100,
+          "h": 34
+        },
+        {
+          "t": "首页",
+          "w": 30,
+          "h": 26
+        },
+        {
+          "t": "发现",
+          "w": 30,
+          "h": 26
+        },
+        {
+          "t": "等你来答",
+          "w": 60,
+          "h": 26
+        },
+        {
+          "t": "提交搜索",
+          "w": 34,
+          "h": 34
+        },
+        {
+          "t": "通知",
+          "w": 34,
+          "h": 34
+        }
+      ]
+    },
+    "dloadmore": [
+      {
+        "i": 0,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 1,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 2,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "i": 3,
+        "n0": 0,
+        "n1": 0
+      }
+    ],
+    "dvote": [
+      {
+        "i": 0,
+        "before": "",
+        "after": ""
+      },
+      {
+        "i": 1,
+        "before": "",
+        "after": ""
+      },
+      {
+        "i": 2,
+        "before": "",
+        "after": ""
+      },
+      {
+        "i": 3,
+        "before": "",
+        "after": ""
+      },
+      {
+        "i": 4,
+        "before": "",
+        "after": ""
+      },
+      {
+        "i": 5,
+        "before": "",
+        "after": ""
+      }
+    ],
+    "dsearch": {
+      "inp": {
+        "found": true,
+        "w": 445,
+        "h": 34,
+        "url": "https://openfolio.uk/zhihucopy",
+        "inputs": 1
+      },
+      "search": {
+        "url": "https://openfolio.uk/zhihucopy/search?q=%E7%A8%8B%E5%BA%8F%E5%91%98",
+        "n": 0
+      }
+    },
+    "dnotify": {
+      "items": 21,
+      "text": "通知\n全部\n评论\n赞同\n关注\n\n暂时没有新消息\n\n有人赞同或评论你的回答、关注你时，会出现在这里\n\n去首页看看热门讨论\n去发现值得关注的话题\n\n关注作者后，他们的新回答会出现在关注流"
+    },
+    "dfollowGeo": {
+      "toast": null
+    },
+    "dfollow": [
+      {
+        "i": 0,
+        "b": "",
+        "a": "",
+        "aria": null
+      },
+      {
+        "i": 1,
+        "b": "",
+        "a": "",
+        "aria": null
+      },
+      {
+        "i": 2,
+        "b": "",
+        "a": "",
+        "aria": null
+      },
+      {
+        "i": 3,
+        "b": "",
+        "a": "",
+        "aria": null
+      },
+      {
+        "i": 4,
+        "b": "",
+        "a": "",
+        "aria": null
+      }
+    ],
+    "dprofile": {
+      "stats": [
+        "获赞 0 关注者 5 粉丝 0",
+        "获赞 0",
+        "关注者 5",
+        "粉丝 0"
+      ],
+      "navBottom": 39,
+      "navTop": 13,
+      "lastBottom": 1461,
+      "covered": true,
+      "ariaCurrent": [
+        null,
+        null,
+        null
+      ]
+    },
+    "dreload": {
+      "loggedIn": true,
+      "me": "走查64m61"
+    }
+  },
+  "register": {
+    "status": 201,
+    "user": {
+      "id": 6824,
+      "nickname": "走查64m61",
+      "avatar_url": "",
+      "bio": "",
+      "created_at": "2026-11-19 20:35:22",
+      "email": "walk64m13861@example.com",
+      "is_test": 1,
+      "salt_value": 0,
+      "level": 1,
+      "is_admin": 0
+    }
+  }
+}
