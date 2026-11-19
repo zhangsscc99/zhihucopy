@@ -1180,3 +1180,16 @@
 - [ ] Z1237 `report.sh` 无快速档：单轮串跑清单里全部 267 条 verify，前台调用超过 300s 被 kill 后**不产出任何报告**（第六十七轮实测；上一轮同现象，已两次手写报告）（P2，工程效率）｜verify: bash -c 'grep -q -- "--only" scripts/report.sh'｜risk: low｜要求：① 增加 `--only <fid,fid>` 与 `--fast`（只跑本轮改动相关 + risk:high）参数；② `--fast` 单轮 ≤120s；③ kill/中断时也落盘部分结果（trap 写 `docs/runs/<ts>.md` 再退出）。
   verify: bash -c 'grep -q -- "--only" scripts/report.sh'
   risk: low
+
+
+- [ ] Z1238 注册表单必填校验**静默失败**：昵称留空时点「注册」无请求、无红框、无文案，页面原地不动（P1，onboarding 阻断；intuitive-game-design「affordance：动作必须有反馈」）｜verify: node scripts/assert/register-validation-feedback.mjs｜risk: low｜2026-11-19 00:44 实测（干净 context，390×844 与 1440×900 各一次）：`/register` 三字段（昵称/邮箱/密码），填邮箱+密码、昵称留空 → 点主按钮「注册」后 `localStorage.zhihu_token` 仍为空、无 `POST /api/auth/register`、页面 URL 不变；vision 复核截图 `docs/runs/walk-0032-m4-register.png`「没有显示任何校验错误提示」。要求：① 提交时对每个必填字段做字段级校验，错误字段加 `aria-invalid=true` + 红框 + `role=alert` 文案（如「请填写昵称」），焦点跳到首个错误字段；② 昵称输入框补 `placeholder`（如「2–20 字」）或可见规则说明；③ 服务端 400 时把 `error` 原样回填到同一容器，不要静默吞掉。断言（两视口）：空昵称提交后 500ms 内出现 `[role=alert]` 且其文本含「昵称」，`document.activeElement` 为昵称输入框；补齐昵称后 `POST /api/auth/register` 返回 201 且 token 落库；`window.__errs` 为空；连跑 2 次一致。
+  verify: node scripts/assert/register-validation-feedback.mjs
+  risk: low
+
+- [ ] Z1239 评论内容与所属回答**主题不符**，且展示已注销/已删占位行（P2，文本质量/可信度；narrative-systems-designer「文本必须服务上下文」）｜verify: node scripts/assert/comment-topic-affinity.mjs｜risk: low｜2026-11-19 00:49 实测 `/question/6`（React `useEffect` 清理函数）首答展开评论，`answer__comments` 正文含「报错信息带上下文这条我们日志规范里也写了」「告警降噪后我们值班响应率才拉回来」「接口先定错误码契约这个点，我们前后端吵了三次」——全部是后端/AIOps 话题；同一面板还渲染「已注销用户 / 该评论已删除」。要求：① 种子/生成评论绑定所属 answer 的关键词或主题标签，生成后做一次主题相似度过滤（与 answer 首段共享 ≥1 主题词）；② `is_deleted` 行不渲染占位（Z1221 第 ② 条仍生效）；③ 清理现存与 answer 主题无关的历史评论数据（脚本可 dry-run 输出命中条数）。断言：对 `/question/6`、`/question/12` 各取首答前 10 条评论，每条与 answer 正文的字符 bigram Jaccard ≥0.05 或命中话题标签词表，否则 FAIL 并打印 comment id；页面文本不含「该评论已删除」；连跑 2 次一致。
+  verify: node scripts/assert/comment-topic-affinity.mjs
+  risk: low
+
+- [ ] Z1240 搜索结果页「N 条」与实际渲染数量不一致：页头「“React” 的相关结果 · 28 条」、分栏「问题 11 / 回答 11 / 用户 6」（合计恰 28），DOM 实际只有 26 个结果卡（P2，可信度；game-balance-analyst「声明值必须与实测一致」）｜verify: node scripts/assert/search-count-parity.mjs｜risk: low｜2026-11-19 00:46 实测 1440×900：`/search?q=React` 页头 `28 条`，`document.querySelectorAll("a[href*='/question/'],.result,.search__item").length === 26`。要求：① 页头数字取接口 `total`，各分栏计数相加必须等于 `total`；② 渲染条数与 `total` 不符时改为「已显示 26 / 共 28」而非静默少 2 条；③ 确认是否存在未渲染的「用户/话题」分组卡导致差 2，若无则修分页/截断逻辑。断言：对 `React`、`useEffect`、`团队` 三个 query，`页面声明的 N === DOM 结果卡数 === API total`；分栏计数之和 === N；两视口各跑一次、连跑 2 次一致；`window.__errs` 空。
+  verify: node scripts/assert/search-count-parity.mjs
+  risk: low
