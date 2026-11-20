@@ -3854,3 +3854,41 @@ a.ntf__title:hover {
     display: none;
   }
 }
+
+/* ---------- Z1274 移动端详情页返回按钮 ---------- */
+
+/* 仅在 <=767px 视口显示：详情页（/question/*、/u/*、/topic/*）顶栏左侧返回。
+   44x44 触控区、3px 圆角白卡、EBEBEB 边框，与 Logo 为相邻 flex 项不相交。 */
+.nav-back {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.nav-back:hover {
+  color: var(--accent);
+}
+.nav-back svg {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .nav-back {
+    display: inline-flex;
+  }
+  /* 详情页顶栏：返回按钮替换 Logo 占据最左位，「提问」主按钮保留。 */
+  .topnav__inner:has(> .nav-back) {
+    gap: 8px;
+  }
+  .topnav__inner:has(> .nav-back) .brand {
+    display: none;
+  }
+}

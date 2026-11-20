@@ -269,10 +269,46 @@ export function TopNav() {
     if (qParam) navigate("/");
   };
 
+  // Z1274 — 详情页（/question/*、/u/*、/topic/*）手机视口顶栏左侧渲染返回按钮；
+  // 样式仅在 <=767px 显示（styles.css 末尾 .nav-back 段），桌面形态不变。
+  const isDetail =
+    /^\/question\/[^/]+/.test(location.pathname) ||
+    /^\/u\/[^/]+/.test(location.pathname) ||
+    /^\/topic\/[^/]+/.test(location.pathname);
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === "number" && idx > 0) navigate(-1);
+    else navigate("/");
+  };
+
   return (
     <>
     <header className="topnav">
       <div className="topnav__inner">
+        {isDetail && (
+          <button
+            type="button"
+            className="nav-back"
+            aria-label="返回"
+            onClick={goBack}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M15 5l-7 7 7 7"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
         <Link to="/" className="brand" aria-label="知乎（仿）首页">
           <span className="brand__name">知乎（仿）</span>
         </Link>

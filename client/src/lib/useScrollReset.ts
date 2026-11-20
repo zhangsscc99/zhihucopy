@@ -38,6 +38,11 @@ export function useScrollReset() {
         if (window.scrollY >= docMax - 1 && docMax < prev) return;
         positions.set(key, window.scrollY);
         window.history.replaceState({ ...base, zhScroll: window.scrollY }, "");
+        // Z1274 — 另按来源路径写 sessionStorage：内存 Map/history.state 之外的
+        // 第三份记录，键形如 zhScroll:/question/6，恢复时兜底读取。
+        try {
+          window.sessionStorage.setItem(`zhScroll:${pathname}`, String(window.scrollY));
+        } catch {}
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -46,7 +51,7 @@ export function useScrollReset() {
       // 已排队未执行的 save 若放行，会把落地后的钳制 scrollY 误记到本条目。
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [key]);
+  }, [key, pathname]);
 
   useEffect(() => {
     if (navType !== "POP") {
@@ -55,7 +60,16 @@ export function useScrollReset() {
     }
     const st = window.history.state;
     const fromState = typeof st === "object" && st !== null ? st.zhScroll : undefined;
-    const y = positions.get(key) ?? (typeof fromState === "number" ? fromState : 0);
+    // Z1274 — 兜底读 sessionStorage 里按路径记录的位置（zhScroll:<pathname>）。
+    let fromStore: number | undefined;
+    try {
+      const raw = window.sessionStorage.getItem(`zhScroll:${pathname}`);
+      const n = raw === null ? NaN : Number(raw);
+      if (Number.isFinite(n)) fromStore = n;
+    } catch {}
+    const y =
+      positions.get(key) ??
+      (typeof fromState === "number" ? fromState : fromStore ?? 0);
     if (typeof y !== "number" || y <= 0) return;
     // 目标页数据/图片未回流完时 scrollTo 会被钳制，间歇重试直到到位；
     // 约 7s 上限兜底（页面确实没有 y 那么高时收敛到可滚最大值）。
