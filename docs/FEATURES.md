@@ -1291,7 +1291,9 @@
   verify: node scripts/assert/mobile-bottom-safe-area.mjs
   risk: low
 
-- [ ] Z1274 手机问题/用户详情页**没有返回入口**，只能靠系统手势或浏览器后退：390×844 `/question/6`、`/u/6858` 顶栏只有 Logo + 搜索 + 提问 + 用户入口，vision 明确「没有返回按钮，详情页导航不完整」；底栏「首页」被当作事实上的返回，误触即丢阅读位置（P2，视觉/手感 2.5/5；intuitive-game-design「导航必须可预期：任何二级页都要有显式返回」，core-loop-designer「流程中断点必须有一键复原」）｜verify: node scripts/assert/mobile-detail-back.mjs｜risk: low｜2026-11-20 01:31 实测 390×844 `/question/6`：`document.querySelector('[aria-label*=返回],.back,.nav-back')` === null；vision 复核 `docs/runs/walk-20261120-010937-m3.png`。要求：① `/question/*`、`/u/*`、`/topic/*` 顶栏左侧渲染返回按钮，触控区 ≥44×44，`aria-label="返回"`；② 返回目标为来源页（无 history 时回 `/zhihucopy`），并恢复来源页滚动位置；③ 返回按钮不与 Logo 重叠（两者矩形不相交）。断言：进入详情页后 `[aria-label="返回"]` 存在且 `w>=44 && h>=44`；点击后 `history.length` 减 1 且 `scrollY` 恢复误差 ≤8px；两视口各一次、连跑 2 次一致。
+- [x] Z1274 手机问题/用户详情页**没有返回入口**，只能靠系统手势或浏览器后退：390×844 `/question/6`、`/u/6858` 顶栏只有 Logo + 搜索 + 提问 + 用户入口，vision 明确「没有返回按钮，详情页导航不完整」；底栏「首页」被当作事实上的返回，误触即丢阅读位置（P2，视觉/手感 2.5/5；intuitive-game-design「导航必须可预期：任何二级页都要有显式返回」，core-loop-designer「流程中断点必须有一键复原」）｜verify: node scripts/assert/mobile-detail-back.mjs｜risk: low｜2026-11-20 01:31 实测 390×844 `/question/6`：`document.querySelector('[aria-label*=返回],.back,.nav-back')` === null；vision 复核 `docs/runs/walk-20261120-010937-m3.png`。要求：① `/question/*`、`/u/*`、`/topic/*` 顶栏左侧渲染返回按钮，触控区 ≥44×44，`aria-label="返回"`；② 返回目标为来源页（无 history 时回 `/zhihucopy`），并恢复来源页滚动位置；③ 返回按钮不与 Logo 重叠（两者矩形不相交）。断言：进入详情页后 `[aria-label="返回"]` 存在且 `w>=44 && h>=44`；点击后 `history.length` 减 1 且 `scrollY` 恢复误差 ≤8px；两视口各一次、连跑 2 次一致。 ✅ (2026-11-20 devin)
+  verify: node scripts/assert/mobile-detail-back.mjs
+  risk: low
 
 - [ ] Z1275 问题元信息行**把分隔符「·」悬在行末换行**：390×844 `/question/6` 显示「19 人关注 · 14 个回答 ·」换行后才出现「9361 次浏览」，行首无符号、行末孤零零一个「·」，vision 判「像排版事故」（P3，视觉/手感；game-detail-bar「文案换行不得产生孤立标点」）｜verify: node scripts/assert/question-meta-nowrap.mjs｜risk: low｜2026-11-20 01:30 实测 + vision 复核 `docs/runs/walk-20261120-010937-m3.png`。要求：① 元信息改成不可断行的原子片段（每段 `white-space:nowrap`，用 `gap` 排列或 `flex-wrap` 整段折行）；② 任何一行不得以「·」结尾；③ 390/320 两个宽度下都不出现孤立分隔符。断言：遍历元信息每个文本节点，`lineText.trim().endsWith('·')` 全为 false；`scrollWidth===390`；连跑 2 次一致。
 
