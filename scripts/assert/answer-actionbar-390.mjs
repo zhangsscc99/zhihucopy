@@ -1,8 +1,9 @@
-// Z1190 — 390 宽下回答操作栏单行渲染，「反对」不再竖排、时间戳不截断。
+// Z1190 — 390 宽下回答操作栏条目不竖排、时间戳不截断。
+// （Z1269 起 ≤767px 由强制单行横向滚动改为允许换行，此处同步放行 ≤2 排。）
 //
 // 断言（BASE/question/6，DOM 取第一个 .answerlist > li 内的 .answer__actions）：
 //  1) 390×844：
-//     - 操作栏高度 ≤ 同行内最高可点条目高度 × 1.2（单行，未挤成两排）；
+//     - 操作栏高度 ≤ 同行内最高可点条目高度 × 2.4（至多两排）；
 //     - 栏内每个 button/a：innerText.trim().length > 1 时
 //       getClientRects().length === 1（文字不折行）；
 //     - 每个可点条目 getBoundingClientRect().width >= 40；
@@ -35,7 +36,7 @@ function injectErrs(page) {
   });
 }
 
-async function checkBar(page, tag, minWidth, knownOverflowSel) {
+async function checkBar(page, tag, minWidth, knownOverflowSel, maxRows = 2.4) {
   await page.goto(`${BASE}/question/6`, { waitUntil: "networkidle" });
   const first = page.locator(".answerlist > li").first();
   await first.waitFor({ state: "visible" });
@@ -96,8 +97,8 @@ async function checkBar(page, tag, minWidth, knownOverflowSel) {
   expect(info.items.length > 0, `${tag}：操作栏内没有可点条目`);
   const maxH = Math.max(...info.items.map((i) => i.h));
   expect(
-    info.barH <= maxH * 1.2,
-    `${tag}：操作栏高 ${info.barH.toFixed(1)}px > 最高条目 ${maxH.toFixed(1)}px × 1.2（疑似两行）`
+    info.barH <= maxH * maxRows,
+    `${tag}：操作栏高 ${info.barH.toFixed(1)}px > 最高条目 ${maxH.toFixed(1)}px × ${maxRows}（超过允许排数）`
   );
   for (const it of info.items) {
     if (it.text.length > 1) {
@@ -169,7 +170,7 @@ run("answer-actionbar-390", async ({ browser }) => {
     const page = await ctx.newPage();
     page.setDefaultTimeout(15000);
     await injectErrs(page);
-    const info = await checkBar(page, "1440px", null, null);
+    const info = await checkBar(page, "1440px", null, null, 1.2);
     expect(
       info.date.text.startsWith("发布于 "),
       `1440px：.answer__date 文本不以「发布于 」开头：「${info.date.text}」`
