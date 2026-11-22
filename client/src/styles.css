@@ -3811,25 +3811,14 @@ a.ntf__title:hover {
   margin-right: 0;
 }
 
-/* ---------- Z1150 / Z1190 窄屏操作栏单行保护 ---------- */
-/* ≤767px 操作栏强制单行：不再换行也不再省略号截断时间戳，
-   放不下时整行横向滚动（隐藏滚动条）；每个条目禁止收缩与折行。 */
+/* ---------- Z1150 / Z1190 / Z1269 窄屏操作栏适配 ---------- */
+/* ≤767px 操作栏允许换行：横向滚动会无声裁掉最右条目（Z1269 第五项只剩
+   孤字），改为 wrap，第二行左对齐；每个条目禁止收缩与折行，可点区域
+   ≥44×44（padding/min-height 实现，视觉尺寸不变）。 */
 @media (max-width: 767px) {
   .answer__actions {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .answer__actions::-webkit-scrollbar {
-    display: none;
-  }
-  /* 收藏弹层开在操作栏上方，overflow-x:auto 会连带裁掉纵向。
-     弹层存在时改用 overflow-x:clip：纵向保持可见（clip 不强制另一轴
-     变 auto），横向仍裁切且不产生滚动，避免顶出 body 横向溢出。 */
-  .answer__actions:has(.answer__fav-menu) {
-    overflow-x: clip;
   }
   .answer__actions > * {
     flex: 0 0 auto;
@@ -3840,13 +3829,18 @@ a.ntf__title:hover {
     flex: 0 0 auto;
     white-space: nowrap;
   }
-  .answer__vote {
-    padding: 4px 8px;
-    min-width: 40px;
-  }
+  .answer__vote,
   .answer__action {
+    min-width: 44px;
+    min-height: 44px;
     padding: 4px 8px;
-    min-width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* 换行后时间戳落到第二行时保持左对齐（桌面仍 margin-left:auto）。 */
+  .answer__date {
+    margin-left: 0;
   }
 }
 
