@@ -2720,9 +2720,11 @@ a.ntf__title:hover {
 .profile__stats dt {
   font-size: 13px;
   color: var(--ink-3);
+  white-space: nowrap;
 }
 .profile__stats dd {
   margin: 2px 0 0;
+  white-space: nowrap;
   font-family: var(--sans);
   font-size: 20px;
   font-weight: 700;

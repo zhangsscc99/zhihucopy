@@ -520,12 +520,12 @@ export function Profile() {
             <dd>{stats.vote_up}</dd>
           </div>
           <div>
-            <dt>关注者</dt>
-            <dd>{stats.following}</dd>
-          </div>
-          <div>
             <dt>粉丝</dt>
             <dd>{stats.followers}</dd>
+          </div>
+          <div>
+            <dt>关注</dt>
+            <dd>{stats.following}</dd>
           </div>
         </dl>
       </Card>
