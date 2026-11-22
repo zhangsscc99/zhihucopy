@@ -3892,3 +3892,11 @@ a.ntf__title:hover {
     display: none;
   }
 }
+
+/* Z1192 — 注册表单内联校验错误：字段下方小字号危险色提示。 */
+.field-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--seal);
+}
