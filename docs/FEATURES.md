@@ -1273,7 +1273,7 @@
   verify: node scripts/assert/profile-stat-binding.mjs
 - [ ] Z1268 手机顶栏**用户昵称被压成单字「走」**，且与「提问」「发布」构成三处创建入口竞争：390×844 首页/问题页右上角用户入口只渲染出 1 个汉字（昵称「走查64m61」被截断），vision 三次读作「语义不明的『走』按钮/调试按钮」；桌面同一入口正常显示全名（P2，视觉/手感 2.5/5；intuitive-game-design「控件必须自证身份与作用」）｜verify: node scripts/assert/mobile-header-username.mjs｜risk: low｜2026-11-19 20:38 实测（`walk-2026-11-19T20-3-m1-home.png`、`-m3-question.png`、`-m11-me.png`）：按钮可访问名 `走走查64m61` 但可视宽度只容 1 字。要求：① 手机顶栏该入口只显示头像（≥32×32）+ `aria-label="我的主页：<昵称>"`，不放截断文字；② 或显示最多 6 字并加省略号，`text-overflow: ellipsis`；③ 顶栏可见主色按钮数 ===1（「提问」保留，「写/发布」收进菜单）。断言：390 视口下该入口 `scrollWidth <= clientWidth`（无截断孤字），`aria-label` 含完整昵称；无宽度 <44px 的可点元素；`scrollWidth===390`；连跑 2 次一致。
 
-- [ ] Z1269 手机回答操作栏**第五个动作被裁成孤字**：390×844 `/question/6` 首答操作栏一行放「已赞同 200 / 反对 / 41 条评论 / 收藏 / 分享」，最后一项只渲染出「分」，vision 读到「按常见知乎应为分享，但截图里未完整显示」（P2，视觉/手感 2/5；game-detail-bar「UI 不许溢出/裁切框架」）｜verify: node scripts/assert/answer-actionbar-fit.mjs｜risk: low｜2026-11-19 22:16 实测（`docs/runs/walk-2026-11-19T22-16-m4.png`）。要求：① 操作栏任一子项 `scrollWidth <= clientWidth`（无文字裁切）；② 390 视口五项总宽 ≤ 容器宽，超出时改图标化或换行；③ 每个动作可点区域 ≥ 44×44。断言：`[...document.querySelectorAll('.answer__actions > *')]` 每项 `scrollWidth<=clientWidth+1`；操作栏 `getBoundingClientRect().right <= innerWidth`；`scrollWidth===390`；连跑 2 次一致。
+- [x] Z1269 手机回答操作栏**第五个动作被裁成孤字**：390×844 `/question/6` 首答操作栏一行放「已赞同 200 / 反对 / 41 条评论 / 收藏 / 分享」，最后一项只渲染出「分」，vision 读到「按常见知乎应为分享，但截图里未完整显示」（P2，视觉/手感 2/5；game-detail-bar「UI 不许溢出/裁切框架」）｜verify: node scripts/assert/answer-actionbar-fit.mjs｜risk: low｜2026-11-19 22:16 实测（`docs/runs/walk-2026-11-19T22-16-m4.png`）。要求：① 操作栏任一子项 `scrollWidth <= clientWidth`（无文字裁切）；② 390 视口五项总宽 ≤ 容器宽，超出时改图标化或换行；③ 每个动作可点区域 ≥ 44×44。断言：`[...document.querySelectorAll('.answer__actions > *')]` 每项 `scrollWidth<=clientWidth+1`；操作栏 `getBoundingClientRect().right <= innerWidth`；`scrollWidth===390`；连跑 2 次一致。 ✅ (2026-11-22 devin swe-2-medium：`styles.css` ≤767px 操作栏 `flex-wrap:wrap` 去掉横向滚动、条目 `min-width/min-height:44px`；新建 `scripts/assert/answer-actionbar-fit.mjs`（390 子项不裁切/命中区≥44/无横向溢出 + 1440 单行回归 + __errs 空），旧 CSS 基线 FAIL、新断言连跑 2/2 PASS；同步放宽 Z1190 `answer-actionbar-390` 为 ≤2 排（1440 仍单行）并 PASS；prod verify + home/ask-answer 冒烟 PASS，线上 390 实测五项全可见)
   verify: node scripts/assert/answer-actionbar-fit.mjs
   risk: low
 
@@ -1305,3 +1305,7 @@
 
 ## 测试基建（Z1192 附带发现，2026-11-22）
 - [ ] Z1218 临时实例冒烟 `ask-answer.mjs` 在冷实例上恒 FAIL（`getByLabel(/补充说明/)` 元素 detached 15s 超时，连跑 3/3）｜verify: node scripts/assert/tmp-instance-smoke-ready.mjs｜risk: low｜基线 main 在 PORT=3194 + DB 副本上同样 FAIL，生产 3030 与公网 PASS → 属「临时实例 /ask 页首屏重挂载」时序问题，非产品回归。要求：① `/ask` 页在 topic 列表加载完成前不重挂载编辑器（或 e2e 侧先 `waitFor` 话题列表就绪再 fill）；② 新增断言：临时实例上 home + ask-answer 各连跑 2 次全绿。
+
+- [ ] Z1278 回答操作栏换行后「分享」与时间戳同排、动作被拆成 4+1（Z1269 附带发现）：390×844 线上首答操作栏第一行「赞同 200 / 反对 / 43 条评论 / 收藏」、第二行「分享 / 5 天前」，分享脱离动作组、组内留白不均（P3，视觉/手感；game-detail-bar「同类元素必须成组」）｜verify: node scripts/assert/answer-actionbar-grouping.mjs｜risk: low｜2026-11-22 vision 复核（线上 390 实拍）：无裁切但「分享」与时间同排。要求：① 五个动作保持同组（同一行，或换行时动作整组在前、时间独立成行并右对齐/次色小一号）；② 或用紧凑标签（「评论 43」）压到单行，所有子项仍 ≥44px 触控；③ 1440 不变。断言：`.answer__actions` 内五个动作与 `.answer__date` 不同排（top 差 >4px）且动作组内无时间戳；`scrollWidth===390`；连跑 2 次一致。
+  verify: node scripts/assert/answer-actionbar-grouping.mjs
+  risk: low
