@@ -28,7 +28,7 @@ const check = (name, cond, detail = "") => {
 
 const digits = String(Date.now()).slice(-6);
 const NICK = `回归校验${digits}`;
-const EMAIL = `${digits}@example.com`;
+const EMAIL = `${digits}@test.dev`;
 const PASS = "zhihu123456";
 
 async function main() {
