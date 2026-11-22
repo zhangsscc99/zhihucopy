@@ -1004,7 +1004,7 @@
 
 - [ ] Z1192 注册表单校验失败零提示（P2，可用性/反馈真空）：本轮实测在昵称/邮箱格式不合法时点击「注册」按钮，页面**无任何反应**——无 toast、无内联错误、按钮不变灰，用户只会以为按钮坏了（core-loop「Feedback vacuum」）。要求：① 提交前跑客户端校验，逐字段在 input 下方渲染 `.field-error`（邮箱格式、密码≥6、昵称 2–20 字）；② 服务端 4xx 也映射到首个出错字段，并保留已填内容；③ 提交中按钮 `disabled` + loading 文案「注册中…」。断言 `scripts/assert/register-validation.mjs`：故意填非法邮箱提交 → `.field-error` 可见且文案含「邮箱」、URL 仍停在 `/register`、页面无未捕获错误；填合法数据 → 3s 内跳回 `next` 且顶栏出现昵称；`window.__errs` 为空。
   verify: node scripts/assert/register-validation.mjs
-  risk: low
+  risk: med
 
 - [ ] Z1193 搜索「用户」分面恒为 0 结果（P1，dead option；game-balance-analyst「任何永远打不开的选项都是死选项」）：连续多轮实测 `/search?q=useEffect` 均为「问题 7 / 回答 13 / 用户 0」，而库内用户数上百；点「用户 0」tab 恒空，属于把门做成永远打不开。要求：① 后端 `/api/search` 增加用户维度（nickname/bio ILIKE），返回 `users[]` 与 `counts.users`；② 若确有意图不搜索用户，则**移除该分面**并在输入框提示「仅搜索问题与回答」，二者选一并在 PR 说明理由；③ 断言 `scripts/assert/search-users-facet.mjs`：搜索一个已知存在的昵称子串（取 `/api/users` 第 1 条昵称前 2 字），`counts.users ≥ 1` 且 `.search__tab--user` 角标数字与列表条数一致；搜索随机串时三面均为 0 且显示统一空态；`window.__errs` 为空。
   verify: node scripts/assert/search-users-facet.mjs
