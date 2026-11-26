@@ -2,6 +2,8 @@ node_modules
 node_modules/
 client/dist/
 data/
+!data/seed/
+!data/seed/*.gz
 logs/
 *.db
 *.db-journal
